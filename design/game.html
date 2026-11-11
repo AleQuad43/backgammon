@@ -980,8 +980,9 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     var o = $('over'); o.hidden = false;
     o.innerHTML = '<div><b>' + (winner === ME ? 'You win' : NAME.them + ' wins') + ' ' + pts + ' point' + (pts > 1 ? 's' : '') + '</b><span>' + (dropped ? (winner === ME ? NAME.them + ' passed on the double. ' : 'You gave up on the double. ') : bg ? 'Backgammon. ' : gam ? 'Gammon. ' : '') + G.score.me + ' – ' + G.score.them + ', match to ' + MATCH + '</span><button id="again">Next game</button></div>';
     if (G.score[winner] >= MATCH) {
+      if (DUO && !DUO.recorded && window.onMatchEnd) { DUO.recorded = true; window.onMatchEnd({ winner: SEATS[seatOf(winner)].ini, loser: SEATS[seatOf(other(winner))].ini, to: MATCH, score: [G.score[winner], G.score[other(winner)]] }); }
       o.innerHTML = '<div><b>' + (winner === ME ? 'You win the match' : NAME.them + ' wins the match') + '</b><span>' + G.score.me + ' – ' + G.score.them + (bg ? ' · backgammon' : gam ? ' · gammon' : '') + '</span>' +
-        '<span>New match to</span><div class="lens">' + [3, 5, 7, 9, 11, 15].map(function (n) { return '<button data-to="' + n + '"' + (n === MATCH ? ' class="on"' : '') + '>' + n + '</button>'; }).join('') + '</div></div>';
+        '<span>New match to</span><div class="lens">' + [1, 3, 5, 7, 9, 11, 15].map(function (n) { return '<button data-to="' + n + '"' + (n === MATCH ? ' class="on"' : '') + '>' + n + '</button>'; }).join('') + '</div></div>';
       Array.prototype.forEach.call(o.querySelectorAll('[data-to]'), function (b) { b.addEventListener('click', function () { newMatch(+b.getAttribute('data-to')); }); });
       return;
     }
@@ -1055,7 +1056,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   /* A new match at 0–0, to however many points you pick. */
   function newMatch(n) {
     MATCH = n; $('scTo').textContent = 'to ' + MATCH;
-    if (DUO) newGame(true); else { G.score = { me: 0, them: 0 }; start(); }
+    if (DUO) { DUO.recorded = false; newGame(true); } else { G.score = { me: 0, them: 0 }; start(); }
   }
   function startBoard() {
     var pts = []; for (var i = 0; i <= 24; i++) pts.push(0);
