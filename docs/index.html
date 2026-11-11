@@ -1013,7 +1013,8 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
         'auth/invalid-credential': 'Email or PIN doesn’t match.', 'auth/wrong-password': 'Email or PIN doesn’t match.', 'auth/user-not-found': 'No player with that email.',
         'auth/too-many-requests': 'Too many tries. Wait a minute, or use “Forgot your PIN?”.',
         'auth/network-request-failed': 'No connection. Try again.',
-        'auth/operation-not-allowed': 'Sign-in isn’t switched on in Firebase yet.'
+        'auth/operation-not-allowed': 'Sign-in isn’t switched on in Firebase yet.',
+        'auth/configuration-not-found': 'Sign-in isn’t switched on in Firebase yet.'
       }[c];
       $('aErr').textContent = m || ('Something went wrong' + (c ? ' (' + c + ')' : '') + '.');
     };
