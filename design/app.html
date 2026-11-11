@@ -1473,11 +1473,14 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     $('whoMe').classList.toggle('turn', side === ME); $('whoThem').classList.toggle('turn', side === TH);
     cubeUI();
   }
+  /* House rule: no doubling at all while either player is one point from winning the match. */
+  var MATCH = 5;
+  function canDouble() { return G.score.me < MATCH - 1 && G.score.them < MATCH - 1 && G.cube.v < 64; }
   function cubeUI() {
-    var c = $('cube'), live = G.turn === ME && G.phase === 'roll' && G.cube.owner !== TH;
+    var c = $('cube'), live = G.turn === ME && G.phase === 'roll' && G.cube.owner !== TH && canDouble();
     c.classList.toggle('live', live);
     $('cubeFace').textContent = '×' + G.cube.v;
-    $('cubeLabel').textContent = live ? 'Drag to double' : G.cube.owner === TH ? NAME.them + ' holds it' : G.cube.owner === ME ? 'You hold it' : 'Stake';
+    $('cubeLabel').textContent = live ? 'Drag to double' : !canDouble() && G.score && (G.score.me === MATCH - 1 || G.score.them === MATCH - 1) ? 'No doubling at match point' : G.cube.owner === TH ? NAME.them + ' holds it' : G.cube.owner === ME ? 'You hold it' : 'Stake';
     c.setAttribute('aria-label', live ? 'Drag onto the board to double to ' + G.cube.v * 2 : 'Stake ×' + G.cube.v);
   }
   function finishTurn() {
@@ -1585,7 +1588,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     ctx.restore();
   }
   function aiWantsDouble() {
-    if (G.cube.owner === ME || G.cube.v >= 64) return false;
+    if (G.cube.owner === ME || !canDouble()) return false;
     if (G.forceAiDouble) { G.forceAiDouble = false; return true; }
     var S = state(), me = 25 * S.bar.me, th = 25 * S.bar.them;
     for (var a = 1; a <= 24; a++) { me += own(S, ME, a) * a; th += own(S, TH, a) * (25 - a); }
@@ -1672,15 +1675,18 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   }
   function gameOver(winner, dropped) {
     G.phase = 'over';
-    var loser = other(winner), gam = !dropped && stacks['off-' + loser].length === 0, pts = G.cube.v * (gam ? 2 : 1);
+    /* Single 1, gammon 2 (loser bore off nothing), backgammon 3 (also still on the bar or in the winner's home board). */
+    var loser = other(winner), gam = !dropped && stacks['off-' + loser].length === 0, bg = false;
+    if (gam) { bg = stacks['bar-' + loser].length > 0; for (var r = 1; r <= 6 && !bg; r++) bg = stacks[absOf(winner, r)].some(function (id) { return ck[id].side === loser; }); }
+    var pts = G.cube.v * (bg ? 3 : gam ? 2 : 1);
     G.score[winner] += pts; $('scMe').textContent = G.score.me; $('scThem').textContent = G.score.them;
     if (dropped) spinSky();
-    if (DUO) { DUO.overShown = true; save({ phase: 'over', result: { winner: seatOf(winner), pts: pts, dropped: !!dropped, gammon: gam } }); }
-    showOver(winner, pts, dropped, gam);
+    if (DUO) { DUO.overShown = true; save({ phase: 'over', result: { winner: seatOf(winner), pts: pts, dropped: !!dropped, gammon: gam, bg: bg } }); }
+    showOver(winner, pts, dropped, gam, bg);
   }
-  function showOver(winner, pts, dropped, gam) {
+  function showOver(winner, pts, dropped, gam, bg) {
     var o = $('over'); o.hidden = false;
-    o.innerHTML = '<div><b>' + (winner === ME ? 'You win' : NAME.them + ' wins') + ' ' + pts + ' point' + (pts > 1 ? 's' : '') + '</b><span>' + (dropped ? (winner === ME ? NAME.them + ' passed on the double. ' : 'You gave up on the double. ') : gam ? 'Gammon. ' : '') + G.score.me + ' – ' + G.score.them + ', match to 5</span><button id="again">Next game</button></div>';
+    o.innerHTML = '<div><b>' + (winner === ME ? 'You win' : NAME.them + ' wins') + ' ' + pts + ' point' + (pts > 1 ? 's' : '') + '</b><span>' + (dropped ? (winner === ME ? NAME.them + ' passed on the double. ' : 'You gave up on the double. ') : bg ? 'Backgammon. ' : gam ? 'Gammon. ' : '') + G.score.me + ' – ' + G.score.them + ', match to ' + MATCH + '</span><button id="again">Next game</button></div>';
     $('again').addEventListener('click', function () { if (DUO) newGame(false); else start(); });
   }
 
@@ -1819,7 +1825,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       if (!DUO.overShown && d.result) {
         DUO.overShown = true; $('cubeFloat').hidden = true; $('cube').classList.remove('dragging');
         if (d.result.dropped && prev === 'wait') spinSky();
-        showOver(sideOf(d.result.winner), d.result.pts, d.result.dropped, d.result.gammon);
+        showOver(sideOf(d.result.winner), d.result.pts, d.result.dropped, d.result.gammon, d.result.bg);
       }
       return;
     }
