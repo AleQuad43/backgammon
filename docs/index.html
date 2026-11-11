@@ -1015,7 +1015,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       if (v === 'welcome') h = '<h1>Backgammon</h1><p>A quiet table for friends.</p><button class="big" data-a="new">I’m new</button><button class="big alt" data-a="in">I already play</button>';
       if (v === 'new') h = '<h1>Join the table</h1><p>Pick a 4-digit PIN. If you forget it, we’ll email you a link to choose a new one.</p>' + fieldH('Name', 'aName', 'text', 'nickname') + fieldH('Email', 'aEmail', 'email', 'email') + fieldH('PIN', 'aPin', 'pin', 'new-password') + '<div class="err" id="aErr"></div><button class="big" data-a="create">Continue</button><button class="link" data-a="welcome">Back</button>';
       if (v === 'in') h = '<h1>Welcome back</h1><p>Your email and your PIN.</p>' + fieldH('Email', 'aEmail', 'email', 'email') + fieldH('PIN', 'aPin', 'pin', 'current-password') + '<div class="err" id="aErr"></div><button class="big" data-a="signin">Sign in</button><button class="link" data-a="forgot">Forgot your PIN?</button><button class="link" data-a="welcome">Back</button>';
-      if (v === 'sent') h = '<h1>Check your email</h1><p>We sent a link to <b>' + esc(info) + '</b>. Open it to choose a new PIN, then come back and sign in. It can land in spam.</p><button class="big" data-a="in">Back to sign in</button>';
+      if (v === 'sent') h = '<h1>Check your email</h1><p>We sent a link to <b>' + esc(info) + '</b> (it can land in spam).</p><p>On the page it opens, type your new PIN <b>twice in a row</b>: for 1234, type <b>12341234</b>. Then come back and sign in with just the 4 digits.</p><button class="big" data-a="in">Back to sign in</button>';
       if (v === 'name') h = '<h1>One more thing</h1><p>What should your friends call you?</p>' + fieldH('Name', 'aName', 'text', 'nickname') + '<div class="err" id="aErr"></div><button class="big" data-a="setname">Continue</button>';
       $('authBox').innerHTML = h; $('auth').hidden = false; $('home').classList.add('out');
       if ($('aEmail')) $('aEmail').value = AF.email;
@@ -1059,11 +1059,14 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
         if (AF.email.indexOf('@') < 1) return void ($('aErr').textContent = 'Type your email.');
         if (!/^\d{4}$/.test(pin)) return void ($('aErr').textContent = 'The PIN is 4 digits.');
         busy(b, true);
-        AUTH.signInWithEmailAndPassword(AF.email, pinPass(pin)).catch(function (x) { busy(b, false); authErr(x); });
+        /* After "forgot your PIN", Firebase's own page stores the new PIN typed twice (it wants 6+ characters). */
+        AUTH.signInWithEmailAndPassword(AF.email, pinPass(pin)).catch(function (x) {
+          return AUTH.signInWithEmailAndPassword(AF.email, pin + pin).catch(function () { throw x; });
+        }).catch(function (x) { busy(b, false); authErr(x); });
       }
       if (a === 'forgot') {
         if (AF.email.indexOf('@') < 1) return void ($('aErr').textContent = 'Type your email first, then tap “Forgot your PIN?”.');
-        AUTH.sendPasswordResetEmail(AF.email).then(function () { authView('sent', AF.email); }).catch(authErr);
+        AUTH.sendPasswordResetEmail(AF.email, { url: location.origin + location.pathname }).then(function () { authView('sent', AF.email); }).catch(authErr);
       }
       if (a === 'setname') {
         if (!AF.name) return void ($('aErr').textContent = 'Type your name.');
