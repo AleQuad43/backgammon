@@ -98,7 +98,19 @@ def scope(line):
     return ', '.join('#gv ' + s.strip() for s in sel.split(',')) + ' {' + rest
 css = '\n'.join(scope(l) for l in css.split('\n'))
 
-out = shell.replace('/*BOARD_SCRIPT*/', js).replace('/*BOARD_CSS*/', css)
+# The rail on the board shows each player's checker instead of initials.
+sub("$('avThem').textContent = them.ini; $('avMe').textContent = me.ini;",
+    "if (window.ckAv) { ckAv($('avThem'), them.ini); ckAv($('avMe'), me.ini); } else { $('avThem').textContent = them.ini; $('avMe').textContent = me.ini; }")
+
+# Checker avatars: the drawing code lives in checkers.html (the workshop); the app gets the same code.
+work = (HERE / 'checkers.html').read_text()
+ck = work[work.index('  /* ---------- materials'):work.index('  /* ---------- canvases ---------- */')]
+ages = re.search(r"  var AGES = .*?\n  function ageName.*?\n", work).group(0)
+rnd = re.search(r"  function randomChecker\(\) .*?\n", work).group(0)
+checker = ("(function () {\n" + ck + ages + rnd +
+           "  window.Checker = { MAT: MAT, FACES: FACES, INLAYS: INLAYS, AGES: AGES, ageName: ageName, random: randomChecker, top: drawTop, tilt: drawTilt };\n})();")
+
+out = shell.replace('/*BOARD_SCRIPT*/', js).replace('/*BOARD_CSS*/', css).replace('/*CHECKER*/', checker)
 (HERE / 'app.html').write_text(out)
 print('app.html', len(out))
 

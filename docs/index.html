@@ -77,6 +77,31 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
 .orb.them { border: 2px solid var(--accent); }
 .orb.req::after { content: ""; position: absolute; inset: -7px; border-radius: 50%; border: 2px dashed var(--accent); animation: spin 14s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+/* each friend is their own checker */
+.orb.ck { background: none; border: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.orb.ck img { position: absolute; left: 50%; top: 50%; width: 92px; height: 92px; transform: translate(-50%, -50%); pointer-events: none; }
+.orb.ck.them::after { content: ""; position: absolute; inset: -7px; border-radius: 50%; border: 2px solid var(--accent); opacity: .8; }
+.orb.ck.yours::before { inset: -12px; }
+.av.ck { background: none !important; border: none !important; box-shadow: none !important; position: relative; }
+.av.ck img { position: absolute; left: 50%; top: 50%; width: 148%; height: 148%; transform: translate(-50%, -50%); pointer-events: none; }
+.edit { position: absolute; inset: 0; z-index: 25; background: var(--sheet); display: flex; flex-direction: column; padding: calc(env(safe-area-inset-top, 0px) + 10px) 18px calc(env(safe-area-inset-bottom, 0px) + 14px); box-sizing: border-box; gap: 10px; opacity: 0; transform: translateY(24px); transition: opacity .3s ease, transform .38s cubic-bezier(.2,.8,.2,1); max-width: 560px; margin: 0 auto; }
+.edit.open { opacity: 1; transform: none; }
+.ehead { display: flex; align-items: center; justify-content: space-between; }
+.ehead b { font-size: 17px; font-weight: 700; }
+.estage { flex: 1 1 auto; min-height: 140px; position: relative; border-radius: 24px; overflow: hidden; background: #6B4528; }
+.estage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.estage span { position: absolute; left: 0; right: 0; bottom: 10px; text-align: center; color: #FBF4E8; font-weight: 700; font-size: 17px; text-shadow: 0 1px 6px rgba(0,0,0,.4); }
+.erow { display: flex; flex-direction: column; gap: 6px; }
+.elab { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.elab em { font-style: normal; text-transform: none; letter-spacing: 0; color: var(--ink); font-size: 14px; margin-left: 6px; }
+.esw { display: flex; gap: 10px; }
+.esw button { width: 46px; height: 46px; padding: 0; border-radius: 50%; border: 2px solid transparent; background: none; display: flex; align-items: center; justify-content: center; }
+.esw button[aria-pressed="true"] { border-color: var(--ink); }
+.esw canvas { width: 40px; height: 40px; }
+.esw .none { width: 34px; height: 34px; border-radius: 50%; border: 1.5px dashed var(--muted); }
+.eage { display: flex; align-items: center; gap: 12px; }
+.eage input { flex: 1; accent-color: var(--accent); height: 30px; }
+.etools { display: flex; gap: 8px; }
 .star small { font-size: 12px; font-weight: 600; line-height: 1.1; text-align: center; }
 .star small em { display: block; font-style: normal; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
 .legend { bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); z-index: 3; padding: 0 16px; box-sizing: border-box; }
@@ -145,6 +170,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
 #gv .device { position: absolute; inset: 0; overflow: hidden; color: var(--ink);
   padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
 #gv .av { border: none; }
+#gv .av.ck { background: none; box-shadow: none; }
 #gv .railTop { display: flex; justify-content: center; margin-bottom: 4px; }
 #gv .homeBtn { height: 28px; padding: 0 12px 0 8px; border: none; border-radius: 14px; background: var(--glass); display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--ink); }
 #gv .turnMsg { display: none; }
@@ -231,7 +257,323 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   <div class="col card" id="card" role="dialog" aria-modal="true"><div id="cardIn"></div></div>
   <div class="col sheet" id="sheet" role="dialog" aria-modal="true"></div>
   <div class="col toast" id="toast" role="status"><div id="toastIn"></div></div>
+  <div class="edit" id="edit" role="dialog" aria-modal="true" aria-label="Your checker" hidden>
+    <div class="ehead"><button class="mini" data-e="cancel">Cancel</button><b>Your checker</b><button class="mini go" data-e="save">Save</button></div>
+    <div class="estage"><canvas id="eStage"></canvas><span id="eName"></span></div>
+    <div class="erow"><div class="elab">Material<em id="lm"></em></div><div class="esw" id="sm"></div></div>
+    <div class="erow"><div class="elab">Tone<em id="lt"></em></div><div class="esw" id="st"></div></div>
+    <div class="erow"><div class="elab">Face<em id="lf"></em></div><div class="esw" id="sf"></div></div>
+    <div class="erow"><div class="elab">Inlay<em id="li"></em></div><div class="esw" id="si"></div></div>
+    <div class="erow"><div class="elab">Age<em id="la"></em></div><div class="eage"><input type="range" id="eAge" min="0" max="1" step="0.01" aria-label="Age"></div></div>
+    <div class="etools"><button class="mini" data-e="wear">New wear</button><button class="mini" data-e="surprise">Surprise me</button></div>
+  </div>
 </div>
+<script>
+(function () {
+  /* ---------- materials: real ranges only. gloss: how polished the surface is ---------- */
+  var MAT = {
+    wood:  { n: 'Wood', gloss: 0.45, tones: [
+      ['Maple', '#E2C28D', '#B98F57'], ['Olive', '#C9AE7C', '#6E5434'], ['Cherry', '#A65F3D', '#6D3520'],
+      ['Walnut', '#6A4529', '#3A2414'], ['Ebony', '#2E2420', '#120D0B'] ] },
+    marble: { n: 'Marble', gloss: 1, tones: [
+      ['Carrara', '#ECEBE6', '#8F949A'], ['Travertine', '#E3D3B8', '#A88A62'], ['Verde', '#2F5848', '#C9D8CC'],
+      ['Rosso', '#8C3A30', '#E2B8A4'], ['Nero', '#232325', '#D9D6D0'] ] },
+    bone:  { n: 'Bone', gloss: 0.25, tones: [
+      ['White', '#F3EEE2', '#CFC3AA'], ['Ivory', '#EFE3C8', '#C7B08A'], ['Tea', '#E1CCA2', '#A8885A'],
+      ['Aged', '#CDB283', '#8C6C42'], ['Camel', '#B8955F', '#6E5230'] ] },
+    bakelite: { n: 'Bakelite', gloss: 0.9, tones: [
+      ['Butterscotch', '#D8922E', '#F2C46A'], ['Cherry', '#8E1E1E', '#C2503F'], ['Racing green', '#1F4A35', '#4F8A64'],
+      ['Navy', '#1E2C48', '#4A6490'], ['Jet', '#18181A', '#45454A'] ] }
+  };
+  var FACES = [['flat', 'Flat'], ['dish', 'Dished'], ['rings', 'Turned rings'], ['star', 'Eight-point star'], ['rosette', 'Rosette']];
+  var INLAYS = [['none', 'None'], ['pearl', 'Mother-of-pearl'], ['brass', 'Brass']];
+  var S = { m: 'wood', t: 3, f: 'rings', i: 'none', a: 0, s: 1 + (Math.random() * 99999 | 0) };
+
+  /* ---------- noise ---------- */
+  function hash(x, y, s) { var h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(s, 1442695041); h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967295; }
+  function vn(x, y, s) { var xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+    var a = hash(xi, yi, s), b = hash(xi + 1, yi, s), c = hash(xi, yi + 1, s), d = hash(xi + 1, yi + 1, s); return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v; }
+  function fbm(x, y, s, o) { var t = 0, a = 0.5, f = 1; for (var i = 0; i < o; i++) { t += a * vn(x * f, y * f, s + i); f *= 2; a *= 0.5; } return t; }
+  function rgb(h) { var n = parseInt(h.slice(1), 16); return [n >> 16, n >> 8 & 255, n & 255]; }
+  function mix(a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; }
+  function lum(c) { return (c[0] * 0.3 + c[1] * 0.59 + c[2] * 0.11) / 255; }
+
+  /* ---------- material textures, made once per material + tone ---------- */
+  var TEX = {}, N = 256;
+  function texture(m, t) {
+    var key = m + t; if (TEX[key]) return TEX[key];
+    var cv = document.createElement('canvas'); cv.width = cv.height = N;
+    var g = cv.getContext('2d'), img = g.createImageData(N, N), d = img.data, tn = MAT[m].tones[t];
+    var A = rgb(tn[1]), B = rgb(tn[2]), seed = t * 17 + m.length * 101;
+    for (var y = 0; y < N; y++) for (var x = 0; x < N; x++) {
+      var c, k = (y * N + x) * 4;
+      if (m === 'wood') {           /* long grain with soft early/late wood and fibres */
+        var w = y / N * 9 + fbm(x / 70, y / 22, seed, 4) * 3.2 + x / N * 0.6;
+        var ring = w - Math.floor(w), late = Math.pow(ring, 3.2);
+        var fib = fbm(x / 2.5, y / 60, seed + 9, 3);
+        c = mix(A, B, late * 0.75 + (fib - 0.5) * 0.35);
+      } else if (m === 'marble') {  /* clouds plus sharp veins */
+        var cl = fbm(x / 90, y / 90, seed, 5);
+        var tt = (x * 0.8 + y * 0.6) / N * 3.2 + fbm(x / 45, y / 45, seed + 3, 5) * 5.5;
+        var vein = Math.pow(1 - Math.abs(Math.sin(tt * Math.PI)), 18), vein2 = Math.pow(1 - Math.abs(Math.sin(tt * 2.7 * Math.PI + 1)), 40);
+        c = mix(A, B, Math.min(1, (cl - 0.5) * 0.25 + vein * 0.75 + vein2 * 0.4));
+      } else if (m === 'bone') {    /* fine lengthwise striations, a few pores */
+        var st = fbm(x / 1.6, y / 70, seed, 4), bl = fbm(x / 60, y / 60, seed + 5, 3);
+        c = mix(A, B, Math.max(0, (st - 0.45) * 0.55 + (bl - 0.5) * 0.5));
+        if (hash(x, y, seed + 7) < 0.0016) c = mix(c, B, 0.7);
+      } else {                      /* bakelite / catalin: soft marbled swirls */
+        var sw = fbm(x / 80, y / 80, seed, 5) * 7 + (x + y) / N * 1.5;
+        var s1 = 0.5 + 0.5 * Math.sin(sw * 2.2);
+        c = mix(A, B, Math.pow(s1, 3) * 0.6);
+      }
+      d[k] = c[0]; d[k + 1] = c[1]; d[k + 2] = c[2]; d[k + 3] = 255;
+    }
+    g.putImageData(img, 0, 0);
+    return (TEX[key] = cv);
+  }
+
+  /* ---------- one checker seen from above. Light comes from the top left. ---------- */
+  function lin(g, R, a, b) { var gr = g.createLinearGradient(-R, -R, R, R); gr.addColorStop(0, a); gr.addColorStop(1, b); return gr; }
+  function circle(g, r) { g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2); }
+
+  var AGE_DIRT = 0;
+  function incised(g, R, path, w, dark) {
+    var o = Math.max(0.6, R * 0.012);
+    g.lineJoin = 'round'; g.lineCap = 'round';
+    g.save(); g.translate(o, o); path(); g.strokeStyle = 'rgba(255,248,235,' + (dark ? 0.32 : 0.5) * (1 - AGE_DIRT * 0.6) + ')'; g.lineWidth = w; g.stroke(); g.restore();
+    g.save(); g.translate(-o * 0.6, -o * 0.6); path(); g.strokeStyle = 'rgba(20,10,4,' + (dark ? 0.75 : 0.42) + ')'; g.lineWidth = w; g.stroke(); g.restore();
+    /* old checkers keep dirt packed into their carvings */
+    if (AGE_DIRT > 0.05) { path(); g.strokeStyle = 'rgba(38,24,10,' + (AGE_DIRT * 0.55) + ')'; g.lineWidth = w * 0.7; g.stroke(); }
+  }
+
+  /* ---------- ageing. Each material grows old its own way; the seed decides where. ---------- */
+  var AGE = {
+    /* patina: colour it drifts toward. grime: dirt in the grain. chips/scratch/dent/crack: how many at full age.
+       frac: colour of fresh broken material. rub: worn edges get lighter. haze: polish turning dull. */
+    wood:     { patina: ['#7A4E24', 0.42], grime: 0.55, chips: 3, scratch: 22, dent: 9, crack: 2, frac: '#D9B884', rub: 0.18, haze: 0 },
+    marble:   { patina: ['#CDB98E', 0.32], grime: 0.32, chips: 4, scratch: 34, dent: 0, crack: 3, frac: '#EEEBE4', rub: 0.22, haze: 0.08 },
+    bone:     { patina: ['#B5832F', 0.6],  grime: 0.5,  chips: 3, scratch: 10, dent: 3, crack: 6, frac: '#EFE6D0', rub: 0.18, haze: 0 },
+    bakelite: { patina: ['#B98422', 0.38], grime: 0.38, chips: 5, scratch: 46, dent: 3, crack: 1, frac: null,      rub: 0.25, haze: 0.1 }
+  };
+  function rng(seed) { var a = seed >>> 0; return function () { a = (a + 0x6D2B79F5) | 0; var t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  var DIRT = {};
+  function dirtTex(seed) {
+    if (DIRT[seed]) return DIRT[seed];
+    var n = 128, cv = document.createElement('canvas'); cv.width = cv.height = n;
+    var g = cv.getContext('2d'), img = g.createImageData(n, n), d = img.data;
+    for (var y = 0; y < n; y++) for (var x = 0; x < n; x++) {
+      var dx = x / n - 0.5, dy = y / n - 0.5, r = Math.sqrt(dx * dx + dy * dy) * 2;
+      var v = fbm(x / 22, y / 22, seed, 4), speck = hash(x, y, seed + 3) < 0.012 ? 0.6 : 0;
+      var a = Math.max(0, (v - 0.42) * 2.2) * (0.55 + 0.6 * r * r) + speck, k = (y * n + x) * 4;
+      d[k] = 56; d[k + 1] = 34; d[k + 2] = 12; d[k + 3] = Math.min(255, a * 255);
+    }
+    g.putImageData(img, 0, 0); return (DIRT[seed] = cv);
+  }
+  function fracColour(o) { var base = rgb(MAT[o.m].tones[o.t][1]), f = AGE[o.m].frac; var c = f ? mix(base, rgb(f), 0.5) : mix(base, [235, 225, 205], 0.38); return 'rgb(' + c.map(Math.round).join(',') + ')'; }
+  /* where the edge has broken off: same on the top view and the tilted one */
+  function chipsFor(o, R) {
+    var a = o.a || 0, A = AGE[o.m], r = rng((o.s || 1) * 31 + 7), out = [];
+    var n = Math.floor(Math.max(0, a - 0.22) / 0.78 * A.chips + r() * 0.7);
+    for (var i = 0; i < n; i++) {
+      var th = r() * Math.PI * 2, s = R * (0.07 + 0.11 * r()) * (0.7 + a * 0.5), pts = [];
+      var cx = Math.cos(th) * (R + s * 0.08), cy = Math.sin(th) * (R + s * 0.08), m = 7 + (r() * 3 | 0);
+      for (var j = 0; j < m; j++) { var q = j / m * Math.PI * 2 + r() * 0.5, rr = s * (0.55 + 0.6 * r()); pts.push([cx + Math.cos(q) * rr, cy + Math.sin(q) * rr]); }
+      out.push({ th: th, s: s, pts: pts, R: R });
+    }
+    return out;
+  }
+  function poly(g, pts, sx, sy, oy) { g.beginPath(); pts.forEach(function (p, i) { var x = p[0] * sx, y = p[1] * sy + (oy || 0); if (i) g.lineTo(x, y); else g.moveTo(x, y); }); g.closePath(); }
+  function layer(R) { var c = document.createElement('canvas'), n = Math.ceil(R * 2.6); c.width = c.height = n; var g = c.getContext('2d'); g.translate(n / 2, n / 2); return { cv: c, g: g, h: n / 2 }; }
+  function taper(g, c, sy, T, f) {
+    var px = Math.cos(c.th) * R0(c), py = Math.sin(c.th) * R0(c), k = 1 - 0.75 * f, dy = T * 0.6 * f * (0.5 + 0.5 * Math.sin(c.th));
+    g.beginPath(); c.pts.forEach(function (p, i) { var x = px + (p[0] - px) * k, y = (py + (p[1] - py) * k) * sy + dy; if (i) g.lineTo(x, y); else g.moveTo(x, y); }); g.closePath();
+  }
+  function R0(c) { return c.R; }
+  function breakChips(g, o, chips, sy, T) {
+    if (!chips.length) return;
+    var fc = fracColour(o);
+    chips.forEach(function (c) {
+      g.save(); g.globalCompositeOperation = 'destination-out'; g.fillStyle = '#000';
+      poly(g, c.pts, 1, sy); g.fill();
+      if (T && Math.sin(c.th) > -0.2) for (var st = 1; st <= 10; st++) { taper(g, c, sy, T, st / 10); g.fill(); }
+      g.restore();
+      /* the fresh break: lighter, rough material, only painted where the checker still is */
+      g.save(); g.globalCompositeOperation = 'source-atop';
+      var lit = 0.5 + 0.5 * Math.cos(c.th - Math.PI * 1.25);
+      g.globalAlpha = 0.45 + 0.4 * lit; poly(g, c.pts, 1, sy); g.strokeStyle = fc; g.lineWidth = c.s * 0.3; g.lineJoin = 'round'; g.stroke();
+      g.globalAlpha = 1; poly(g, c.pts, 1, sy); g.strokeStyle = 'rgba(30,18,8,' + (0.35 - lit * 0.2) + ')'; g.lineWidth = c.s * 0.08; g.stroke();
+      if (T && Math.sin(c.th) > -0.2) { taper(g, c, sy, T, 0.5); g.strokeStyle = 'rgba(30,18,8,0.25)'; g.lineWidth = c.s * 0.25; g.stroke(); }
+
+      g.restore();
+    });
+  }
+  /* wear painted onto the body (inside its clip) */
+  function wearBody(g, o, R) {
+    var a = o.a || 0; if (a < 0.01) return;
+    var A = AGE[o.m], r = rng((o.s || 1) * 13 + 3), base = rgb(MAT[o.m].tones[o.t][1]), dark = lum(base) < 0.35;
+    g.save(); g.globalCompositeOperation = 'multiply'; g.globalAlpha = a * A.patina[1]; g.fillStyle = A.patina[0]; g.fillRect(-R, -R, 2 * R, 2 * R); g.restore();
+    g.save(); g.globalAlpha = Math.min(1, a * A.grime * 1.3); g.rotate(r() * 6); g.drawImage(dirtTex((o.s || 1) % 997), -R, -R, 2 * R, 2 * R); g.restore();
+    /* dirt collects where the face meets the edge */
+    var eg = g.createRadialGradient(0, 0, R * 0.7, 0, 0, R * 0.86); eg.addColorStop(0, 'rgba(40,25,10,0)'); eg.addColorStop(1, 'rgba(40,25,10,' + (a * A.grime * 0.5) + ')');
+    g.fillStyle = eg; g.fillRect(-R, -R, 2 * R, 2 * R);
+    /* edges rubbed by hands: lighter patches along the rim */
+    g.save(); g.lineCap = 'round';
+    for (var i = 0; i < 5; i++) { var s0 = r() * Math.PI * 2, len = 0.2 + r() * 0.6; g.beginPath(); g.arc(0, 0, R * (0.9 + r() * 0.06), s0, s0 + len); g.strokeStyle = 'rgba(255,245,225,' + (a * A.rub * (dark ? 0.7 : 0.5) * (0.3 + r() * 0.7)) + ')'; g.lineWidth = R * (0.025 + r() * 0.035); g.stroke(); }
+    g.restore();
+  }
+  /* marks on the surface, drawn above carvings and inlay */
+  function wearMarks(g, o, R) {
+    var a = o.a || 0; if (a < 0.01) return;
+    var A = AGE[o.m], r = rng((o.s || 1) * 7 + 11), base = rgb(MAT[o.m].tones[o.t][1]), dark = lum(base) < 0.35, u = Math.max(0.5, R * 0.006);
+    g.save(); g.lineCap = 'round';
+    /* dents: little crushed crescents */
+    var nd = Math.floor(Math.pow(a, 1.2) * A.dent + r() * 0.5);
+    for (var i = 0; i < nd; i++) {
+      var q = r() * Math.PI * 2, d0 = Math.sqrt(r()) * R * 0.85, x = Math.cos(q) * d0, y = Math.sin(q) * d0, s = R * (0.02 + r() * 0.035);
+      g.beginPath(); g.arc(x, y, s, Math.PI * 0.9, Math.PI * 1.9); g.strokeStyle = 'rgba(25,14,5,' + (0.35 + a * 0.3) + ')'; g.lineWidth = u * 2; g.stroke();
+      g.beginPath(); g.arc(x, y, s, -0.1, Math.PI * 0.9); g.strokeStyle = 'rgba(255,245,225,0.3)'; g.lineWidth = u * 1.4; g.stroke();
+    }
+    /* scratches: straight hairlines, or polishing swirls on bakelite */
+    var ns = Math.floor(Math.pow(a, 1.3) * A.scratch);
+    for (i = 0; i < ns; i++) {
+      var q2 = r() * Math.PI * 2, d1 = Math.sqrt(r()) * R * 0.92, x1 = Math.cos(q2) * d1, y1 = Math.sin(q2) * d1, L = R * (0.06 + r() * 0.3), ang = r() * Math.PI * 2;
+      g.beginPath();
+      if (o.m === 'bakelite' && r() < 0.6) g.arc(x1 + Math.cos(ang) * L, y1 + Math.sin(ang) * L, L, ang + Math.PI, ang + Math.PI + 0.6 + r());
+      else { g.moveTo(x1, y1); g.quadraticCurveTo(x1 + Math.cos(ang) * L * 0.5 + (r() - 0.5) * L * 0.2, y1 + Math.sin(ang) * L * 0.5, x1 + Math.cos(ang) * L, y1 + Math.sin(ang) * L); }
+      g.strokeStyle = 'rgba(255,250,240,' + ((dark ? 0.16 : 0.32) * (0.4 + r() * 0.6)) + ')'; g.lineWidth = u * (0.6 + r() * 0.8); g.stroke();
+      if (!dark && r() < 0.5) { g.strokeStyle = 'rgba(60,40,20,0.18)'; g.lineWidth = u * 0.6; g.stroke(); }
+    }
+    /* cracks: from the rim inward. Bone splits most, marble crazes, wood checks along its edge */
+    var nc = Math.floor(Math.max(0, a - (o.m === 'bone' ? 0.15 : 0.45)) * A.crack * 1.6 + r() * 0.4);
+    for (i = 0; i < nc; i++) {
+      var th = r() * Math.PI * 2, rr = R * 0.98, pts = [[Math.cos(th) * rr, Math.sin(th) * rr]], len2 = R * (0.18 + r() * (o.m === 'bone' ? 0.5 : 0.3)), steps = 6, dir = th + Math.PI + (r() - 0.5) * 0.6;
+      for (var j = 1; j <= steps; j++) { dir += (r() - 0.5) * 0.7; var p = pts[j - 1]; pts.push([p[0] + Math.cos(dir) * len2 / steps, p[1] + Math.sin(dir) * len2 / steps]); }
+      g.beginPath(); pts.forEach(function (p, k) { if (k) g.lineTo(p[0], p[1]); else g.moveTo(p[0], p[1]); });
+      g.strokeStyle = 'rgba(255,248,235,0.25)'; g.lineWidth = u * 2.2; g.save(); g.translate(u * 0.8, u * 0.8); g.stroke(); g.restore();
+      g.strokeStyle = 'rgba(28,16,6,' + (0.5 + a * 0.3) + ')'; g.lineWidth = u * 1.2; g.stroke();
+    }
+    /* polish going dull */
+    if (A.haze) { g.fillStyle = 'rgba(255,252,245,' + (a * A.haze) + ')'; g.fillRect(-R, -R, 2 * R, 2 * R); }
+    g.restore();
+  }
+
+  function drawTop(g, o, R, opts) {
+    opts = opts || {};
+    if (!opts.noShadow) {
+      g.save(); g.filter = 'blur(' + (R * 0.12) + 'px)'; g.fillStyle = 'rgba(30,18,10,0.38)';
+      g.beginPath(); g.ellipse(R * 0.1, R * 0.16, R * 0.98, R * 0.98, 0, 0, Math.PI * 2); g.fill(); g.restore();
+    }
+    var L = layer(R);
+    body(L.g, o, R);
+    if (!opts.noChips) breakChips(L.g, o, chipsFor(o, R), 1, 0);
+    g.drawImage(L.cv, -L.h, -L.h);
+  }
+
+  function body(g, o, R) {
+    var M = MAT[o.m], tn = M.tones[o.t], base = rgb(tn[1]), dark = lum(base) < 0.35, a = o.a || 0;
+    var gloss = M.gloss * (1 - a * (o.m === 'marble' ? 0.55 : 0.75));
+    AGE_DIRT = a * AGE[o.m].grime;
+    g.save(); circle(g, R); g.clip();
+    g.save(); g.rotate((o.t * 0.9 + o.m.length) % 6); g.drawImage(texture(o.m, o.t), -R * 1.05, -R * 1.05, R * 2.1, R * 2.1); g.restore();
+    wearBody(g, o, R);
+    /* rounded edge: bright where it faces the light, dark where it turns away */
+    var rg = g.createRadialGradient(0, 0, R * 0.8, 0, 0, R);
+    rg.addColorStop(0, 'rgba(0,0,0,0)'); rg.addColorStop(0.7, 'rgba(0,0,0,0.12)'); rg.addColorStop(1, 'rgba(0,0,0,0.45)');
+    g.fillStyle = rg; g.fillRect(-R, -R, 2 * R, 2 * R);
+    g.beginPath(); g.arc(0, 0, R, 0, Math.PI * 2); g.arc(0, 0, R * 0.84, 0, Math.PI * 2, true);
+    g.fillStyle = lin(g, R, 'rgba(255,250,240,0.38)', 'rgba(0,0,0,0.35)'); g.fill();
+    /* the crisp edge where the flat face meets the rounding */
+    circle(g, R * 0.84); g.lineWidth = Math.max(0.8, R * 0.018); g.strokeStyle = lin(g, R, 'rgba(255,250,240,0.55)', 'rgba(0,0,0,0.25)'); g.stroke();
+
+    /* face carving */
+    var lw = Math.max(1, R * 0.035);
+    if (o.f === 'dish') {
+      circle(g, R * 0.6); g.fillStyle = lin(g, R * 0.6, 'rgba(0,0,0,' + (dark ? 0.45 : 0.22) + ')', 'rgba(255,250,240,0.22)'); g.fill();
+      circle(g, R * 0.6); g.lineWidth = lw * 0.8; g.strokeStyle = lin(g, R * 0.6, 'rgba(10,5,0,0.45)', 'rgba(255,250,240,0.6)'); g.stroke();
+    } else if (o.f === 'rings') {
+      [0.66, 0.5, 0.34].forEach(function (r) { incised(g, R, function () { circle(g, R * r); }, lw, dark); });
+    } else if (o.f === 'star') {
+      var r8 = R * 0.52;
+      incised(g, R, function () {
+        g.beginPath(); for (var q = 0; q < 2; q++) { var a0 = q * Math.PI / 4; for (var i = 0; i < 4; i++) { var a = a0 + i * Math.PI / 2 + Math.PI / 4; var x = Math.cos(a) * r8, y = Math.sin(a) * r8; if (i === 0) g.moveTo(x, y); else g.lineTo(x, y); } g.closePath(); }
+      }, lw, dark);
+      incised(g, R, function () { circle(g, R * 0.2); }, lw * 0.8, dark);
+    } else if (o.f === 'rosette') {
+      var rr = R * 0.27;
+      incised(g, R, function () { g.beginPath(); for (var i = 0; i < 6; i++) { var a = i * Math.PI / 3; g.moveTo(Math.cos(a) * rr + rr, Math.sin(a) * rr); g.arc(Math.cos(a) * rr, Math.sin(a) * rr, rr, 0, Math.PI * 2); } }, lw * 0.8, dark);
+      incised(g, R, function () { circle(g, rr * 2); }, lw * 0.9, dark);
+    }
+
+    /* inlay */
+    if (o.i !== 'none') {
+      var ir = R * (o.f === 'flat' ? 0.2 : 0.14);
+      g.save(); g.translate(0, 0);
+      circle(g, ir * 1.12); g.fillStyle = 'rgba(15,8,2,0.55)'; g.fill();
+      circle(g, ir); g.save(); g.clip();
+      if (o.i === 'pearl') {
+        g.fillStyle = '#EDE8DE'; g.fillRect(-ir, -ir, 2 * ir, 2 * ir);
+        var cg = g.createConicGradient ? g.createConicGradient(0.7, 0, 0) : null;
+        if (cg) { ['rgba(255,190,210,.55)', 'rgba(170,230,215,.55)', 'rgba(170,190,255,.55)', 'rgba(255,240,190,.55)', 'rgba(255,190,210,.55)'].forEach(function (c, i, a) { cg.addColorStop(i / (a.length - 1), c); }); g.fillStyle = cg; g.fillRect(-ir, -ir, 2 * ir, 2 * ir); }
+        for (var b = 0; b < 5; b++) { g.beginPath(); g.arc(-ir * 0.3, -ir * 0.2, ir * (0.3 + b * 0.25), 0, Math.PI * 2); g.strokeStyle = 'rgba(255,255,255,.25)'; g.lineWidth = ir * 0.06; g.stroke(); }
+      } else {
+        var bg = g.createRadialGradient(-ir * 0.35, -ir * 0.4, ir * 0.1, 0, 0, ir);
+        bg.addColorStop(0, '#FFF0B8'); bg.addColorStop(0.45, '#D9A945'); bg.addColorStop(1, '#7A5418'); g.fillStyle = bg; g.fillRect(-ir, -ir, 2 * ir, 2 * ir);
+      }
+      g.restore(); g.restore();
+    }
+
+    wearMarks(g, o, R);
+    AGE_DIRT = 0;
+
+    /* finish: broad sheen, then the sharp highlight for polished materials */
+    var sh = g.createLinearGradient(-R, -R, R * 0.4, R * 0.4);
+    sh.addColorStop(0, 'rgba(255,255,255,' + (0.1 + gloss * 0.16) + ')'); sh.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = sh; g.fillRect(-R, -R, 2 * R, 2 * R);
+    if (gloss > 0.3) {
+      g.save(); g.translate(-R * 0.4, -R * 0.44); g.rotate(-0.7); g.scale(1, 0.45);
+      var hg = g.createRadialGradient(0, 0, 0, 0, 0, R * (0.55 - gloss * 0.2));
+      hg.addColorStop(0, 'rgba(255,255,255,' + (gloss * 0.85) + ')'); hg.addColorStop(0.35, 'rgba(255,255,255,' + (gloss * 0.3) + ')'); hg.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = hg; g.beginPath(); g.arc(0, 0, R, 0, Math.PI * 2); g.fill(); g.restore();
+      /* reflected light along the bottom right rim */
+      g.beginPath(); g.arc(0, 0, R * 0.93, 0.1 * Math.PI, 0.4 * Math.PI); g.strokeStyle = 'rgba(255,255,255,' + (gloss * 0.25) + ')'; g.lineWidth = R * 0.05; g.lineCap = 'round'; g.stroke();
+    }
+    g.restore();
+  }
+
+  /* ---------- the same checker tilted, so you see its thickness ---------- */
+  function drawTilt(g, o, R) {
+    var k = 0.52, T = R * 0.34, tn = MAT[o.m].tones[o.t], a = o.a || 0, A = AGE[o.m];
+    g.save(); g.filter = 'blur(' + (R * 0.1) + 'px)'; g.fillStyle = 'rgba(20,10,4,0.5)';
+    g.beginPath(); g.ellipse(R * 0.12, T + R * 0.1, R * 1.02, R * k * 1.02, 0, 0, Math.PI * 2); g.fill(); g.restore();
+    var outer = g, Ly = layer(R * 1.2); g = Ly.g;
+    /* side wall */
+    g.save();
+    g.beginPath(); g.moveTo(-R, 0); g.lineTo(-R, T); g.ellipse(0, T, R, R * k, 0, Math.PI, 0, true); g.lineTo(R, 0); g.ellipse(0, 0, R, R * k, 0, 0, Math.PI, false); g.closePath(); g.clip();
+    g.drawImage(texture(o.m, o.t), -R, -R * k, 2 * R, T + 2 * R * k);
+    if (a > 0.01) {
+      g.save(); g.globalCompositeOperation = 'multiply'; g.globalAlpha = a * A.patina[1]; g.fillStyle = A.patina[0]; g.fillRect(-R, -R, 2 * R, T + 2 * R); g.restore();
+      g.save(); g.globalAlpha = Math.min(1, a * A.grime * 1.4); g.drawImage(dirtTex(((o.s || 1) + 5) % 997), -R, -R * 0.2, 2 * R, T + R); g.restore();
+    }
+    var wg = g.createLinearGradient(-R, 0, R, 0);
+    wg.addColorStop(0, 'rgba(0,0,0,0.35)'); wg.addColorStop(0.25, 'rgba(255,250,240,0.12)'); wg.addColorStop(0.55, 'rgba(0,0,0,0.12)'); wg.addColorStop(1, 'rgba(0,0,0,0.6)');
+    g.fillStyle = wg; g.fillRect(-R, -R, 2 * R, T + 2 * R);
+    var vg = g.createLinearGradient(0, 0, 0, T + R * k); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.3)');
+    g.fillStyle = vg; g.fillRect(-R, -R, 2 * R, T + 2 * R);
+    if (MAT[o.m].gloss > 0.6) { var sg = g.createLinearGradient(-R * 0.75, 0, -R * 0.45, 0); sg.addColorStop(0, 'rgba(255,255,255,0)'); sg.addColorStop(0.5, 'rgba(255,255,255,0.16)'); sg.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = sg; g.fillRect(-R * 0.75, 0, R * 0.3, T + R * k); }
+    if (o.m === 'wood') for (var l = 1; l < 3; l++) { g.beginPath(); g.ellipse(0, T * l / 3, R, R * k, 0, 0, Math.PI); g.strokeStyle = 'rgba(0,0,0,0.12)'; g.lineWidth = 1; g.stroke(); }
+    g.restore();
+    /* top face */
+    g.save(); g.scale(1, k); drawTop(g, o, R, { noShadow: true, noChips: true }); g.restore();
+    breakChips(g, o, chipsFor(o, R), k, T);
+    outer.drawImage(Ly.cv, -Ly.h, -Ly.h);
+  }
+
+  var AGES = [[0, 'New'], [0.15, 'Gently used'], [0.35, 'Well played'], [0.55, 'Seasoned'], [0.75, 'Worn'], [0.9, 'Heirloom']];
+  function ageName(a) { var n = AGES[0][1]; AGES.forEach(function (x) { if (a >= x[0]) n = x[1]; }); return n; }
+  function randomChecker() { var ks = Object.keys(MAT); return { m: ks[Math.random() * 4 | 0], t: Math.random() * 5 | 0, f: FACES[Math.random() * 5 | 0][0], i: Math.random() < 0.7 ? 'none' : INLAYS[1 + (Math.random() * 2 | 0)][0], a: Math.round(Math.pow(Math.random(), 1.4) * 100) / 100, s: 1 + (Math.random() * 99999 | 0) }; }
+  window.Checker = { MAT: MAT, FACES: FACES, INLAYS: INLAYS, AGES: AGES, ageName: ageName, random: randomChecker, top: drawTop, tilt: drawTilt };
+})();
+</script>
 
 <div id="gv" hidden>
   <div class="device" id="device">
@@ -289,8 +631,23 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   dayTick(); setInterval(dayTick, fast ? 100 : 5000);
 
   /* ---------- friends (sample data until the real accounts exist) ---------- */
-  var ME = { id: 'qu', n: 'Quad', i: 'QU', elo: 1500, d: 0 };
-  var P = [ME, { id: 'no', n: 'Nolf', i: 'NO', elo: 1500, d: 0 }];
+  var ME = { id: 'qu', n: 'Quad', i: 'QU', elo: 1500, d: 0, ck: { m: 'bone', t: 2, f: 'rosette', i: 'brass', a: 0.2, s: 4242 } };
+  var P = [ME, { id: 'no', n: 'Nolf', i: 'NO', elo: 1500, d: 0, ck: { m: 'marble', t: 2, f: 'star', i: 'pearl', a: 0.45, s: 7719 } }];
+  try { var saved = JSON.parse(localStorage.getItem('myChecker')); if (saved && saved.m) ME.ck = saved; } catch (e) {}
+
+  /* ---------- checkers as avatars: drawn once per look, reused as images ---------- */
+  var CKIMG = {};
+  function ckSrc(ck) {
+    var key = JSON.stringify(ck); if (CKIMG[key]) return CKIMG[key];
+    var n = 192, c = document.createElement('canvas'); c.width = c.height = n;
+    var g = c.getContext('2d'); g.translate(n / 2 - 2, n / 2 - 3); window.Checker.top(g, ck, n * 0.33);
+    return (CKIMG[key] = c.toDataURL());
+  }
+  function av(p, cls) { return '<div class="av ck ' + (cls || '') + '"><img alt="" src="' + ckSrc(p.ck) + '"></div>'; }
+  window.ckAv = function (el, ini) {
+    var p = P.filter(function (x) { return x.i === ini; })[0]; if (!p) { el.textContent = ini; el.classList.remove('ck'); return; }
+    el.classList.add('ck'); el.innerHTML = '<img alt="" src="' + ckSrc(p.ck) + '">';
+  };
   var byId = {}; P.forEach(function (p) { byId[p.id] = p; });
   var GAMES = [{ p: 'no', s: 'yours', sc: [0, 0], to: 5, when: 'now', duo: true }];
   var H2H = { no: { w: 0, l: 0, g: '0–0', last: '' } };
@@ -302,8 +659,8 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
 
   function gameRow(g) {
     var p = byId[g.p];
-    if (g.s === 'req') return '<div class="row req"><div class="av">' + p.i + '</div><div class="t"><b>' + p.n + ' challenges you</b><small>to ' + g.to + (g.cube ? ' · cube on' : '') + ' · ' + g.when + '</small></div><button class="mini" data-act="decline" data-p="' + p.id + '">No</button><button class="mini go" data-act="accept" data-p="' + p.id + '">Play</button></div>';
-    return '<button class="row ' + (g.s === 'yours' ? 'yours' : '') + '" data-act="board" data-p="' + p.id + '"><div class="av">' + p.i + '</div><div class="t"><b>vs ' + p.n + '</b><small class="num">' + g.sc.join('–') + ' to ' + g.to + ' · ' + (g.s === 'yours' ? 'your turn' : 'their turn') + ' · ' + g.when + '</small></div>' + (g.s === 'yours' ? '<span class="pip"></span>' : CHEV) + '</button>';
+    if (g.s === 'req') return '<div class="row req">' + av(p) + '<div class="t"><b>' + p.n + ' challenges you</b><small>to ' + g.to + (g.cube ? ' · cube on' : '') + ' · ' + g.when + '</small></div><button class="mini" data-act="decline" data-p="' + p.id + '">No</button><button class="mini go" data-act="accept" data-p="' + p.id + '">Play</button></div>';
+    return '<button class="row ' + (g.s === 'yours' ? 'yours' : '') + '" data-act="board" data-p="' + p.id + '">' + av(p) + '<div class="t"><b>vs ' + p.n + '</b><small class="num">' + g.sc.join('–') + ' to ' + g.to + ' · ' + (g.s === 'yours' ? 'your turn' : 'their turn') + ' · ' + g.when + '</small></div>' + (g.s === 'yours' ? '<span class="pip"></span>' : CHEV) + '</button>';
   }
   function histRow(m) {
     var p = byId[m.p];
@@ -328,13 +685,14 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   }
   function playerCard(id) {
     if (id === ME.id) {
-      return '<div class="card-top"><div class="av me">' + ME.i + '</div><div><h4>' + ME.n + '</h4><p class="num">Elo ' + ME.elo.toLocaleString('en') + '</p></div><button class="x" data-act="close" aria-label="Close">' + X + '</button></div>' +
+      return '<div class="card-top"><button class="av-btn" data-act="edit" aria-label="Change your checker" style="border:none;background:none;padding:0">' + av(ME, 'me') + '</button><div><h4>' + ME.n + '</h4><p class="num">Elo ' + ME.elo.toLocaleString('en') + '</p></div><button class="x" data-act="close" aria-label="Close">' + X + '</button></div>' +
+        '<button class="big" data-act="edit">Change your checker</button>' +
         '<div class="tiles"><div class="tile"><small>Matches</small><b>' + HIST.length + '</b></div><div class="tile"><small>Won</small><b>–</b></div><div class="tile"><small>Gammons</small><b>0</b></div></div>' +
         '<div><div class="label" style="margin:0 4px 8px">For testing</div><div class="tools"><button class="mini" data-act="seat">Who plays on this device</button><button class="mini" data-act="bearoff">Bear-off position</button><button class="mini" data-act="restart">Start the match over</button></div></div>' +
         (HIST.length ? '<div class="label" style="margin:4px 4px 0">Your history</div><div>' + HIST.map(histRow).join('') + '</div>' : '');
     }
     var p = byId[id], h = H2H[id], g = GAMES.filter(function (x) { return x.p === id; })[0];
-    var out = '<div class="card-top"><div class="av">' + p.i + '</div><div><h4>' + p.n + '</h4><p class="num">Elo ' + p.elo.toLocaleString('en') + '</p></div><button class="x" data-act="close" aria-label="Close">' + X + '</button></div>';
+    var out = '<div class="card-top">' + av(p) + '<div><h4>' + p.n + '</h4><p class="num">Elo ' + p.elo.toLocaleString('en') + '</p></div><button class="x" data-act="close" aria-label="Close">' + X + '</button></div>';
     if (g) out += gameRow(g);
     out += '<div class="tiles"><div class="tile"><small>You vs ' + p.n + '</small><b>' + h.w + '–' + h.l + '</b></div><div class="tile"><small>Win rate</small><b>' + (h.w + h.l ? Math.round(100 * h.w / (h.w + h.l)) + '%' : '–') + '</b></div><div class="tile"><small>Gammons</small><b>' + h.g + '</b></div></div>';
     if (h.last) out += '<div><div class="label" style="margin:0 4px 8px">Last ' + h.last.length + '</div><div class="strip">' + h.last.split('').map(function (r) { return '<i class="' + r + '"></i>'; }).join('') + '</div></div>';
@@ -348,7 +706,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   var ng = { p: 'no', to: 5, cube: true };
   function sheetHTML() {
     return '<div class="grab"></div><h4>New game</h4><div class="label" style="margin:6px 0 4px">Against</div><div class="pick">' +
-      P.filter(function (p) { return p !== ME; }).map(function (p) { return '<button data-act="ngp" data-p="' + p.id + '" aria-pressed="' + (ng.p === p.id) + '"><div class="av">' + p.i + '</div>' + p.n + '</button>'; }).join('') +
+      P.filter(function (p) { return p !== ME; }).map(function (p) { return '<button data-act="ngp" data-p="' + p.id + '" aria-pressed="' + (ng.p === p.id) + '">' + av(p) + p.n + '</button>'; }).join('') +
       '</div><div class="label" style="margin:10px 0 6px">Match to</div><div class="chips">' +
       [1, 3, 5, 7, 11].map(function (n) { return '<button class="chip" data-act="ngto" data-n="' + n + '" aria-pressed="' + (ng.to === n) + '">' + n + '</button>'; }).join('') +
       '</div><div class="toggle"><span>Doubling cube</span><button class="mini' + (ng.cube ? ' go' : '') + '" data-act="ngcube">' + (ng.cube ? 'On' : 'Off') + '</button></div>' +
@@ -382,6 +740,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     else if (a === 'ngp') { ng.p = pid; $('sheet').innerHTML = sheetHTML(); }
     else if (a === 'ngto') { ng.to = +b.dataset.n; $('sheet').innerHTML = sheetHTML(); }
     else if (a === 'ngcube') { ng.cube = !ng.cube; $('sheet').innerHTML = sheetHTML(); }
+    else if (a === 'edit') openEditor();
     else if (a === 'send') { closeAll(); toast('Challenge sent to ' + byId[ng.p].n + '.'); }
     else if (a === 'seat') { closeAll(); window.BG.seat(); }
     else if (a === 'bearoff') { closeAll(); if (!window.BG.current()) openGame('no'); whenBoard(function () { window.BG.bearOff(); }); }
@@ -389,6 +748,63 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   });
   $('scrim').addEventListener('click', closeAll);
   $('home').addEventListener('scroll', function () { $('home').scrollTop = 0; $('home').scrollLeft = 0; });
+
+  /* ---------- your checker: one screen, no scrolling ---------- */
+  var DR = null;
+  function openEditor() {
+    closeAll(); DR = Object.assign({}, ME.ck);
+    var e = $('edit'); e.hidden = false; $('eName').textContent = ME.n;
+    requestAnimationFrame(function () { requestAnimationFrame(function () { e.classList.add('open'); edDraw(); edSwatches(); }); });
+  }
+  function closeEditor() { var e = $('edit'); e.classList.remove('open'); setTimeout(function () { e.hidden = true; }, 380); }
+  function edStage() {
+    var cv = $('eStage'), r = cv.getBoundingClientRect(), d = window.devicePixelRatio || 1, w = cv.width = Math.round(r.width * d), h = cv.height = Math.round(r.height * d), g = cv.getContext('2d');
+    var gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#7A5030'); gr.addColorStop(1, '#55361F'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    g.globalAlpha = 0.16; for (var i = 0; i < 30; i++) { var y = i / 30 * h + Math.sin(i) * 5; g.beginPath(); g.moveTo(0, y); g.bezierCurveTo(w * 0.3, y + 7, w * 0.6, y - 7, w, y + 3); g.strokeStyle = i % 3 ? '#3B2412' : '#9A6B42'; g.lineWidth = d; g.stroke(); } g.globalAlpha = 1;
+    g.translate(w / 2, h * 0.4); window.Checker.tilt(g, DR, Math.min(w * 0.3, h * 0.36));
+  }
+  function edDraw() {
+    edStage();
+    var C = window.Checker, M = C.MAT[DR.m];
+    $('lm').textContent = M.n; $('lt').textContent = M.tones[DR.t][0];
+    $('lf').textContent = C.FACES.filter(function (f) { return f[0] === DR.f; })[0][1];
+    $('li').textContent = C.INLAYS.filter(function (f) { return f[0] === DR.i; })[0][1];
+    $('la').textContent = C.ageName(DR.a); $('eAge').value = DR.a;
+  }
+  function edSwatches() {
+    var C = window.Checker, d = window.devicePixelRatio || 1;
+    function row(id, list, key) {
+      var el = $(id); el.innerHTML = '';
+      list.forEach(function (v) {
+        var b = document.createElement('button'), o = Object.assign({}, DR); o[key] = v[0];
+        if (key === 'm') o.t = Math.min(DR.t, 4);
+        b.setAttribute('aria-pressed', DR[key] === v[0]); b.setAttribute('aria-label', v[1]);
+        var c = document.createElement('canvas'); c.width = c.height = 40 * d; var g = c.getContext('2d'); g.translate(20 * d, 20 * d);
+        C.top(g, o, 17 * d, { noShadow: true }); b.appendChild(c);
+        b.onclick = function () { DR[key] = v[0]; edDraw(); edSwatches(); };
+        el.appendChild(b);
+      });
+    }
+    row('sm', Object.keys(C.MAT).map(function (k) { return [k, C.MAT[k].n]; }), 'm');
+    row('st', C.MAT[DR.m].tones.map(function (t, i) { return [i, t[0]]; }), 't');
+    row('sf', C.FACES, 'f');
+    row('si', C.INLAYS, 'i');
+  }
+  $('eAge').addEventListener('input', function (e) { DR.a = +e.target.value; edDraw(); });
+  $('eAge').addEventListener('change', edSwatches);
+  $('edit').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-e]'); if (!b) return;
+    var a = b.dataset.e;
+    if (a === 'cancel') closeEditor();
+    else if (a === 'wear') { DR.s = 1 + (Math.random() * 99999 | 0); edDraw(); edSwatches(); }
+    else if (a === 'surprise') { DR = window.Checker.random(); edDraw(); edSwatches(); }
+    else if (a === 'save') {
+      ME.ck = DR; try { localStorage.setItem('myChecker', JSON.stringify(DR)); } catch (x) {}
+      stars.forEach(function (s) { if (s.p === ME) s.el.querySelector('img').src = ckSrc(ME.ck); });
+      closeEditor(); toast('Your checker is saved.');
+    }
+  });
+  addEventListener('resize', function () { if (!$('edit').hidden) edStage(); });
 
   /* ---------- the orbs: each friend floats at their Elo; the height is a water surface ---------- */
   var field = $('field'), stars = [];
@@ -398,7 +814,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   P.forEach(function (p) {
     var el = document.createElement('button');
     el.className = 'star'; el.setAttribute('aria-label', p.n + ', Elo ' + p.elo);
-    el.innerHTML = '<div class="orb">' + p.i + '</div><small>' + p.n + '<em>' + p.elo.toLocaleString('en') + '</em></small>';
+    el.innerHTML = '<div class="orb ck"><img alt="" src="' + ckSrc(p.ck) + '"></div><small>' + p.n + '<em>' + p.elo.toLocaleString('en') + '</em></small>';
     field.appendChild(el);
     var s = { el: el, p: p, x: 0, y: 0, vx: 0, vy: 0, hy: 0, ph: Math.random() * 6.28, placed: false, drag: null, side: 0 };
     stars.push(s);
@@ -427,7 +843,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   function markOrbs() {
     stars.forEach(function (s) {
       var g = GAMES.filter(function (x) { return x.p === s.p.id; })[0];
-      s.el.firstChild.className = 'orb ' + (s.p === ME ? 'me' : g ? (g.s === 'yours' ? 'yours' : g.s === 'req' ? 'req' : 'them') : '');
+      s.el.firstChild.className = 'orb ck ' + (s.p === ME ? 'me' : g ? (g.s === 'yours' ? 'yours' : g.s === 'req' ? 'req' : 'them') : '');
     });
   }
   markOrbs();
@@ -1520,7 +1936,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   }
   function setNames() {
     var them = DUO ? SEATS[DUO.other] : OPP, me = DUO ? SEATS[DUO.seat] : { ini: 'QU' };
-    NAME.them = them.name; $('nmThem').textContent = them.name; $('avThem').textContent = them.ini; $('avMe').textContent = me.ini;
+    NAME.them = them.name; $('nmThem').textContent = them.name; if (window.ckAv) { ckAv($('avThem'), them.ini); ckAv($('avMe'), me.ini); } else { $('avThem').textContent = them.ini; $('avMe').textContent = me.ini; }
   }
   function joinDuo(seat) {
     if (DUO && DUO.unsub) DUO.unsub();
