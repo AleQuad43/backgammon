@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>New PIN · Backgammon</title>
+<link rel="icon" href="icon-192.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700&display=swap">
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="firebase-config.js"></script>
+<style>
+/* The page the "forgot your PIN" email opens: choose a new 4-digit PIN. */
+:root { --ink: #1F2D2E; --muted: #4A5859; --line: rgba(31,45,46,0.14); --accent: #2F5D62; --loss: oklch(0.58 0.12 25); }
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px 18px; font-family: 'Figtree', system-ui, sans-serif; color: var(--ink);
+  background: radial-gradient(60% 50% at 20% 15%, oklch(0.9 0.07 70), transparent 70%), radial-gradient(60% 60% at 85% 80%, oklch(0.89 0.06 240), transparent 70%), oklch(0.93 0.03 150); }
+.box { width: min(100%, 420px); background: rgba(250,252,251,0.82); backdrop-filter: blur(18px); border-radius: 30px; padding: 26px 22px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 24px 60px rgba(8,12,22,.16); }
+h1 { margin: 0; font-size: 28px; }
+p { margin: 0 0 4px; color: var(--muted); }
+label { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); display: flex; flex-direction: column; gap: 6px; }
+input { font: inherit; font-size: 17px; height: 50px; border-radius: 14px; border: 1.5px solid var(--line); background: #E6ECEA; color: var(--ink); padding: 0 14px; letter-spacing: .6em; }
+button { height: 54px; border-radius: 18px; border: none; background: var(--accent); color: #fff; font: inherit; font-size: 17px; font-weight: 700; }
+button:disabled { opacity: .6; }
+.err { color: var(--loss); min-height: 18px; font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="box" id="box"><h1>New PIN</h1><p>Checking your link…</p></div>
+<script>
+(function () {
+  var box = document.getElementById('box'), q = new URLSearchParams(location.search), code = q.get('oobCode'), mode = q.get('mode');
+  firebase.initializeApp(window.FB_CONFIG);
+  var auth = firebase.auth();
+  function pinPass(pin) { return 'bg-' + pin + '-pin'; }
+  function done(msg) { box.innerHTML = '<h1>All set</h1><p>' + msg + '</p><button onclick="location.href=\'./\'">Open Backgammon</button>'; }
+  if (mode !== 'resetPassword' || !code) { box.innerHTML = '<h1>New PIN</h1><p>This page only works from the link in your email.</p>'; return; }
+  auth.verifyPasswordResetCode(code).then(function (email) {
+    box.innerHTML = '<h1>New PIN</h1><p>For ' + email.replace(/[<>&]/g, '') + '</p>' +
+      '<label>New PIN<input id="p1" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="new-password"></label>' +
+      '<label>Again<input id="p2" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="new-password"></label>' +
+      '<div class="err" id="err"></div><button id="go">Save my new PIN</button>';
+    document.getElementById('p1').focus();
+    document.getElementById('go').onclick = function () {
+      var a = document.getElementById('p1').value, b = document.getElementById('p2').value, err = document.getElementById('err');
+      if (!/^\d{4}$/.test(a)) { err.textContent = 'The PIN is 4 digits.'; return; }
+      if (a !== b) { err.textContent = 'The two PINs are different.'; return; }
+      this.disabled = true;
+      auth.confirmPasswordReset(code, pinPass(a)).then(function () { done('Your new PIN is saved. Go back to the app and sign in with it.'); })
+        .catch(function (e) { err.textContent = 'That didn’t work (' + (e.code || 'error') + '). Ask for a new email from the app.'; });
+    };
+  }).catch(function () { box.innerHTML = '<h1>Link expired</h1><p>This link was already used or is too old. In the app, tap “Forgot your PIN?” again.</p>'; });
+})();
+</script>
+</body>
+</html>

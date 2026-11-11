@@ -1,0 +1,30 @@
+rules_version = '2';
+// Paste into Firebase console → Firestore Database → Rules, then Publish.
+// Everyone signed in sees the friends list; you only change your own player.
+// Emails are visible only to their owner and to the admin (the first account created).
+// A game can only be read or changed by the two players in it (its id is their two ids joined by "_").
+service cloud.firestore {
+  match /databases/{db}/documents {
+    function signedIn() { return request.auth != null; }
+    function isAdmin() {
+      return signedIn() && exists(/databases/$(db)/documents/meta/admin)
+        && get(/databases/$(db)/documents/meta/admin).data.uid == request.auth.uid;
+    }
+
+    match /players/{uid} {
+      allow read: if signedIn();
+      allow write: if signedIn() && request.auth.uid == uid;
+    }
+    match /emails/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow write: if signedIn() && request.auth.uid == uid;
+    }
+    match /meta/admin {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+    }
+    match /games/{gid} {
+      allow read, write: if signedIn() && request.auth.uid in gid.split('_');
+    }
+  }
+}

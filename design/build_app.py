@@ -68,6 +68,14 @@ api = r"""
   window.BG = {
     open: function (o) {
       showBoard();
+      /* Real accounts: one shared game per pair of friends, seat decided by the app. */
+      if (o.gid && !NODB) {
+        if (!DB) { PENDING = function () { window.BG.open(o); }; say('Connecting to the shared game…'); return; }
+        if (DUO && DUO.gid !== o.gid) { if (DUO.unsub) DUO.unsub(); DUO = null; G = null; }
+        CUR = o.id; SEATS.A = o.seats.A; SEATS.B = o.seats.B; OPP = SEATS[o.seat === 'A' ? 'B' : 'A'];
+        if (!DUO) { CASE.fresh = true; window.GAMEID = o.gid; joinDuo(o.seat); DUO.gid = o.gid; }
+        return;
+      }
       if (o.duo && !NODB) {
         if (!DB) { PENDING = function () { window.BG.open(o); }; if (!G) { OPP = o; setNames(); start(); } say('Connecting to the shared game…'); return; }
         CUR = 'duo';
@@ -82,7 +90,7 @@ api = r"""
     seat: function () { CUR = 'duo'; showBoard(); if (DB) pickSeat(); else say('The shared game needs the published page.'); },
     bearOff: function () { tryBearOff(); },
     restart: function () { if (DUO) newGame(true); else { G = null; start(); } },
-    current: function () { return DUO ? 'no' : CUR; },
+    current: function () { return DUO && !DUO.gid ? 'no' : CUR; },
     ready: function () { return !!G && $('over').hidden && !$('gv').hidden && (CUR !== 'duo' || !!(DUO && DUO.lastDoc)); }
   };
   $('homeBtn').addEventListener('click', function () { window.BG.close(); if (window.onBoardClosed) window.onBoardClosed(); });
@@ -99,6 +107,7 @@ def scope(line):
 css = '\n'.join(scope(l) for l in css.split('\n'))
 
 # The rail on the board shows each player's checker instead of initials.
+sub("ref: DB.doc('games/duo')", "ref: DB.doc('games/' + (window.GAMEID || 'duo'))")
 sub("$('avThem').textContent = them.ini; $('avMe').textContent = me.ini;",
     "if (window.ckAv) { ckAv($('avThem'), them.ini); ckAv($('avMe'), me.ini); } else { $('avThem').textContent = them.ini; $('avMe').textContent = me.ini; }")
 
@@ -129,6 +138,7 @@ WEB_HEAD = """<!doctype html>
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-192.png">
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
 <script>

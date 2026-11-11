@@ -12,6 +12,7 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-192.png">
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
 <script>
@@ -102,6 +103,23 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
 .eage { display: flex; align-items: center; gap: 12px; }
 .eage input { flex: 1; accent-color: var(--accent); height: 30px; }
 .etools { display: flex; gap: 8px; }
+/* sign in */
+.auth { position: absolute; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 24px 18px; box-sizing: border-box; }
+.auth[hidden] { display: none; }
+#home.out .bhead, #home.out .legend, #home.out .axis { visibility: hidden; }
+.auth .box { width: min(100%, 420px); background: var(--glass-strong); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); border-radius: 30px; padding: 26px 22px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 24px 60px rgba(8,12,22,.18); box-sizing: border-box; }
+.auth h1 { margin: 0; font-size: 30px; font-weight: 700; letter-spacing: -0.01em; }
+.auth p { margin: 0 0 4px; color: var(--muted); font-size: 15px; }
+.auth label { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); display: flex; flex-direction: column; gap: 6px; }
+.auth input { font: inherit; font-size: 17px; height: 50px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--page); color: var(--ink); padding: 0 14px; letter-spacing: 0; text-transform: none; -webkit-user-select: text; user-select: text; box-sizing: border-box; width: 100%; }
+.auth input.pin { letter-spacing: .6em; font-variant-numeric: tabular-nums; }
+.auth .err { color: var(--loss); font-size: 14px; min-height: 18px; }
+.auth .link { background: none; border: none; color: var(--accent); font-weight: 600; font-size: 14px; padding: 6px 0; align-self: center; }
+.big.alt { background: transparent; color: var(--ink); border: 1.5px solid var(--line); }
+.big:disabled { opacity: .6; }
+.emails { display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.emails div { display: flex; justify-content: space-between; gap: 10px; background: var(--page); border-radius: 12px; padding: 8px 12px; }
+.emails span { color: var(--muted); overflow-wrap: anywhere; text-align: right; -webkit-user-select: text; user-select: text; }
 .star small { font-size: 12px; font-weight: 600; line-height: 1.1; text-align: center; }
 .star small em { display: block; font-style: normal; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
 .legend { bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); z-index: 3; padding: 0 16px; box-sizing: border-box; }
@@ -257,6 +275,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   <div class="col card" id="card" role="dialog" aria-modal="true"><div id="cardIn"></div></div>
   <div class="col sheet" id="sheet" role="dialog" aria-modal="true"></div>
   <div class="col toast" id="toast" role="status"><div id="toastIn"></div></div>
+  <div class="auth" id="auth" hidden><div class="box" id="authBox"></div></div>
   <div class="edit" id="edit" role="dialog" aria-modal="true" aria-label="Your checker" hidden>
     <div class="ehead"><button class="mini" data-e="cancel">Cancel</button><b>Your checker</b><button class="mini go" data-e="save">Save</button></div>
     <div class="estage"><canvas id="eStage"></canvas><span id="eName"></span></div>
@@ -631,9 +650,15 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   dayTick(); setInterval(dayTick, fast ? 100 : 5000);
 
   /* ---------- friends (sample data until the real accounts exist) ---------- */
+  /* With Firebase (the deployed app) everyone is a real account; without it (inside Claude) the two sample players stay. */
+  var CLOUD = !!(window.firebase && window.FB_CONFIG && firebase.auth);
+  var AUTH = null, FS = null, UID = null, ADMIN = false;
+  if (CLOUD) { if (!firebase.apps.length) firebase.initializeApp(window.FB_CONFIG); AUTH = firebase.auth(); FS = firebase.firestore(); }
   var ME = { id: 'qu', n: 'Quad', i: 'QU', elo: 1500, d: 0, ck: { m: 'bone', t: 2, f: 'rosette', i: 'brass', a: 0.2, s: 4242 } };
   var P = [ME, { id: 'no', n: 'Nolf', i: 'NO', elo: 1500, d: 0, ck: { m: 'marble', t: 2, f: 'star', i: 'pearl', a: 0.45, s: 7719 } }];
-  try { var saved = JSON.parse(localStorage.getItem('myChecker')); if (saved && saved.m) ME.ck = saved; } catch (e) {}
+  if (CLOUD) { ME = null; P = []; }
+  else try { var saved = JSON.parse(localStorage.getItem('myChecker')); if (saved && saved.m) ME.ck = saved; } catch (e) {}
+  function esc(t) { return String(t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 
   /* ---------- checkers as avatars: drawn once per look, reused as images ---------- */
   var CKIMG = {};
@@ -645,22 +670,25 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   }
   function av(p, cls) { return '<div class="av ck ' + (cls || '') + '"><img alt="" src="' + ckSrc(p.ck) + '"></div>'; }
   window.ckAv = function (el, ini) {
-    var p = P.filter(function (x) { return x.i === ini; })[0]; if (!p) { el.textContent = ini; el.classList.remove('ck'); return; }
+    var p = P.filter(function (x) { return x.id === ini || x.i === ini; })[0]; if (!p) { el.textContent = ini; el.classList.remove('ck'); return; }
     el.classList.add('ck'); el.innerHTML = '<img alt="" src="' + ckSrc(p.ck) + '">';
   };
-  var byId = {}; P.forEach(function (p) { byId[p.id] = p; });
-  var GAMES = [{ p: 'no', s: 'yours', sc: [0, 0], to: 5, when: 'now', duo: true }];
-  var H2H = { no: { w: 0, l: 0, g: '0–0', last: '' } };
+  var byId = {}; function reindex() { byId = {}; P.forEach(function (p) { byId[p.id] = p; }); } reindex();
+  var GAMES = CLOUD ? [] : [{ p: 'no', s: 'yours', sc: [0, 0], to: 5, when: 'now', duo: true }];
+  var H2H = {}; function h2h(id) { return H2H[id] || { w: 0, l: 0, g: '0–0', last: '' }; }
   var HIST = [];
   var X = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
   var CHEV = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:.5;flex:0 0 auto"><path d="M9 6l6 6-6 6"/></svg>';
-  var waiting = GAMES.filter(function (g) { return g.s === 'yours' || g.s === 'req'; }).length;
-  $('bTitle').textContent = waiting === 1 ? 'One game waits for you' : waiting ? ['', '', 'Two', 'Three', 'Four'][waiting] + ' games wait for you' : 'Nothing waits for you';
+  function updateTitle() {
+    var waiting = GAMES.filter(function (g) { return g.s === 'yours' || g.s === 'req'; }).length;
+    $('bTitle').textContent = waiting === 1 ? 'One game waits for you' : waiting ? (['', '', 'Two', 'Three', 'Four', 'Five'][waiting] || waiting) + ' games wait for you' : 'Nothing waits for you';
+  }
+  updateTitle();
 
   function gameRow(g) {
     var p = byId[g.p];
     if (g.s === 'req') return '<div class="row req">' + av(p) + '<div class="t"><b>' + p.n + ' challenges you</b><small>to ' + g.to + (g.cube ? ' · cube on' : '') + ' · ' + g.when + '</small></div><button class="mini" data-act="decline" data-p="' + p.id + '">No</button><button class="mini go" data-act="accept" data-p="' + p.id + '">Play</button></div>';
-    return '<button class="row ' + (g.s === 'yours' ? 'yours' : '') + '" data-act="board" data-p="' + p.id + '">' + av(p) + '<div class="t"><b>vs ' + p.n + '</b><small class="num">' + g.sc.join('–') + ' to ' + g.to + ' · ' + (g.s === 'yours' ? 'your turn' : 'their turn') + ' · ' + g.when + '</small></div>' + (g.s === 'yours' ? '<span class="pip"></span>' : CHEV) + '</button>';
+    return '<button class="row ' + (g.s === 'yours' ? 'yours' : '') + '" data-act="board" data-p="' + p.id + '">' + av(p) + '<div class="t"><b>vs ' + p.n + '</b><small class="num">' + g.sc.join('–') + ' to ' + g.to + ' · ' + (g.s === 'yours' ? 'your turn' : 'their turn') + (g.when ? ' · ' + g.when : '') + '</small></div>' + (g.s === 'yours' ? '<span class="pip"></span>' : CHEV) + '</button>';
   }
   function histRow(m) {
     var p = byId[m.p];
@@ -688,17 +716,18 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       return '<div class="card-top"><button class="av-btn" data-act="edit" aria-label="Change your checker" style="border:none;background:none;padding:0">' + av(ME, 'me') + '</button><div><h4>' + ME.n + '</h4><p class="num">Elo ' + ME.elo.toLocaleString('en') + '</p></div><button class="x" data-act="close" aria-label="Close">' + X + '</button></div>' +
         '<button class="big" data-act="edit">Change your checker</button>' +
         '<div class="tiles"><div class="tile"><small>Matches</small><b>' + HIST.length + '</b></div><div class="tile"><small>Won</small><b>–</b></div><div class="tile"><small>Gammons</small><b>0</b></div></div>' +
-        '<div><div class="label" style="margin:0 4px 8px">For testing</div><div class="tools"><button class="mini" data-act="seat">Who plays on this device</button><button class="mini" data-act="bearoff">Bear-off position</button><button class="mini" data-act="restart">Start the match over</button></div></div>' +
+        (ADMIN ? '<div><div class="label" style="margin:0 4px 8px">Friends’ emails · only you see this</div><div class="emails" id="emails">Loading…</div></div>' : '') +
+        '<div><div class="label" style="margin:0 4px 8px">For testing</div><div class="tools">' + (CLOUD ? '' : '<button class="mini" data-act="seat">Who plays on this device</button>') + '<button class="mini" data-act="bearoff">Bear-off position</button><button class="mini" data-act="restart">Start the match over</button>' + (CLOUD ? '<button class="mini" data-act="signout">Sign out</button>' : '') + '</div></div>' +
         (HIST.length ? '<div class="label" style="margin:4px 4px 0">Your history</div><div>' + HIST.map(histRow).join('') + '</div>' : '');
     }
-    var p = byId[id], h = H2H[id], g = GAMES.filter(function (x) { return x.p === id; })[0];
+    var p = byId[id], h = h2h(id), g = GAMES.filter(function (x) { return x.p === id; })[0];
     var out = '<div class="card-top">' + av(p) + '<div><h4>' + p.n + '</h4><p class="num">Elo ' + p.elo.toLocaleString('en') + '</p></div><button class="x" data-act="close" aria-label="Close">' + X + '</button></div>';
     if (g) out += gameRow(g);
     out += '<div class="tiles"><div class="tile"><small>You vs ' + p.n + '</small><b>' + h.w + '–' + h.l + '</b></div><div class="tile"><small>Win rate</small><b>' + (h.w + h.l ? Math.round(100 * h.w / (h.w + h.l)) + '%' : '–') + '</b></div><div class="tile"><small>Gammons</small><b>' + h.g + '</b></div></div>';
     if (h.last) out += '<div><div class="label" style="margin:0 4px 8px">Last ' + h.last.length + '</div><div class="strip">' + h.last.split('').map(function (r) { return '<i class="' + r + '"></i>'; }).join('') + '</div></div>';
     var ms = HIST.filter(function (m) { return m.p === id; });
     if (ms.length) out += '<div>' + ms.map(histRow).join('') + '</div>';
-    if (!g) out += '<button class="big" data-act="new" data-p="' + id + '" style="margin-top:auto">Challenge ' + p.n + '</button>';
+    if (!g) out += CLOUD ? '<button class="big" data-act="board" data-p="' + id + '" style="margin-top:auto">Play with ' + esc(p.n) + '</button>' : '<button class="big" data-act="new" data-p="' + id + '" style="margin-top:auto">Challenge ' + p.n + '</button>';
     return out;
   }
 
@@ -724,8 +753,15 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   function openGame(pid) {
     var g = GAMES.filter(function (x) { return x.p === pid; })[0], p = byId[pid];
     closeAll();
+    if (CLOUD) {
+      var seat = UID < pid ? 'A' : 'B', seats = {};
+      seats[seat] = { name: ME.n, ini: UID }; seats[seat === 'A' ? 'B' : 'A'] = { name: p.n, ini: pid };
+      window.BG.open({ id: pid, gid: [UID, pid].sort().join('_'), seat: seat, seats: seats, name: p.n, ini: pid });
+      return;
+    }
     window.BG.open({ id: pid, name: p.n, ini: p.i, duo: !!(g && g.duo), score: g && g.sc ? { me: g.sc[0], them: g.sc[1] } : null });
   }
+  function firstOther() { var o = P.filter(function (p) { return p !== ME; })[0]; return o ? o.id : 'no'; }
   function whenBoard(fn, n) { n = n || 0; if (window.BG.ready() || n > 30) fn(); else setTimeout(function () { whenBoard(fn, n + 1); }, 300); }
 
   $('home').addEventListener('click', function (e) {
@@ -743,17 +779,21 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     else if (a === 'edit') openEditor();
     else if (a === 'send') { closeAll(); toast('Challenge sent to ' + byId[ng.p].n + '.'); }
     else if (a === 'seat') { closeAll(); window.BG.seat(); }
-    else if (a === 'bearoff') { closeAll(); if (!window.BG.current()) openGame('no'); whenBoard(function () { window.BG.bearOff(); }); }
-    else if (a === 'restart') { closeAll(); if (!window.BG.current()) openGame('no'); whenBoard(function () { window.BG.restart(); }); }
+    else if (a === 'signout') { closeAll(); AUTH.signOut(); }
+    else if (a === 'bearoff') { closeAll(); if (!window.BG.current()) openGame(firstOther()); whenBoard(function () { window.BG.bearOff(); }); }
+    else if (a === 'restart') { closeAll(); if (!window.BG.current()) openGame(firstOther()); whenBoard(function () { window.BG.restart(); }); }
   });
   $('scrim').addEventListener('click', closeAll);
   $('home').addEventListener('scroll', function () { $('home').scrollTop = 0; $('home').scrollLeft = 0; });
 
   /* ---------- your checker: one screen, no scrolling ---------- */
   var DR = null;
-  function openEditor() {
-    closeAll(); DR = Object.assign({}, ME.ck);
-    var e = $('edit'); e.hidden = false; $('eName').textContent = ME.n;
+  var FIRST = null;
+  function openEditor(first) {
+    closeAll(); FIRST = first || null; DR = first ? window.Checker.random() : Object.assign({}, ME.ck);
+    var e = $('edit'); e.hidden = false; $('eName').textContent = first ? first.name : ME.n;
+    e.querySelector('[data-e="cancel"]').style.visibility = first ? 'hidden' : 'visible';
+    e.querySelector('.ehead b').textContent = first ? 'Choose your checker' : 'Your checker';
     requestAnimationFrame(function () { requestAnimationFrame(function () { e.classList.add('open'); edDraw(); edSwatches(); }); });
   }
   function closeEditor() { var e = $('edit'); e.classList.remove('open'); setTimeout(function () { e.hidden = true; }, 380); }
@@ -798,6 +838,12 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     if (a === 'cancel') closeEditor();
     else if (a === 'wear') { DR.s = 1 + (Math.random() * 99999 | 0); edDraw(); edSwatches(); }
     else if (a === 'surprise') { DR = window.Checker.random(); edDraw(); edSwatches(); }
+    else if (a === 'save' && CLOUD) {
+      var ref = FS.doc('players/' + UID), w = FIRST ? ref.set({ name: FIRST.name, ck: DR, elo: 1500, t: Date.now() }) : ref.update({ ck: DR });
+      b.disabled = true;
+      w.then(function () { b.disabled = false; closeEditor(); toast(FIRST ? 'Welcome to the table, ' + FIRST.name + '.' : 'Your checker is saved.'); FIRST = null; })
+       .catch(function (x) { b.disabled = false; toast('Couldn’t save: ' + (x.code || x.message)); });
+    }
     else if (a === 'save') {
       ME.ck = DR; try { localStorage.setItem('myChecker', JSON.stringify(DR)); } catch (x) {}
       stars.forEach(function (s) { if (s.p === ME) s.el.querySelector('img').src = ckSrc(ME.ck); });
@@ -808,16 +854,19 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
 
   /* ---------- the orbs: each friend floats at their Elo; the height is a water surface ---------- */
   var field = $('field'), stars = [];
-  var XS = { qu: 0.32, no: 0.68 };
+  function xOf(p) { var L = P.slice().sort(function (a, b) { return a.n < b.n ? -1 : 1; }), i = L.indexOf(p); return (i + 1) / (L.length + 1); }
   var TUNE = { fall: 1100, thick: 8, buoy: 9, bounce: 230, float: 3, grip: 29, resist: 2.2, wind: 0.75, drift: 4 };
   var R = 44, OX = 43, OY = 31;
-  P.forEach(function (p) {
+  function starLabel(p) { return esc(p.n) + '<em>' + p.elo.toLocaleString('en') + '</em>'; }
+  function addStar(p) {
     var el = document.createElement('button');
     el.className = 'star'; el.setAttribute('aria-label', p.n + ', Elo ' + p.elo);
-    el.innerHTML = '<div class="orb ck"><img alt="" src="' + ckSrc(p.ck) + '"></div><small>' + p.n + '<em>' + p.elo.toLocaleString('en') + '</em></small>';
+    el.innerHTML = '<div class="orb ck"><img alt="" src="' + ckSrc(p.ck) + '"></div><small>' + starLabel(p) + '</small>';
     field.appendChild(el);
     var s = { el: el, p: p, x: 0, y: 0, vx: 0, vy: 0, hy: 0, ph: Math.random() * 6.28, placed: false, drag: null, side: 0 };
+    if (FW) { s.hy = yOf(p.elo, FH); s.x = xOf(p) * FW; s.y = s.hy; s.placed = true; }
     stars.push(s);
+    p = null;
     el.addEventListener('pointerdown', function (e) {
       var f = field.getBoundingClientRect();
       el.setPointerCapture(e.pointerId);
@@ -833,13 +882,23 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     function release() {
       if (!s.drag) return;
       var d = s.drag; s.drag = null; el.classList.remove('held');
-      if (!d.moved && performance.now() - d.t < 400) { s.vx = s.vy = 0; openCard(playerCard(p.id), el); return; }
+      if (!d.moved && performance.now() - d.t < 400) { s.vx = s.vy = 0; openCard(playerCard(s.p.id), el); return; }
       s.side = Math.abs(s.y - s.hy) > 3 ? Math.sign(s.y - s.hy) : 0;
     }
     el.addEventListener('pointerup', release);
     el.addEventListener('pointercancel', release);
-    el.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCard(playerCard(p.id), el); } });
-  });
+    el.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCard(playerCard(s.p.id), el); } });
+  }
+  P.forEach(addStar);
+  function syncStars() {
+    stars = stars.filter(function (s) {
+      var p = byId[s.p.id]; if (!p) { s.el.remove(); return false; }
+      s.p = p; s.el.querySelector('img').src = ckSrc(p.ck); s.el.querySelector('small').innerHTML = starLabel(p);
+      if (FH) s.hy = yOf(p.elo, FH); return true;
+    });
+    P.forEach(function (p) { if (!stars.some(function (s) { return s.p.id === p.id; })) addStar(p); });
+    restX(); markOrbs(); updateTitle();
+  }
   function markOrbs() {
     stars.forEach(function (s) {
       var g = GAMES.filter(function (x) { return x.p === s.p.id; })[0];
@@ -852,13 +911,15 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   function layoutB() {
     FW = field.clientWidth; FH = field.clientHeight;
     $('axis').innerHTML = [1400, 1500, 1600].map(function (v) { return '<span style="top:' + (yOf(v, FH) - 8).toFixed(0) + 'px">' + v + '</span>'; }).join('');
-    stars.forEach(function (s) { s.hy = yOf(s.p.elo, FH); if (!s.placed) { s.x = XS[s.p.id] * FW; s.y = s.hy; s.placed = true; } });
-    var sx = 0; for (var id in XS) sx += XS[id]; REST_X = sx / Object.keys(XS).length * FW;
+    stars.forEach(function (s) { s.hy = yOf(s.p.elo, FH); if (!s.placed) { s.x = xOf(s.p) * FW; s.y = s.hy; s.placed = true; } });
+    restX();
   }
+  function restX() { var sx = 0; P.forEach(function (p) { sx += xOf(p); }); REST_X = (P.length ? sx / P.length : 0.5) * FW; }
   /* Sky: pool 1 sits on the (smoothed) mean of the orbs; pools 2 and 3 are the first two seeds of a sunflower spiral around it,
      wound by how far the friends have been pushed sideways, with a very slow drift. */
   var GEO = { p1: null }, THETA0 = -Math.PI / 3, GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
   function skyB(dt, t) {
+    if (!stars.length) return;
     var mx = 0, my = 0; stars.forEach(function (s) { mx += s.x; my += s.y; }); mx /= stars.length; my /= stars.length;
     if (!GEO.p1) GEO.p1 = [mx, my];
     var f = 1 - Math.exp(-dt / 1.2);
@@ -925,6 +986,126 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   }
   window.addEventListener('resize', layoutB);
   layoutB(); requestAnimationFrame(loopB);
+
+  /* ---------- accounts: name, email and a 4-digit PIN. Forgot it? Firebase emails a link to choose a new one. ---------- */
+  if (CLOUD) {
+    var AF = { email: '', name: '' }, unsubP = null, GL = {};
+    var pinPass = function (pin) { return 'bg-' + pin + '-pin'; };   /* Firebase wants 6+ characters; people type 4 digits */
+    var fieldH = function (label, id, kind, ac) {
+      return '<label>' + label + '<input id="' + id + '" ' + (kind === 'pin' ? 'class="pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4"' : 'type="' + kind + '"') + ' autocomplete="' + ac + '"' + (kind === 'email' ? ' autocapitalize="off" spellcheck="false"' : '') + '></label>';
+    };
+    var authView = function (v, info) {
+      var h = '';
+      if (v === 'welcome') h = '<h1>Backgammon</h1><p>A quiet table for friends.</p><button class="big" data-a="new">I’m new</button><button class="big alt" data-a="in">I already play</button>';
+      if (v === 'new') h = '<h1>Join the table</h1><p>Pick a 4-digit PIN. If you forget it, we’ll email you a link to choose a new one.</p>' + fieldH('Name', 'aName', 'text', 'nickname') + fieldH('Email', 'aEmail', 'email', 'email') + fieldH('PIN', 'aPin', 'pin', 'new-password') + '<div class="err" id="aErr"></div><button class="big" data-a="create">Continue</button><button class="link" data-a="welcome">Back</button>';
+      if (v === 'in') h = '<h1>Welcome back</h1><p>Your email and your PIN.</p>' + fieldH('Email', 'aEmail', 'email', 'email') + fieldH('PIN', 'aPin', 'pin', 'current-password') + '<div class="err" id="aErr"></div><button class="big" data-a="signin">Sign in</button><button class="link" data-a="forgot">Forgot your PIN?</button><button class="link" data-a="welcome">Back</button>';
+      if (v === 'sent') h = '<h1>Check your email</h1><p>We sent a link to <b>' + esc(info) + '</b>. Open it to choose a new PIN, then come back and sign in. It can land in spam.</p><button class="big" data-a="in">Back to sign in</button>';
+      if (v === 'name') h = '<h1>One more thing</h1><p>What should your friends call you?</p>' + fieldH('Name', 'aName', 'text', 'nickname') + '<div class="err" id="aErr"></div><button class="big" data-a="setname">Continue</button>';
+      $('authBox').innerHTML = h; $('auth').hidden = false; $('home').classList.add('out');
+      if ($('aEmail')) $('aEmail').value = AF.email;
+      if ($('aName')) $('aName').value = AF.name;
+      var first = $('authBox').querySelector('input'); if (first && !first.value) setTimeout(function () { try { first.focus(); } catch (e) {} }, 60);
+    };
+    var authErr = function (x) {
+      var c = (x && x.code) || '', m = {
+        'auth/email-already-in-use': 'That email already has a player. Go back and choose “I already play”.',
+        'auth/invalid-email': 'That email doesn’t look right.',
+        'auth/invalid-credential': 'Email or PIN doesn’t match.', 'auth/wrong-password': 'Email or PIN doesn’t match.', 'auth/user-not-found': 'No player with that email.',
+        'auth/too-many-requests': 'Too many tries. Wait a minute, or use “Forgot your PIN?”.',
+        'auth/network-request-failed': 'No connection. Try again.',
+        'auth/operation-not-allowed': 'Sign-in isn’t switched on in Firebase yet.'
+      }[c];
+      $('aErr').textContent = m || ('Something went wrong' + (c ? ' (' + c + ')' : '') + '.');
+    };
+    var busy = function (b, on) { b.disabled = on; };
+    $('auth').addEventListener('keydown', function (e) { if (e.key === 'Enter') { var b = $('authBox').querySelector('.big'); if (b) b.click(); } });
+    $('auth').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-a]'); if (!b) return;
+      var a = b.dataset.a;
+      if ($('aEmail')) AF.email = $('aEmail').value.trim();
+      if ($('aName')) AF.name = $('aName').value.trim();
+      var pin = $('aPin') ? $('aPin').value.trim() : '';
+      if (a === 'welcome' || a === 'new' || a === 'in') { authView(a); return; }
+      if (a === 'create') {
+        if (!AF.name) return void ($('aErr').textContent = 'Type your name.');
+        if (AF.name.length > 20) return void ($('aErr').textContent = 'Keep your name under 20 letters.');
+        if (AF.email.indexOf('@') < 1) return void ($('aErr').textContent = 'Type your email.');
+        if (!/^\d{4}$/.test(pin)) return void ($('aErr').textContent = 'The PIN is 4 digits.');
+        busy(b, true);
+        AUTH.createUserWithEmailAndPassword(AF.email, pinPass(pin)).then(function (cred) {
+          var uid = cred.user.uid, adm = FS.doc('meta/admin');
+          FS.doc('emails/' + uid).set({ email: AF.email, name: AF.name });
+          FS.runTransaction(function (tx) { return tx.get(adm).then(function (d) { if (!d.exists) tx.set(adm, { uid: uid }); }); }).catch(function () {});
+        }).catch(function (x) { busy(b, false); authErr(x); });
+      }
+      if (a === 'signin') {
+        if (AF.email.indexOf('@') < 1) return void ($('aErr').textContent = 'Type your email.');
+        if (!/^\d{4}$/.test(pin)) return void ($('aErr').textContent = 'The PIN is 4 digits.');
+        busy(b, true);
+        AUTH.signInWithEmailAndPassword(AF.email, pinPass(pin)).catch(function (x) { busy(b, false); authErr(x); });
+      }
+      if (a === 'forgot') {
+        if (AF.email.indexOf('@') < 1) return void ($('aErr').textContent = 'Type your email first, then tap “Forgot your PIN?”.');
+        AUTH.sendPasswordResetEmail(AF.email).then(function () { authView('sent', AF.email); }).catch(authErr);
+      }
+      if (a === 'setname') {
+        if (!AF.name) return void ($('aErr').textContent = 'Type your name.');
+        FS.doc('emails/' + UID).set({ email: AUTH.currentUser.email, name: AF.name }, { merge: true });
+        $('auth').hidden = true; $('home').classList.remove('out'); openEditor({ name: AF.name });
+      }
+    });
+
+    var gameState = function (d, seat) {
+      if (!d || !d.board) return null;
+      var other = seat === 'A' ? 'B' : 'A', mine;
+      if (d.phase === 'over') mine = true;
+      else if (d.phase === 'offered') mine = d.offerBy !== seat;
+      else if (d.phase === 'opening' || !d.turn) mine = !(d.open && d.open[seat]);
+      else mine = d.turn === seat;
+      return { s: mine ? 'yours' : 'them', sc: [(d.score && d.score[seat]) || 0, (d.score && d.score[other]) || 0], to: 5, when: '' };
+    };
+    var listenGames = function () {
+      P.forEach(function (p) {
+        if (p.id === UID || GL[p.id]) return;
+        var seat = UID < p.id ? 'A' : 'B';
+        GL[p.id] = FS.doc('games/' + [UID, p.id].sort().join('_')).onSnapshot(function (snap) {
+          var d = null; try { d = snap.exists ? JSON.parse(snap.data().j) : null; } catch (e) {}
+          var g = gameState(d, seat);
+          GAMES = GAMES.filter(function (x) { return x.p !== p.id; }); if (g) { g.p = p.id; GAMES.push(g); }
+          markOrbs(); updateTitle();
+        }, function () {});
+      });
+    };
+    var stopAll = function () { if (unsubP) unsubP(); unsubP = null; for (var k in GL) GL[k](); GL = {}; GAMES = []; };
+    var loadEmails = function () {
+      FS.collection('emails').get().then(function (qs) {
+        var el = $('emails'); if (!el) return;
+        el.innerHTML = qs.docs.map(function (d) { var v = d.data(); return '<div><b>' + esc(v.name || '–') + '</b><span>' + esc(v.email || '') + '</span></div>'; }).join('') || 'Nobody yet.';
+      }).catch(function () { var el = $('emails'); if (el) el.textContent = 'Couldn’t load the emails.'; });
+    };
+    var starTap = openCard; openCard = function (html, from) { starTap(html, from); if (ADMIN && $('emails')) loadEmails(); };
+
+    AUTH.onAuthStateChanged(function (u) {
+      stopAll();
+      if (!u) { UID = null; ME = null; ADMIN = false; P = []; reindex(); syncStars(); window.BG && window.BG.close(); authView('welcome'); return; }
+      UID = u.uid; $('auth').hidden = true; $('home').classList.remove('out');
+      FS.doc('meta/admin').get().then(function (d) { ADMIN = d.exists && d.data().uid === UID; }).catch(function () {});
+      unsubP = FS.collection('players').onSnapshot(function (qs) {
+        P = qs.docs.map(function (d) { var v = d.data(); return { id: d.id, n: v.name || 'Player', i: d.id, elo: v.elo || 1500, d: 0, ck: v.ck || window.Checker.random() }; });
+        reindex(); ME = byId[UID] || null;
+        if (!ME) {
+          if ($('edit').hidden) {
+            FS.doc('emails/' + UID).get().then(function (d) {
+              var n = (d.exists && d.data().name) || AF.name;
+              if (n) openEditor({ name: n }); else authView('name');
+            });
+          }
+          P = P.filter(function (p) { return p.id !== UID; }); reindex();
+        }
+        syncStars(); listenGames();
+      }, function (x) { toast('Can’t reach the friends list (' + (x.code || 'error') + ').'); });
+    });
+  }
 })();
 </script>
 <script>
@@ -1946,7 +2127,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   }
   function joinDuo(seat) {
     if (DUO && DUO.unsub) DUO.unsub();
-    DUO = { seat: seat, other: seat === 'A' ? 'B' : 'A', ref: DB.doc('games/duo'), V: 0, chain: Promise.resolve(), game: null, openN: {}, first: true, lastDoc: null };
+    DUO = { seat: seat, other: seat === 'A' ? 'B' : 'A', ref: DB.doc('games/' + (window.GAMEID || 'duo')), V: 0, chain: Promise.resolve(), game: null, openN: {}, first: true, lastDoc: null };
     setNames(); resetLocal({ game: null }); say('Joining the shared game…');
     var me = DUO, timer = setTimeout(function () { if (DUO === me) say('Can’t reach the shared game yet.'); }, 10000);
     me.unsub = me.ref.onSnapshot(function (snap) {
@@ -2008,6 +2189,14 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   window.BG = {
     open: function (o) {
       showBoard();
+      /* Real accounts: one shared game per pair of friends, seat decided by the app. */
+      if (o.gid && !NODB) {
+        if (!DB) { PENDING = function () { window.BG.open(o); }; say('Connecting to the shared game…'); return; }
+        if (DUO && DUO.gid !== o.gid) { if (DUO.unsub) DUO.unsub(); DUO = null; G = null; }
+        CUR = o.id; SEATS.A = o.seats.A; SEATS.B = o.seats.B; OPP = SEATS[o.seat === 'A' ? 'B' : 'A'];
+        if (!DUO) { CASE.fresh = true; window.GAMEID = o.gid; joinDuo(o.seat); DUO.gid = o.gid; }
+        return;
+      }
       if (o.duo && !NODB) {
         if (!DB) { PENDING = function () { window.BG.open(o); }; if (!G) { OPP = o; setNames(); start(); } say('Connecting to the shared game…'); return; }
         CUR = 'duo';
@@ -2022,7 +2211,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     seat: function () { CUR = 'duo'; showBoard(); if (DB) pickSeat(); else say('The shared game needs the published page.'); },
     bearOff: function () { tryBearOff(); },
     restart: function () { if (DUO) newGame(true); else { G = null; start(); } },
-    current: function () { return DUO ? 'no' : CUR; },
+    current: function () { return DUO && !DUO.gid ? 'no' : CUR; },
     ready: function () { return !!G && $('over').hidden && !$('gv').hidden && (CUR !== 'duo' || !!(DUO && DUO.lastDoc)); }
   };
   $('homeBtn').addEventListener('click', function () { window.BG.close(); if (window.onBoardClosed) window.onBoardClosed(); });
