@@ -73,7 +73,7 @@ api = r"""
         if (!DB) { PENDING = function () { window.BG.open(o); }; say('Connecting to the shared game…'); return; }
         if (DUO && DUO.gid !== o.gid) { if (DUO.unsub) DUO.unsub(); DUO = null; G = null; }
         CUR = o.id; SEATS.A = o.seats.A; SEATS.B = o.seats.B; OPP = SEATS[o.seat === 'A' ? 'B' : 'A'];
-        if (!DUO) { CASE.fresh = true; window.GAMEID = o.gid; joinDuo(o.seat); DUO.gid = o.gid; }
+        if (!DUO) { CASE.fresh = true; MATCH = o.to || 5; window.GAMEID = o.gid; joinDuo(o.seat); DUO.gid = o.gid; }
         return;
       }
       if (o.duo && !NODB) {

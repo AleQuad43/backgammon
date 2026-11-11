@@ -211,6 +211,9 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
 #gv .over { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
 #gv .over div { pointer-events: auto; background: var(--glass-strong); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); padding: 18px 24px; border-radius: 22px; text-align: center; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 16px 40px rgba(8,12,22,0.25); }
 #gv .over b { font-size: 22px; }
+#gv .over .lens { display: flex; flex-direction: row; gap: 8px; justify-content: center; flex-wrap: wrap; background: none; padding: 0; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; border-radius: 0; }
+#gv .over .lens button { min-width: 48px; padding: 0 12px; }
+#gv .over .lens button.on { outline: 2px solid currentColor; outline-offset: 2px; }
 #gv .over button { height: 40px; border-radius: 12px; border: none; background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 15px; padding: 0 16px; }
 #gv .over button.alt { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--line); }
 #gv .over span { color: var(--muted); font-size: 13px; max-width: 300px; }
@@ -568,7 +571,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       <aside class="rail" id="rail">
         <div>
           <div class="railTop"><button class="homeBtn" id="homeBtn" aria-label="Back to your friends"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7" cy="9" r="3.2"/><circle cx="16.5" cy="6.5" r="2.4"/><circle cx="15" cy="16" r="3.6"/></svg>Friends</button></div>
-          <div class="score"><b id="scMe">0</b><span>–</span><b id="scThem">0</b><small>to 5</small></div>
+          <div class="score"><b id="scMe">0</b><span>–</span><b id="scThem">0</b><small id="scTo">to 5</small></div>
           <div class="status" id="status" role="status"></div>
         </div>
         <div class="who" id="whoThem"><div class="av them" id="avThem">NO</div><div><b id="nmThem">Nolf</b><small id="pipThem"></small></div></div>
@@ -682,7 +685,8 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
         '<button class="big" data-act="edit">Change your checker</button>' +
         '<div class="tiles"><div class="tile"><small>Matches</small><b>' + HIST.length + '</b></div><div class="tile"><small>Won</small><b>–</b></div><div class="tile"><small>Gammons</small><b>0</b></div></div>' +
         (ADMIN ? '<div><div class="label" style="margin:0 4px 8px">Friends’ emails · only you see this</div><div class="emails" id="emails">Loading…</div></div>' : '') +
-        '<div><div class="label" style="margin:0 4px 8px">For testing</div><div class="tools">' + (CLOUD ? '' : '<button class="mini" data-act="seat">Who plays on this device</button>') + '<button class="mini" data-act="bearoff">Bear-off position</button><button class="mini" data-act="restart">Start the match over</button>' + (CLOUD ? '<button class="mini" data-act="signout">Sign out</button>' : '') + '</div></div>' +
+        (CLOUD ? '<div class="tools"><button class="mini" data-act="signout">Sign out</button></div>' :
+          '<div><div class="label" style="margin:0 4px 8px">For testing</div><div class="tools"><button class="mini" data-act="seat">Who plays on this device</button><button class="mini" data-act="bearoff">Bear-off position</button><button class="mini" data-act="restart">Start the match over</button></div></div>') +
         (HIST.length ? '<div class="label" style="margin:4px 4px 0">Your history</div><div>' + HIST.map(histRow).join('') + '</div>' : '');
     }
     var p = byId[id], h = h2h(id), g = GAMES.filter(function (x) { return x.p === id; })[0];
@@ -692,7 +696,9 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     if (h.last) out += '<div><div class="label" style="margin:0 4px 8px">Last ' + h.last.length + '</div><div class="strip">' + h.last.split('').map(function (r) { return '<i class="' + r + '"></i>'; }).join('') + '</div></div>';
     var ms = HIST.filter(function (m) { return m.p === id; });
     if (ms.length) out += '<div>' + ms.map(histRow).join('') + '</div>';
-    if (!g) out += CLOUD ? '<button class="big" data-act="board" data-p="' + id + '" style="margin-top:auto">Play with ' + esc(p.n) + '</button>' : '<button class="big" data-act="new" data-p="' + id + '" style="margin-top:auto">Challenge ' + p.n + '</button>';
+    if (!g) out += CLOUD ? '<div style="margin-top:auto"><div class="label" style="margin:0 4px 8px">Match to</div><div class="chips" style="margin-bottom:12px">' +
+        [3, 5, 7, 9, 11, 15].map(function (n) { return '<button class="chip" data-act="cto" data-p="' + id + '" data-n="' + n + '" aria-pressed="' + (ng.to === n) + '">' + n + '</button>'; }).join('') +
+        '</div><button class="big" data-act="board" data-p="' + id + '">Play with ' + esc(p.n) + '</button></div>' : '<button class="big" data-act="new" data-p="' + id + '" style="margin-top:auto">Challenge ' + p.n + '</button>';
     return out;
   }
 
@@ -721,7 +727,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     if (CLOUD) {
       var seat = UID < pid ? 'A' : 'B', seats = {};
       seats[seat] = { name: ME.n, ini: UID }; seats[seat === 'A' ? 'B' : 'A'] = { name: p.n, ini: pid };
-      window.BG.open({ id: pid, gid: [UID, pid].sort().join('_'), seat: seat, seats: seats, name: p.n, ini: pid });
+      window.BG.open({ id: pid, gid: [UID, pid].sort().join('_'), seat: seat, seats: seats, name: p.n, ini: pid, to: g ? g.to : ng.to });
       return;
     }
     window.BG.open({ id: pid, name: p.n, ini: p.i, duo: !!(g && g.duo), score: g && g.sc ? { me: g.sc[0], them: g.sc[1] } : null });
@@ -739,6 +745,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     else if (a === 'decline') { GAMES = GAMES.filter(function (g) { return g.p !== pid; }); markOrbs(); closeAll(); toast('Challenge declined.'); }
     else if (a === 'new') openSheet(pid);
     else if (a === 'ngp') { ng.p = pid; $('sheet').innerHTML = sheetHTML(); }
+    else if (a === 'cto') { ng.to = +b.dataset.n; $('cardIn').innerHTML = playerCard(pid); }
     else if (a === 'ngto') { ng.to = +b.dataset.n; $('sheet').innerHTML = sheetHTML(); }
     else if (a === 'ngcube') { ng.cube = !ng.cube; $('sheet').innerHTML = sheetHTML(); }
     else if (a === 'edit') openEditor();
@@ -1028,7 +1035,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       else if (d.phase === 'offered') mine = d.offerBy !== seat;
       else if (d.phase === 'opening' || !d.turn) mine = !(d.open && d.open[seat]);
       else mine = d.turn === seat;
-      return { s: mine ? 'yours' : 'them', sc: [(d.score && d.score[seat]) || 0, (d.score && d.score[other]) || 0], to: 5, when: '' };
+      return { s: mine ? 'yours' : 'them', sc: [(d.score && d.score[seat]) || 0, (d.score && d.score[other]) || 0], to: d.to || 5, when: '' };
     };
     var listenGames = function () {
       P.forEach(function (p) {
@@ -1868,6 +1875,12 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   function showOver(winner, pts, dropped, gam, bg) {
     var o = $('over'); o.hidden = false;
     o.innerHTML = '<div><b>' + (winner === ME ? 'You win' : NAME.them + ' wins') + ' ' + pts + ' point' + (pts > 1 ? 's' : '') + '</b><span>' + (dropped ? (winner === ME ? NAME.them + ' passed on the double. ' : 'You gave up on the double. ') : bg ? 'Backgammon. ' : gam ? 'Gammon. ' : '') + G.score.me + ' – ' + G.score.them + ', match to ' + MATCH + '</span><button id="again">Next game</button></div>';
+    if (G.score[winner] >= MATCH) {
+      o.innerHTML = '<div><b>' + (winner === ME ? 'You win the match' : NAME.them + ' wins the match') + '</b><span>' + G.score.me + ' – ' + G.score.them + (bg ? ' · backgammon' : gam ? ' · gammon' : '') + '</span>' +
+        '<span>New match to</span><div class="lens">' + [3, 5, 7, 9, 11, 15].map(function (n) { return '<button data-to="' + n + '"' + (n === MATCH ? ' class="on"' : '') + '>' + n + '</button>'; }).join('') + '</div></div>';
+      Array.prototype.forEach.call(o.querySelectorAll('[data-to]'), function (b) { b.addEventListener('click', function () { newMatch(+b.getAttribute('data-to')); }); });
+      return;
+    }
     $('again').addEventListener('click', function () { if (DUO) newGame(false); else start(); });
   }
 
@@ -1930,7 +1943,12 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     var sc = {}, ld = DUO.lastDoc || {}; sc[DUO.seat] = G.score.me; sc[DUO.other] = G.score.them;
     return { v: ++DUO.V, by: DUO.seat, game: DUO.game, round: ld.round || 0, phase: o.phase, turn: o.turn || null, open: { A: null, B: null },
       board: boardToShared(), dice: o.dice !== undefined ? o.dice : diceToShared(), cube: { v: G.cube.v, owner: G.cube.owner ? seatOf(G.cube.owner) : null },
-      offerBy: o.offerBy || null, score: sc, result: o.result || null };
+      offerBy: o.offerBy || null, score: sc, result: o.result || null, to: MATCH };
+  }
+  /* A new match at 0–0, to however many points you pick. */
+  function newMatch(n) {
+    MATCH = n; $('scTo').textContent = 'to ' + MATCH;
+    if (DUO) newGame(true); else { G.score = { me: 0, them: 0 }; start(); }
   }
   function startBoard() {
     var pts = []; for (var i = 0; i <= 24; i++) pts.push(0);
@@ -1943,7 +1961,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     if (!fresh) { sc[DUO.seat] = G.score.me; sc[DUO.other] = G.score.them; }
     var doc = { v: DUO.V + 1, by: DUO.seat, game: Math.max(DUO.game || 0, (DUO.lastDoc && DUO.lastDoc.game) || 0) + 1, round: 0, phase: 'opening', turn: null,
       open: { A: null, B: fresh ? { v: rnd6(), n: nonce(), t: null } : null }, board: startBoard(), dice: null, cube: { v: 1, owner: null },
-      offerBy: null, score: sc, result: null };
+      offerBy: null, score: sc, result: null, to: MATCH };
     DUO.V = doc.v; DUO.pend = null; applyShared(doc, true);
     enqueue(function () { return DUO.ref.set(doc); });
   }
@@ -1997,6 +2015,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     DUO.lastDoc = d;
     G.score = { me: (d.score && d.score[DUO.seat]) || 0, them: (d.score && d.score[DUO.other]) || 0 };
     $('scMe').textContent = G.score.me; $('scThem').textContent = G.score.them;
+    if (d.to) MATCH = d.to; $('scTo').textContent = 'to ' + MATCH;
     G.cube = { v: d.cube.v, owner: d.cube.owner ? sideOf(d.cube.owner) : null };
     applyBoard(d.board);
     var prev = G.phase;
@@ -2160,7 +2179,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
         if (!DB) { PENDING = function () { window.BG.open(o); }; say('Connecting to the shared game…'); return; }
         if (DUO && DUO.gid !== o.gid) { if (DUO.unsub) DUO.unsub(); DUO = null; G = null; }
         CUR = o.id; SEATS.A = o.seats.A; SEATS.B = o.seats.B; OPP = SEATS[o.seat === 'A' ? 'B' : 'A'];
-        if (!DUO) { CASE.fresh = true; window.GAMEID = o.gid; joinDuo(o.seat); DUO.gid = o.gid; }
+        if (!DUO) { CASE.fresh = true; MATCH = o.to || 5; window.GAMEID = o.gid; joinDuo(o.seat); DUO.gid = o.gid; }
         return;
       }
       if (o.duo && !NODB) {
@@ -2185,7 +2204,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   /* ---------- start ---------- */
   function start() {
     $('over').hidden = true;
-    var keep = G ? G.score : (OPP.score || { me: 0, them: 0 });
+    var keep = G ? G.score : (OPP.score || { me: 0, them: 0 }); $('scTo').textContent = 'to ' + MATCH;
     G = { turn: ME, phase: 'opening', hist: [], cube: { v: 1, owner: null }, score: keep, rolling: false };
     $('scMe').textContent = keep.me; $('scThem').textContent = keep.them;
     setup(); D = []; pips(); setTurn(ME);

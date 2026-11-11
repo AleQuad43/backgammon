@@ -87,6 +87,9 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
 .over { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
 .over div { pointer-events: auto; background: var(--glass-strong); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); padding: 18px 24px; border-radius: 22px; text-align: center; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 16px 40px rgba(8,12,22,0.25); }
 .over b { font-size: 22px; }
+.over .lens { display: flex; flex-direction: row; gap: 8px; justify-content: center; flex-wrap: wrap; background: none; padding: 0; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; border-radius: 0; }
+.over .lens button { min-width: 48px; padding: 0 12px; }
+.over .lens button.on { outline: 2px solid currentColor; outline-offset: 2px; }
 .over button { height: 40px; border-radius: 12px; border: none; background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 15px; padding: 0 16px; }
 .over button.alt { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--line); }
 .over span { color: var(--muted); font-size: 13px; max-width: 300px; }
@@ -132,7 +135,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
         <div class="boardWrap" id="wrap"><canvas id="board" aria-label="Backgammon board"></canvas><div class="slide" id="slide" hidden>Slide to end your turn →</div><div class="over" id="over" hidden></div></div>
         <aside class="rail" id="rail">
           <div>
-            <div class="score"><b id="scMe">3</b><span>–</span><b id="scThem">2</b><small>to 5</small></div>
+            <div class="score"><b id="scMe">3</b><span>–</span><b id="scThem">2</b><small id="scTo">to 5</small></div>
             <div class="status" id="status" role="status"></div>
           </div>
           <div class="who" id="whoThem"><div class="av them" id="avThem">LU</div><div><b id="nmThem">Luca</b><small id="pipThem"></small></div></div>
@@ -976,6 +979,12 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   function showOver(winner, pts, dropped, gam, bg) {
     var o = $('over'); o.hidden = false;
     o.innerHTML = '<div><b>' + (winner === ME ? 'You win' : NAME.them + ' wins') + ' ' + pts + ' point' + (pts > 1 ? 's' : '') + '</b><span>' + (dropped ? (winner === ME ? NAME.them + ' passed on the double. ' : 'You gave up on the double. ') : bg ? 'Backgammon. ' : gam ? 'Gammon. ' : '') + G.score.me + ' – ' + G.score.them + ', match to ' + MATCH + '</span><button id="again">Next game</button></div>';
+    if (G.score[winner] >= MATCH) {
+      o.innerHTML = '<div><b>' + (winner === ME ? 'You win the match' : NAME.them + ' wins the match') + '</b><span>' + G.score.me + ' – ' + G.score.them + (bg ? ' · backgammon' : gam ? ' · gammon' : '') + '</span>' +
+        '<span>New match to</span><div class="lens">' + [3, 5, 7, 9, 11, 15].map(function (n) { return '<button data-to="' + n + '"' + (n === MATCH ? ' class="on"' : '') + '>' + n + '</button>'; }).join('') + '</div></div>';
+      Array.prototype.forEach.call(o.querySelectorAll('[data-to]'), function (b) { b.addEventListener('click', function () { newMatch(+b.getAttribute('data-to')); }); });
+      return;
+    }
     $('again').addEventListener('click', function () { if (DUO) newGame(false); else start(); });
   }
 
@@ -1041,7 +1050,12 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     var sc = {}, ld = DUO.lastDoc || {}; sc[DUO.seat] = G.score.me; sc[DUO.other] = G.score.them;
     return { v: ++DUO.V, by: DUO.seat, game: DUO.game, round: ld.round || 0, phase: o.phase, turn: o.turn || null, open: { A: null, B: null },
       board: boardToShared(), dice: o.dice !== undefined ? o.dice : diceToShared(), cube: { v: G.cube.v, owner: G.cube.owner ? seatOf(G.cube.owner) : null },
-      offerBy: o.offerBy || null, score: sc, result: o.result || null };
+      offerBy: o.offerBy || null, score: sc, result: o.result || null, to: MATCH };
+  }
+  /* A new match at 0–0, to however many points you pick. */
+  function newMatch(n) {
+    MATCH = n; $('scTo').textContent = 'to ' + MATCH;
+    if (DUO) newGame(true); else { G.score = { me: 0, them: 0 }; start(); }
   }
   function startBoard() {
     var pts = []; for (var i = 0; i <= 24; i++) pts.push(0);
@@ -1054,7 +1068,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     if (!fresh) { sc[DUO.seat] = G.score.me; sc[DUO.other] = G.score.them; }
     var doc = { v: DUO.V + 1, by: DUO.seat, game: Math.max(DUO.game || 0, (DUO.lastDoc && DUO.lastDoc.game) || 0) + 1, round: 0, phase: 'opening', turn: null,
       open: { A: null, B: fresh ? { v: rnd6(), n: nonce(), t: null } : null }, board: startBoard(), dice: null, cube: { v: 1, owner: null },
-      offerBy: null, score: sc, result: null };
+      offerBy: null, score: sc, result: null, to: MATCH };
     DUO.V = doc.v; DUO.pend = null; applyShared(doc, true);
     enqueue(function () { return DUO.ref.set(doc); });
   }
@@ -1108,6 +1122,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     DUO.lastDoc = d;
     G.score = { me: (d.score && d.score[DUO.seat]) || 0, them: (d.score && d.score[DUO.other]) || 0 };
     $('scMe').textContent = G.score.me; $('scThem').textContent = G.score.them;
+    if (d.to) MATCH = d.to; $('scTo').textContent = 'to ' + MATCH;
     G.cube = { v: d.cube.v, owner: d.cube.owner ? sideOf(d.cube.owner) : null };
     applyBoard(d.board);
     var prev = G.phase;
@@ -1266,7 +1281,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   /* ---------- start ---------- */
   function start() {
     $('over').hidden = true;
-    var keep = G ? G.score : { me: 3, them: 2 };
+    var keep = G ? G.score : { me: 3, them: 2 }; $('scTo').textContent = 'to ' + MATCH;
     G = { turn: ME, phase: 'opening', hist: [], cube: { v: 1, owner: null }, score: keep, rolling: false };
     $('scMe').textContent = keep.me; $('scThem').textContent = keep.them;
     setup(); D = []; pips(); setTurn(ME);
