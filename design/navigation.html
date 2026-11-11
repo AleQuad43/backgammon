@@ -1,0 +1,808 @@
+<title>Backgammon navigation sketches</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: a live phone on the left, the concept switcher and notes beside it. Phone look follows the Bubble app: aurora sky, frosted glass, Figtree. */
+:root {
+  --page: #E6ECEA;
+  --ink: #1F2D2E;
+  --muted: #4A5859;
+  --line: rgba(31,45,46,0.14);
+  --glass: rgba(250,252,251,0.52);
+  --glass-strong: rgba(250,252,251,0.82);
+  --sheet: #F4F6F5;
+  --accent: #2F5D62;
+  --on-accent: #FFFFFF;
+  --warm: oklch(0.74 0.11 55);
+  --warm-ink: oklch(0.38 0.08 50);
+  --win: oklch(0.66 0.09 160);
+  --loss: oklch(0.68 0.10 25);
+  --frame: #20262B;
+  --p1: oklch(0.90 0.065 80);
+  --p2: oklch(0.90 0.06 165);
+  --p3: oklch(0.89 0.06 240);
+  --sky: oklch(0.925 0.03 150);
+  --font: 'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --page: #11161B; --ink: #E7EEEF; --muted: #A7B5B8; --line: rgba(231,238,239,0.16);
+  --glass: rgba(22,29,38,0.50); --glass-strong: rgba(26,33,42,0.86); --sheet: #1C232B;
+  --accent: #8EC3C2; --on-accent: #10201F; --warm: oklch(0.72 0.11 55); --warm-ink: oklch(0.90 0.05 60);
+  --win: oklch(0.70 0.09 160); --loss: oklch(0.70 0.10 25); --frame: #05080A;
+  --p1: oklch(0.32 0.06 275); --p2: oklch(0.31 0.055 205); --p3: oklch(0.31 0.06 320); --sky: oklch(0.24 0.04 255);
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --page: #11161B; --ink: #E7EEEF; --muted: #A7B5B8; --line: rgba(231,238,239,0.16);
+  --glass: rgba(22,29,38,0.50); --glass-strong: rgba(26,33,42,0.86); --sheet: #1C232B;
+  --accent: #8EC3C2; --on-accent: #10201F; --warm: oklch(0.72 0.11 55); --warm-ink: oklch(0.90 0.05 60);
+  --win: oklch(0.70 0.09 160); --loss: oklch(0.70 0.10 25); --frame: #05080A;
+  --p1: oklch(0.32 0.06 275); --p2: oklch(0.31 0.055 205); --p3: oklch(0.31 0.06 320); --sky: oklch(0.24 0.04 255);
+  color-scheme: dark; }
+
+html, body { min-height: 100%; }
+body { background: var(--page); color: var(--ink); font-family: var(--font); font-size: 15px; line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 24px; }
+button { font-family: inherit; color: inherit; -webkit-tap-highlight-color: transparent; cursor: pointer; }
+button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; }
+
+.wrap { max-width: 980px; margin: 0 auto; display: flex; gap: 40px; align-items: flex-start; justify-content: center; flex-wrap: wrap; }
+.notes { flex: 1 1 320px; max-width: 440px; min-width: 0; display: flex; flex-direction: column; gap: 18px; order: 2; }
+.notes h1 { font-size: 26px; font-weight: 700; margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+.notes p { margin: 0; color: var(--muted); }
+.switch { display: flex; flex-direction: column; gap: 8px; }
+.opt { text-align: left; border: 1.5px solid var(--line); background: transparent; border-radius: 18px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; transition: background-color .4s ease, border-color .4s ease; }
+.opt b { font-size: 16px; font-weight: 700; display: flex; gap: 10px; align-items: baseline; }
+.opt b span { font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: .06em; }
+.opt small { font-size: 14px; color: var(--muted); }
+.opt[aria-pressed="true"] { background: var(--sheet); border-color: var(--accent); }
+.detail { background: var(--sheet); border-radius: 20px; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; font-size: 14px; }
+.detail h2 { font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.detail ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.detail .try { color: var(--ink); font-weight: 600; }
+
+/* ---------- phone ---------- */
+.phone { order: 1; flex: 0 0 auto; width: 390px; max-width: 100%; height: 780px; border-radius: 48px; border: 10px solid var(--frame); position: relative; overflow: hidden; background: var(--sky); isolation: isolate; }
+@media (max-width: 520px) { .phone { width: 100%; height: min(780px, calc(100svh - 40px)); min-height: 620px; border-width: 6px; border-radius: 36px; } .wrap { gap: 24px; } }
+.sky { position: absolute; inset: 0; z-index: 0; overflow: hidden; background: var(--sky); transition: transform .1s linear; }
+.pool { position: absolute; border-radius: 50%; width: 120%; aspect-ratio: 1; filter: blur(10px); }
+.pool.a { background: radial-gradient(circle, var(--p1) 0%, transparent 68%); left: -40%; top: -20%; animation: driftA 140s ease-in-out infinite alternate; }
+.pool.b { background: radial-gradient(circle, var(--p2) 0%, transparent 68%); left: 30%; top: 35%; animation: driftB 180s ease-in-out infinite alternate; }
+.pool.c { background: radial-gradient(circle, var(--p3) 0%, transparent 68%); left: -20%; top: 65%; animation: driftC 160s ease-in-out infinite alternate; }
+@keyframes driftA { to { transform: translate(35%, 20%); } }
+@keyframes driftB { to { transform: translate(-30%, -25%); } }
+@keyframes driftC { to { transform: translate(25%, -30%); } }
+.wide .sky { width: 170%; }
+.driven .pool { display: none; }
+
+.screen { position: absolute; inset: 0; z-index: 1; display: none; }
+.screen.on { display: block; }
+.status { position: absolute; top: 0; left: 0; right: 0; height: 40px; z-index: 5; display: flex; justify-content: space-between; align-items: center; padding: 0 28px; font-size: 13px; font-weight: 600; pointer-events: none; }
+
+/* shared pieces */
+.av { width: 38px; height: 38px; border-radius: 50%; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; background: var(--glass-strong); border: 1.5px solid var(--line); color: var(--ink); }
+.av.me { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+.label { font-size: 12px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 18px 4px 8px; }
+.row { width: 100%; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: none; border-radius: 18px; background: var(--glass); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); text-align: left; margin-bottom: 8px; font-size: 15px; }
+.row .t { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.row .t b { font-weight: 600; }
+.row .t small { font-size: 13px; color: var(--muted); }
+.row.yours { background: color-mix(in oklab, var(--warm) 34%, var(--glass-strong)); }
+.row.yours small { color: var(--warm-ink); }
+.row.req { background: var(--glass-strong); outline: 1.5px dashed var(--accent); outline-offset: -1.5px; }
+.num { font-variant-numeric: tabular-nums; }
+.pip { width: 10px; height: 10px; border-radius: 50%; background: var(--warm); flex: 0 0 auto; animation: breathe 3.2s ease-in-out infinite; }
+@keyframes breathe { 50% { transform: scale(1.35); opacity: .6; } }
+.mini { border: 1.5px solid var(--line); background: transparent; border-radius: 12px; height: 34px; padding: 0 12px; font-size: 13px; font-weight: 600; }
+.mini.go { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+.big { width: 100%; height: 54px; border-radius: 18px; border: none; background: var(--accent); color: var(--on-accent); font-size: 17px; font-weight: 700; }
+.delta { font-size: 12px; font-weight: 600; width: 34px; text-align: right; }
+.up { color: var(--win); } .down { color: var(--loss); }
+.res { width: 26px; height: 26px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; flex: 0 0 auto; }
+.res.W { background: var(--win); } .res.L { background: var(--loss); }
+
+/* ---------- A: panorama ---------- */
+.pano { position: absolute; inset: 0; display: flex; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; }
+.pano::-webkit-scrollbar { display: none; }
+.room { flex: 0 0 100%; height: 100%; scroll-snap-align: center; overflow-y: auto; padding: 104px 18px 40px; box-sizing: border-box; scrollbar-width: none; }
+.room::-webkit-scrollbar { display: none; }
+.room h3 { font-size: 30px; font-weight: 700; margin: 0 4px 2px; letter-spacing: -0.01em; }
+.room .sub { margin: 0 4px; color: var(--muted); font-size: 14px; }
+.modes { position: absolute; top: 46px; left: 0; right: 0; height: 36px; z-index: 4; overflow: hidden; pointer-events: none; }
+.modes-track { position: absolute; top: 0; left: 0; display: flex; will-change: transform; }
+.modes button { pointer-events: auto; width: 96px; height: 36px; border: none; background: transparent; font-size: 14px; font-weight: 600; color: var(--ink); }
+.dots { position: absolute; bottom: 14px; left: 0; right: 0; display: flex; justify-content: center; gap: 6px; z-index: 4; pointer-events: none; }
+.dots i { width: 6px; height: 6px; border-radius: 3px; background: var(--ink); opacity: .25; transition: all .3s ease; }
+.dots i.on { width: 18px; opacity: .7; }
+
+/* ---------- B: constellation ---------- */
+.field { position: absolute; inset: 0; }
+.bhead { position: absolute; top: 50px; left: 22px; right: 22px; z-index: 3; display: flex; flex-direction: column; gap: 2px; }
+.bhead b { font-size: 24px; font-weight: 700; letter-spacing: -0.01em; }
+.bhead span { font-size: 14px; color: var(--muted); }
+.axis { position: absolute; left: 10px; top: 0; bottom: 0; width: 40px; pointer-events: none; }
+.axis span { position: absolute; left: 0; font-size: 11px; font-weight: 600; color: var(--muted); opacity: .7; font-variant-numeric: tabular-nums; }
+.axis span::after { content: ""; position: absolute; left: 34px; top: 8px; width: 300px; border-top: 1px dashed var(--line); }
+.field { touch-action: none; }
+#threads { position: absolute; inset: 0; pointer-events: none; }
+.star { position: absolute; left: 0; top: 0; width: 86px; border: none; background: none; padding: 0; display: flex; flex-direction: column; align-items: center; gap: 5px; will-change: transform; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+.star.held { cursor: grabbing; z-index: 2; }
+.star .orb { transition: transform .25s cubic-bezier(.2,.8,.2,1); }
+.star.held .orb { transform: scale(1.08); }
+.tune { display: flex; flex-direction: column; gap: 12px; }
+.tune label { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; font-size: 14px; font-weight: 600; }
+.tune label small { grid-column: 1 / -1; font-weight: 400; color: var(--muted); font-size: 13px; }
+.tune output { font-variant-numeric: tabular-nums; color: var(--muted); font-weight: 500; }
+.tune input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); }
+.tune .mini { align-self: flex-start; }
+.orb { width: 62px; height: 62px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700; background: var(--glass-strong); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1.5px solid var(--line); position: relative; }
+.orb.me { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+.orb.yours { background: var(--warm); color: #2A1A0C; border-color: transparent; }
+.orb.yours::before { content: ""; position: absolute; inset: -10px; border-radius: 50%; background: var(--warm); opacity: .35; z-index: -1; animation: halo 3.4s ease-in-out infinite; }
+@keyframes halo { 50% { transform: scale(1.18); opacity: .12; } }
+.orb.them { border: 2px solid var(--accent); }
+.orb.req::after { content: ""; position: absolute; inset: -7px; border-radius: 50%; border: 2px dashed var(--accent); animation: spin 14s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.star small { font-size: 12px; font-weight: 600; line-height: 1.1; text-align: center; }
+.star small em { display: block; font-style: normal; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
+.legend { position: absolute; left: 16px; right: 16px; bottom: 16px; z-index: 3; display: flex; justify-content: space-between; gap: 6px; padding: 10px 14px; border-radius: 18px; background: var(--glass); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); font-size: 12px; color: var(--muted); }
+.legend span { display: flex; align-items: center; gap: 6px; }
+.legend i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+
+/* ---------- C: deck ---------- */
+.deck { position: absolute; inset: 0; }
+.leaf { position: absolute; left: 10px; right: 10px; bottom: 0; border-radius: 28px 28px 0 0; background: var(--glass); backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px); box-shadow: 0 -8px 24px rgba(10,15,30,0.10); transition: top .55s cubic-bezier(.2,.8,.2,1), transform .55s cubic-bezier(.2,.8,.2,1), background-color .5s ease; display: flex; flex-direction: column; overflow: hidden; }
+.leaf.front { background: var(--glass-strong); }
+.leaf-head { flex: 0 0 auto; height: 58px; display: flex; align-items: center; justify-content: space-between; padding: 0 22px; border: none; background: transparent; text-align: left; width: 100%; }
+.leaf-head b { font-size: 18px; font-weight: 700; }
+.leaf-head span { font-size: 13px; color: var(--muted); font-weight: 500; }
+.leaf.front .leaf-head b { font-size: 26px; }
+.leaf-body { flex: 1 1 auto; overflow-y: auto; padding: 0 14px 30px; scrollbar-width: none; opacity: 0; transition: opacity .4s ease; }
+.leaf-body::-webkit-scrollbar { display: none; }
+.leaf.front .leaf-body { opacity: 1; }
+
+/* ---------- overlays ---------- */
+.scrim { position: absolute; inset: 0; z-index: 20; background: rgba(8,12,22,0); backdrop-filter: blur(0px); -webkit-backdrop-filter: blur(0px); transition: background-color .3s ease, backdrop-filter .3s ease; border: none; padding: 0; display: none; }
+.scrim.show { display: block; }
+.scrim.open { background: rgba(8,12,22,0.30); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.card { position: absolute; left: 14px; right: 14px; top: 56px; bottom: 14px; z-index: 21; background: var(--sheet); border-radius: 30px; padding: 22px 20px; box-sizing: border-box; overflow-y: auto; display: none; flex-direction: column; gap: 16px; opacity: 0; transform: scale(.2); transition: transform .38s cubic-bezier(.2,.8,.2,1), opacity .22s ease; box-shadow: 0 24px 60px rgba(8,12,22,0.28); scrollbar-width: none; }
+.card.show { display: flex; } .card.open { opacity: 1; transform: none; }
+.card-top { display: flex; align-items: center; gap: 14px; }
+.card-top .av { width: 54px; height: 54px; font-size: 18px; }
+.card-top h4 { margin: 0; font-size: 24px; font-weight: 700; }
+.card-top p { margin: 0; color: var(--muted); font-size: 14px; }
+.x { margin-left: auto; width: 40px; height: 40px; border-radius: 50%; border: none; background: transparent; display: flex; align-items: center; justify-content: center; color: var(--muted); }
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.tile { background: var(--page); border-radius: 16px; padding: 10px 12px; }
+.tile small { display: block; font-size: 12px; color: var(--muted); }
+.tile b { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.strip { display: flex; gap: 4px; } .strip i { flex: 1; height: 20px; border-radius: 6px; }
+.strip i.W { background: var(--win); } .strip i.L { background: var(--loss); }
+.card .row { background: var(--page); backdrop-filter: none; }
+.card .row.yours { background: color-mix(in oklab, var(--warm) 34%, var(--page)); }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 21; background: var(--sheet); border-radius: 30px 30px 0 0; padding: 12px 22px 26px; display: flex; flex-direction: column; gap: 6px; transform: translateY(105%); transition: transform .42s cubic-bezier(.2,.8,.2,1); box-shadow: 0 -10px 30px rgba(8,12,22,0.16); }
+.sheet.open { transform: none; }
+.grab { width: 40px; height: 5px; border-radius: 3px; background: var(--line); align-self: center; margin-bottom: 8px; }
+.sheet h4 { margin: 0 0 6px; font-size: 22px; font-weight: 700; }
+.pick { display: flex; gap: 10px; overflow-x: auto; padding: 4px 2px 6px; scrollbar-width: none; }
+.pick button { border: none; background: none; padding: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.pick button .av { width: 48px; height: 48px; }
+.pick button[aria-pressed="true"] { color: var(--ink); }
+.pick button[aria-pressed="true"] .av { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip { height: 40px; min-width: 48px; border-radius: 14px; border: 1.5px solid var(--line); background: transparent; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.chip[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+.toggle { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; font-size: 15px; }
+.toast { position: absolute; left: 18px; right: 18px; bottom: 90px; z-index: 30; background: var(--sheet); color: var(--ink); border-radius: 16px; padding: 12px 16px; font-size: 14px; font-weight: 500; box-shadow: 0 8px 22px rgba(10,15,30,0.18); opacity: 0; transform: translateY(10px); transition: opacity .4s ease, transform .4s ease; pointer-events: none; }
+.toast.show { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) { .pool, .orb.yours::before, .orb.req::after, .pip { animation: none; } * { transition-duration: .01s !important; } }
+</style>
+
+<div class="wrap">
+  <div class="phone" id="phone" aria-label="Phone prototype">
+    <div class="sky" id="sky"><div class="pool a"></div><div class="pool b"></div><div class="pool c"></div></div>
+    <div class="status"><span id="clock">9:41</span><span>Backgammon</span></div>
+
+    <!-- A: Panorama -->
+    <div class="screen" id="scrA">
+      <div class="modes"><div class="modes-track" id="modesTrack">
+        <button data-room="0">History</button><button data-room="1">Home</button><button data-room="2">Ranking</button>
+      </div></div>
+      <div class="pano" id="pano">
+        <section class="room" id="aHistory"></section>
+        <section class="room" id="aHome"></section>
+        <section class="room" id="aRank"></section>
+      </div>
+      <div class="dots" id="dots"><i></i><i class="on"></i><i></i></div>
+    </div>
+
+    <!-- B: Constellation -->
+    <div class="screen" id="scrB">
+      <div class="bhead"><b id="bTitle">Two games wait for you</b><span>Higher up means higher Elo. Tap anyone, or pull them around.</span></div>
+      <div class="field" id="field"><div class="axis" id="axis"></div></div>
+      <div class="legend"><span><i style="background:var(--warm)"></i>Your turn</span><span><i style="border:2px solid var(--accent)"></i>Their turn</span><span><i style="border:2px dashed var(--accent)"></i>Challenge</span></div>
+    </div>
+
+    <!-- C: Deck -->
+    <div class="screen" id="scrC"><div class="deck" id="deck"></div></div>
+
+    <button class="scrim" id="scrim" aria-label="Close"></button>
+    <div class="card" id="card" role="dialog" aria-modal="true"></div>
+    <div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
+    <div class="toast" id="toast" role="status"></div>
+  </div>
+
+  <div class="notes">
+    <h1>Friends as the menu</h1>
+    <p>Pull the orbs around; the sky follows them.</p>
+    <label for="fastDay" style="display:flex;gap:10px;align-items:center;font-weight:600"><input id="fastDay" type="checkbox" checked> Fast day: 24 hours in one minute. Untick to stop at the current hour.</label>
+    <div class="detail" id="detail"></div>
+    <div class="detail">
+      <h2>The functions</h2>
+      <p style="margin:0;color:var(--muted)">Where points 2 and 3 sit around the mean (the cross) as the friends shift sideways, from all the way left (s = −1) to all the way right (s = +1). Drift is left out.</p>
+      <canvas id="plot" width="360" height="360" style="width:100%;max-width:360px;aspect-ratio:1;align-self:center"></canvas>
+      <canvas id="plotR" width="360" height="150" style="width:100%;max-width:360px;align-self:center"></canvas>
+      <div class="chips" id="plotOpts"></div>
+      <label for="plotS" class="tune" style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;font-weight:600">Sideways shift s <output id="plotSo" style="color:var(--muted);font-weight:500"></output><input id="plotS" type="range" min="-1" max="1" step="0.01" value="0.4" style="grid-column:1/-1;width:100%;accent-color:var(--accent)"></label>
+      <button class="mini" id="plotPlay" style="align-self:flex-start">Play</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var ME = { id: 'al', n: 'You', i: 'AL', elo: 1532 };
+  var P = [
+    { id: 'gi', n: 'Giulia', i: 'GI', elo: 1604, d: 12 },
+    ME,
+    { id: 'ma', n: 'Marco', i: 'MA', elo: 1511, d: 4 },
+    { id: 'lu', n: 'Luca', i: 'LU', elo: 1470, d: 0 },
+    { id: 'sa', n: 'Sara', i: 'SA', elo: 1446, d: -3 },
+    { id: 'pa', n: 'Paolo', i: 'PA', elo: 1398, d: -9 },
+    { id: 'da', n: 'Davide', i: 'DA', elo: 1371, d: 6 }
+  ];
+  ME.d = -8;
+  var byId = {}; P.forEach(function (p) { byId[p.id] = p; });
+  var GAMES = [
+    { p: 'ma', s: 'req', to: 7, cube: true, when: '5 min ago' },
+    { p: 'lu', s: 'yours', sc: '3–2', to: 5, when: '12 min ago' },
+    { p: 'gi', s: 'them', sc: '0–4', to: 7, when: '2 h ago' },
+    { p: 'pa', s: 'them', sc: '1–1', to: 3, when: 'yesterday' }
+  ];
+  var H2H = {
+    gi: { w: 6, l: 11, g: '1–4', last: 'LLWLLWLWLL' }, ma: { w: 14, l: 9, g: '5–2', last: 'WWLWLWWLWW' },
+    lu: { w: 10, l: 7, g: '3–3', last: 'WLWWLWLWWL' }, sa: { w: 4, l: 2, g: '1–0', last: 'WWLWLW' },
+    pa: { w: 9, l: 3, g: '4–1', last: 'WWWLWWLWWW' }, da: { w: 3, l: 1, g: '0–0', last: 'WLWW' }
+  };
+  var HIST = [
+    { p: 'ma', r: 'W', sc: '7–4', to: 7, d: '3 Nov' }, { p: 'gi', r: 'L', sc: '2–5', to: 5, d: '1 Nov' },
+    { p: 'lu', r: 'W', sc: '3–0', to: 3, d: '30 Oct', gam: true }, { p: 'ma', r: 'L', sc: '2–5', to: 5, d: '28 Oct' },
+    { p: 'pa', r: 'W', sc: '5–3', to: 5, d: '25 Oct' }, { p: 'sa', r: 'W', sc: '7–6', to: 7, d: '22 Oct' },
+    { p: 'gi', r: 'L', sc: '1–3', to: 3, d: '19 Oct' }, { p: 'da', r: 'W', sc: '3–1', to: 3, d: '15 Oct' }
+  ];
+  var X = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+  var CHEV = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:.5;flex:0 0 auto"><path d="M9 6l6 6-6 6"/></svg>';
+
+  function gameRow(g) {
+    var p = byId[g.p];
+    if (g.s === 'req') return '<div class="row req"><div class="av">' + p.i + '</div><div class="t"><b>' + p.n + ' challenges you</b><small>to ' + g.to + (g.cube ? ' · cube on' : '') + ' · ' + g.when + '</small></div><button class="mini" data-act="decline" data-p="' + p.id + '">No</button><button class="mini go" data-act="accept" data-p="' + p.id + '">Play</button></div>';
+    return '<button class="row ' + (g.s === 'yours' ? 'yours' : '') + '" data-act="board" data-p="' + p.id + '"><div class="av">' + p.i + '</div><div class="t"><b>vs ' + p.n + '</b><small class="num">' + g.sc + ' to ' + g.to + ' · ' + (g.s === 'yours' ? 'your turn' : 'their turn') + ' · ' + g.when + '</small></div>' + (g.s === 'yours' ? '<span class="pip"></span>' : CHEV) + '</button>';
+  }
+  function homeHTML(withTitle) {
+    var h = withTitle ? '<h3>Hi, Ale</h3><p class="sub num">Elo 1,532 · second of seven</p>' : '';
+    h += '<div style="margin:16px 0 4px"><button class="big" data-act="new">New game</button></div>';
+    var req = GAMES.filter(function (g) { return g.s === 'req'; }), yours = GAMES.filter(function (g) { return g.s === 'yours'; }), them = GAMES.filter(function (g) { return g.s === 'them'; });
+    if (req.length) h += '<div class="label">Challenges</div>' + req.map(gameRow).join('');
+    if (yours.length) h += '<div class="label">Your turn</div>' + yours.map(gameRow).join('');
+    if (them.length) h += '<div class="label">Their turn</div>' + them.map(gameRow).join('');
+    return h;
+  }
+  function rankHTML(withTitle) {
+    var h = withTitle ? '<h3>Ranking</h3><p class="sub">Elo, all time. Tap a player.</p><div style="height:12px"></div>' : '';
+    return h + P.map(function (p, k) {
+      var me = p === ME;
+      return '<button class="row" data-act="player" data-p="' + p.id + '"' + (me ? ' style="outline:1.5px solid var(--accent);outline-offset:-1.5px"' : '') + '><span class="num" style="width:16px;color:var(--muted);font-weight:600">' + (k + 1) + '</span><div class="av' + (me ? ' me' : '') + '">' + p.i + '</div><div class="t"><b>' + p.n + '</b></div><b class="num">' + p.elo.toLocaleString('en') + '</b><span class="delta num ' + (p.d > 0 ? 'up' : p.d < 0 ? 'down' : '') + '">' + (p.d > 0 ? '+' + p.d : p.d < 0 ? '−' + (-p.d) : '0') + '</span></button>';
+    }).join('');
+  }
+  function histRow(m) {
+    var p = byId[m.p];
+    return '<button class="row" data-act="player" data-p="' + p.id + '"><span class="res ' + m.r + '">' + m.r + '</span><div class="t"><b>vs ' + p.n + '</b><small class="num">' + m.sc + ' to ' + m.to + (m.gam ? ' · gammon' : '') + '</small></div><small style="color:var(--muted)">' + m.d + '</small></button>';
+  }
+  function histHTML(withTitle) {
+    var h = withTitle ? '<h3>History</h3><p class="sub num">23 matches · 14 won · 61%</p><div style="height:12px"></div>' : '';
+    return h + HIST.map(histRow).join('');
+  }
+
+  /* ---------- toast ---------- */
+  var tt;
+  function toast(msg) { var t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(tt); tt = setTimeout(function () { t.classList.remove('show'); }, 2200); }
+
+  /* ---------- player card: grows from where you tapped ---------- */
+  function openCard(html, from) {
+    var c = $('card'), s = $('scrim'), ph = $('phone').getBoundingClientRect();
+    c.innerHTML = html;
+    s.classList.add('show'); c.classList.add('show');
+    if (from) {
+      var r = from.getBoundingClientRect(), cr = c.getBoundingClientRect();
+      c.style.transformOrigin = (r.left + r.width / 2 - cr.left) + 'px ' + (r.top + r.height / 2 - cr.top) + 'px';
+    } else c.style.transformOrigin = '50% 50%';
+    requestAnimationFrame(function () { requestAnimationFrame(function () { s.classList.add('open'); c.classList.add('open'); }); });
+  }
+  function closeAll() {
+    var c = $('card'), s = $('scrim'), sh = $('sheet');
+    c.classList.remove('open'); s.classList.remove('open'); sh.classList.remove('open');
+    setTimeout(function () { if (!c.classList.contains('open')) c.classList.remove('show'); if (!s.classList.contains('open')) s.classList.remove('show'); }, 380);
+  }
+  function playerCard(id) {
+    if (id === 'al') {
+      return '<div class="card-top"><div class="av me">AL</div><div><h4>You</h4><p class="num">Elo 1,532 · second</p></div><button class="x" data-act="close" aria-label="Close">' + X + '</button></div>' +
+        '<div class="tiles"><div class="tile"><small>Matches</small><b>23</b></div><div class="tile"><small>Won</small><b>61%</b></div><div class="tile"><small>Gammons</small><b>9</b></div></div>' +
+        '<div class="label" style="margin:4px 4px 0">Your history</div><div>' + HIST.map(histRow).join('') + '</div>';
+    }
+    var p = byId[id], h = H2H[id], g = GAMES.filter(function (x) { return x.p === id; })[0];
+    var out = '<div class="card-top"><div class="av">' + p.i + '</div><div><h4>' + p.n + '</h4><p class="num">Elo ' + p.elo.toLocaleString('en') + '</p></div><button class="x" data-act="close" aria-label="Close">' + X + '</button></div>';
+    if (g) out += gameRow(g);
+    out += '<div class="tiles"><div class="tile"><small>You vs ' + p.n + '</small><b>' + h.w + '–' + h.l + '</b></div><div class="tile"><small>Win rate</small><b>' + Math.round(100 * h.w / (h.w + h.l)) + '%</b></div><div class="tile"><small>Gammons</small><b>' + h.g + '</b></div></div>';
+    out += '<div><div class="label" style="margin:0 4px 8px">Last ' + h.last.length + '</div><div class="strip">' + h.last.split('').map(function (r) { return '<i class="' + r + '"></i>'; }).join('') + '</div></div>';
+    var ms = HIST.filter(function (m) { return m.p === id; });
+    if (ms.length) out += '<div>' + ms.map(histRow).join('') + '</div>';
+    if (!g) out += '<button class="big" data-act="new" data-p="' + id + '" style="margin-top:auto">Challenge ' + p.n + '</button>';
+    return out;
+  }
+
+  /* ---------- new game sheet ---------- */
+  var ng = { p: 'ma', to: 7, cube: true };
+  function sheetHTML() {
+    return '<div class="grab"></div><h4>New game</h4><div class="label" style="margin:6px 0 4px">Against</div><div class="pick">' +
+      P.filter(function (p) { return p !== ME; }).map(function (p) { return '<button data-act="ngp" data-p="' + p.id + '" aria-pressed="' + (ng.p === p.id) + '"><div class="av">' + p.i + '</div>' + p.n + '</button>'; }).join('') +
+      '</div><div class="label" style="margin:10px 0 6px">Match to</div><div class="chips">' +
+      [1, 3, 5, 7, 11].map(function (n) { return '<button class="chip" data-act="ngto" data-n="' + n + '" aria-pressed="' + (ng.to === n) + '">' + n + '</button>'; }).join('') +
+      '</div><div class="toggle"><span>Doubling cube</span><button class="mini' + (ng.cube ? ' go' : '') + '" data-act="ngcube">' + (ng.cube ? 'On' : 'Off') + '</button></div>' +
+      '<button class="big" data-act="send">Send challenge</button>';
+  }
+  function openSheet(pid) {
+    if (pid) ng.p = pid;
+    $('card').classList.remove('open');
+    var sh = $('sheet'), s = $('scrim');
+    sh.innerHTML = sheetHTML();
+    s.classList.add('show');
+    requestAnimationFrame(function () { requestAnimationFrame(function () { s.classList.add('open'); sh.classList.add('open'); }); });
+  }
+
+  /* ---------- one click handler for everything in the phone ---------- */
+  $('phone').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-act]'); if (!b) return;
+    var a = b.dataset.act, pid = b.dataset.p;
+    if (a === 'close') closeAll();
+    else if (a === 'player') openCard(playerCard(pid), b);
+    else if (a === 'board') toast('The board opens here, live: you can sit and watch ' + byId[pid].n + ' move.');
+    else if (a === 'accept') toast('Accepted. The board would open now.');
+    else if (a === 'decline') toast('Challenge declined.');
+    else if (a === 'new') openSheet(pid);
+    else if (a === 'ngp') { ng.p = pid; $('sheet').innerHTML = sheetHTML(); }
+    else if (a === 'ngto') { ng.to = +b.dataset.n; $('sheet').innerHTML = sheetHTML(); }
+    else if (a === 'ngcube') { ng.cube = !ng.cube; $('sheet').innerHTML = sheetHTML(); }
+    else if (a === 'send') { closeAll(); toast('Challenge sent to ' + byId[ng.p].n + '.'); }
+    else if (a === 'star') openCard(playerCard(pid), b);
+    else if (a === 'leaf') bringFront(+b.dataset.k);
+  });
+  $('scrim').addEventListener('click', closeAll);
+
+  /* ---------- A: panorama ---------- */
+  $('aHome').innerHTML = homeHTML(true);
+  $('aRank').innerHTML = rankHTML(true);
+  $('aHistory').innerHTML = histHTML(true);
+  var pano = $('pano');
+  function onPano() {
+    var W = pano.clientWidth, f = pano.scrollLeft / W;
+    $('sky').style.transform = 'translateX(' + (-(f / 2) * 70 / 170 * 100).toFixed(2) + '%)';
+    $('modesTrack').style.transform = 'translateX(' + (W / 2 - (f + 0.5) * 96).toFixed(1) + 'px)';
+    [].forEach.call($('modesTrack').children, function (el, i) { var d = Math.abs(i - f); el.style.opacity = Math.max(0.28, 1 - d * 0.62).toFixed(2); el.style.transform = 'scale(' + (1 - Math.min(d, 1) * 0.12).toFixed(3) + ')'; });
+    var k = Math.round(f); [].forEach.call($('dots').children, function (el, i) { el.classList.toggle('on', i === k); });
+  }
+  pano.addEventListener('scroll', onPano, { passive: true });
+  $('modesTrack').addEventListener('click', function (e) { var b = e.target.closest('[data-room]'); if (b) pano.scrollTo({ left: +b.dataset.room * pano.clientWidth, behavior: 'smooth' }); });
+
+  /* ---------- B: constellation, with physics ----------
+     Vertical: every orb hangs on an elastic band anchored at its Elo height (damped spring, slightly underdamped,
+     so a pulled orb swings past its height once, softly, then settles). Horizontal: free, with friction, so it
+     glides and stops wherever you leave it. Collisions: soft cushions; restitution rises with impact speed, so a
+     slow touch just nudges and a real flick bounces. */
+  var field = $('field'), stars = [];
+  var cv = document.createElement('canvas'); cv.id = 'threads'; field.appendChild(cv);
+  var ctx = cv.getContext('2d');
+  var XS = { gi: 0.62, al: 0.34, ma: 0.74, lu: 0.30, sa: 0.68, pa: 0.40, da: 0.76 };
+  var TUNE = { fall: 1100, thick: 8, buoy: 9, bounce: 230, float: 3, grip: 29, resist: 2.2, lines: 0, geo: 'sunflower', wind: 0.75, drift: 4, showGeo: 1 };
+  var ripples = [];
+  try { var saved = JSON.parse(localStorage.getItem('orbTune2') || 'null'); if (saved) for (var k0 in TUNE) if (typeof saved[k0] === typeof TUNE[k0]) TUNE[k0] = saved[k0]; if (TUNE.geo === 'golden') TUNE.geo = 'sunflower'; } catch (e) {}
+  var R = 44, OX = 43, OY = 31;
+  P.forEach(function (p) {
+    var g = GAMES.filter(function (x) { return x.p === p.id; })[0];
+    var cls = p === ME ? 'me' : g ? g.s : '';
+    var el = document.createElement('button');
+    el.className = 'star'; el.setAttribute('aria-label', p.n + ', Elo ' + p.elo);
+    el.innerHTML = '<div class="orb ' + cls + '">' + p.i + '</div><small>' + p.n + '<em>' + p.elo.toLocaleString('en') + '</em></small>';
+    field.appendChild(el);
+    var s = { el: el, p: p, x: 0, y: 0, vx: 0, vy: 0, hy: 0, ph: Math.random() * 6.28, placed: false, drag: null, side: 0, prevOff: 0 };
+    stars.push(s);
+    el.addEventListener('pointerdown', function (e) {
+      var f = field.getBoundingClientRect();
+      el.setPointerCapture(e.pointerId);
+      s.drag = { ox: e.clientX - f.left - s.x, oy: e.clientY - f.top - s.y, px: e.clientX - f.left, py: e.clientY - f.top, sx: e.clientX, sy: e.clientY, t: performance.now(), moved: false, hist: [] };
+      el.classList.add('held');
+    });
+    el.addEventListener('pointermove', function (e) {
+      if (!s.drag) return;
+      var f = field.getBoundingClientRect(), now = performance.now();
+      s.drag.px = e.clientX - f.left; s.drag.py = e.clientY - f.top;
+      if (Math.hypot(e.clientX - s.drag.sx, e.clientY - s.drag.sy) > 7) s.drag.moved = true;
+      s.drag.hist.push({ x: s.drag.px, y: s.drag.py, t: now });
+      while (s.drag.hist.length && now - s.drag.hist[0].t > 90) s.drag.hist.shift();
+    });
+    function release(e) {
+      if (!s.drag) return;
+      var d = s.drag; s.drag = null; el.classList.remove('held');
+      if (!d.moved && performance.now() - d.t < 400) { s.vx = s.vy = 0; openCard(playerCard(p.id), el); return; }
+      s.side = Math.abs(s.y - s.hy) > 3 ? Math.sign(s.y - s.hy) : 0;
+      /* The orb keeps the speed it had while being pulled: a throw is the water-dragged orb let go mid-motion. */
+    }
+    el.addEventListener('pointerup', release);
+    el.addEventListener('pointercancel', release);
+    el.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCard(playerCard(p.id), el); } });
+  });
+  var LO = 1350, HI = 1625, FW = 0, FH = 0;
+  function yOf(elo, H) { var top = 160, bot = H - 120; return bot - (elo - LO) / (HI - LO) * (bot - top); }
+  function layoutB(reset) {
+    FW = field.clientWidth; FH = field.clientHeight;
+    var dpr = window.devicePixelRatio || 1;
+    cv.width = FW * dpr; cv.height = FH * dpr; cv.style.width = FW + 'px'; cv.style.height = FH + 'px'; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    $('axis').innerHTML = [1400, 1500, 1600].map(function (v) { return '<span style="top:' + (yOf(v, FH) - 8).toFixed(0) + 'px">' + v + '</span>'; }).join('');
+    stars.forEach(function (s) {
+      s.hy = yOf(s.p.elo, FH);
+      if (!s.placed || reset) { s.x = XS[s.p.id] * FW; s.y = s.hy; s.vx = s.vy = 0; s.placed = true; }
+    });
+    var sx = 0; for (var id in XS) sx += XS[id]; REST_X = sx / Object.keys(XS).length * FW;
+    if (reset) GEO.p1 = null;
+  }
+
+  /* ---------- Background geometry ----------
+     Pool 1 sits on the mean position of all orbs (smoothed, so it glides). Pools 2 and 3 sit on a spiral around it.
+     s = how far the mean has moved sideways from its resting place, scaled so a quarter screen width = 1.
+     Δ = wind · 2π · s is how far the points have wound along the spiral; |Δ| sets the distance from the mean,
+     so moving either way unwinds them outward. A very slow drift turns the whole figure even when nobody touches anything. */
+  var GEO = { p1: null };
+  var REST_X = 0, THETA0 = -Math.PI / 3;
+  var PHI = (1 + Math.sqrt(5)) / 2, BGOLD = Math.log(PHI) / (Math.PI / 2), GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
+  var GEO_NOTES = {
+    golden: 'Golden spiral: r = r₀ · φ^(2θ/π), so every quarter turn the distance grows by φ ≈ 1.618. Point 2 rides the spiral; point 3 is half a turn further along the same spiral, opposite and φ² ≈ 2.6 times farther out. One pool close, one far: lopsided and alive.',
+    sunflower: 'Sunflower (Fermat spiral, the way seeds pack in a sunflower head). Points 2 and 3 are its first two seeds: 137.5° apart (the golden angle) at distances 1 : √2. Moving sideways turns the head and lets it open up.',
+    galaxy: 'Two-armed galaxy (Archimedean spiral, r = a + b·θ). Points 2 and 3 sit on opposite arms at the same distance, so the picture stays balanced. Moving sideways turns the pair and spreads it evenly, like a slow pinwheel.'
+  };
+  function geoPoints(mode, c, d, D, rot) {
+    var th = THETA0 + d + rot, a = Math.abs(d), r2, r3, t2, t3;
+    if (mode === 'golden') { r2 = 0.2 * D * Math.exp(BGOLD * a); r3 = r2 * PHI * PHI; t2 = th; t3 = th + Math.PI; }
+    else if (mode === 'sunflower') { var cc = 0.24 * D * (1 + a / (2 * Math.PI)); t2 = th + GOLDEN_ANGLE; t3 = th + 2 * GOLDEN_ANGLE; r2 = cc; r3 = cc * Math.SQRT2; }
+    else { r2 = r3 = 0.22 * D + 0.1 * D * a; t2 = th; t3 = th + Math.PI; }
+    r2 = Math.min(r2, 0.8 * D); r3 = Math.min(r3, 0.8 * D);
+    return [[c[0] + r2 * Math.cos(t2), c[1] + r2 * Math.sin(t2)], [c[0] + r3 * Math.cos(t3), c[1] + r3 * Math.sin(t3)]];
+  }
+  function skyB(dt, t) {
+    var mx = 0, my = 0; stars.forEach(function (s) { mx += s.x; my += s.y; }); mx /= stars.length; my /= stars.length;
+    if (!GEO.p1) GEO.p1 = [mx, my];
+    var f = 1 - Math.exp(-dt / 1.2);
+    GEO.p1[0] += (mx - GEO.p1[0]) * f; GEO.p1[1] += (my - GEO.p1[1]) * f;
+    var sh = Math.max(-1, Math.min(1, (GEO.p1[0] - REST_X) / (FW * 0.25)));
+    var D = Math.hypot(FW, FH), d = TUNE.wind * 2 * Math.PI * sh;
+    var rot = TUNE.drift > 0 ? 2 * Math.PI * t / (TUNE.drift * 60) : 0;
+    var q = geoPoints(TUNE.geo, GEO.p1, d, D, rot);
+    var Pt = [GEO.p1, q[0], q[1]], ST = [4, 2, 1], V = ['--p1', '--p2', '--p3'];
+    $('sky').style.background = [2, 1, 0].map(function (i) {
+      return 'radial-gradient(circle ' + (0.62 * D * Math.sqrt(ST[i] / 4)).toFixed(0) + 'px at ' + Pt[i][0].toFixed(0) + 'px ' + Pt[i][1].toFixed(0) + 'px, var(' + V[i] + ') 0%, transparent 100%)';
+    }).join(', ') + ', var(--sky)';
+    if (TUNE.showGeo) drawGeo(Pt, D, rot);
+  }
+  function drawGeo(Pt, D, rot) {
+    var col = getComputedStyle(document.documentElement).getPropertyValue('--ink').trim() || '#1F2D2E';
+    var dm = TUNE.wind * 2 * Math.PI;
+    ctx.save(); ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 1.2;
+    for (var k = 0; k < 2; k++) {
+      ctx.globalAlpha = 0.22; ctx.beginPath();
+      for (var i = 0; i <= 160; i++) { var q = geoPoints(TUNE.geo, Pt[0], -dm + 2 * dm * i / 160, D, rot)[k]; if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); }
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 0.4; ctx.setLineDash([3, 5]);
+    [1, 2].forEach(function (k) { ctx.beginPath(); ctx.moveTo(Pt[0][0], Pt[0][1]); ctx.lineTo(Pt[k][0], Pt[k][1]); ctx.stroke(); });
+    ctx.setLineDash([]); ctx.globalAlpha = 0.85; ctx.font = '600 11px Figtree, system-ui, sans-serif';
+    Pt.forEach(function (p, i) {
+      ctx.beginPath(); ctx.arc(p[0], p[1], i ? 5 : 6, 0, 6.283); if (i) { ctx.lineWidth = 2; ctx.stroke(); } else ctx.fill();
+      ctx.fillText(i ? String(i + 1) : 'mean', p[0] + 9, p[1] - 8);
+    });
+    ctx.restore();
+  }
+  function smoothstep(a, b, x) { var t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
+  /* Water model. Each orb's Elo line is a water surface. The side you pull it to is "air": there it falls back
+     toward the line with constant acceleration (gravity) and almost no drag. Past the line is "water": thick drag
+     slows it fast, and buoyancy (growing with depth) floats it back to the surface. Same on both sides. */
+  function step(dt, t) {
+    var minX = 64, maxX = FW - 40, minY = 120, maxY = FH - 84;
+    stars.forEach(function (s) {
+      if (s.drag) {
+        /* Pulling through water: the finger pulls the orb with a spring (grip), the water resists its motion
+           (damping, never below critical, so it cannot swing past). If a step would still carry it beyond the
+           finger, it stops at the finger. */
+        var fx = Math.max(minX, Math.min(maxX, s.drag.px - s.drag.ox)), fy = Math.max(minY, Math.min(maxY, s.drag.py - s.drag.oy));
+        var kg = TUNE.grip, cg = Math.max(1, TUNE.resist) * 2 * Math.sqrt(kg);
+        var dx0 = fx - s.x, dy0 = fy - s.y;
+        s.vx += (kg * dx0 - cg * s.vx) * dt; s.vy += (kg * dy0 - cg * s.vy) * dt;
+        s.x += s.vx * dt; s.y += s.vy * dt;
+        if (dx0 * (fx - s.x) + dy0 * (fy - s.y) < 0) { s.x = fx; s.y = fy; s.vx = s.vy = 0; }
+        s.prevOff = s.y - s.hy; return;
+      }
+      var target = s.hy + Math.sin(t * 0.55 + s.ph) * TUNE.float;
+      var off = s.y - target;
+      if (!s.side && Math.abs(off) > 6) s.side = Math.sign(off);
+      var inAir = s.side && Math.sign(off) === s.side, ay, drag;
+      if (inAir) { ay = -s.side * TUNE.fall - 0.3 * s.vy; drag = 1.2; }
+      else { ay = -TUNE.buoy * off - TUNE.thick * s.vy; drag = 1.2 + TUNE.thick * 0.25; }
+      if (s.side && Math.abs(off) < 1.5 && Math.abs(s.vy) < 12) s.side = 0;
+      var po = s.prevOff, no = s.y - s.hy;
+      if (po && no && Math.sign(po) !== Math.sign(no) && Math.abs(s.vy) > 90) ripples.push({ x: s.x, y: s.hy, t0: t, k: Math.min(1, Math.abs(s.vy) / 900) });
+      s.prevOff = no;
+      var ax = -drag * s.vx + Math.sin(t * 0.21 + s.ph * 2) * 5;
+      s.vx += ax * dt; s.vy += ay * dt;
+      s.x += s.vx * dt; s.y += s.vy * dt;
+      if (s.x < minX) { s.x = minX; if (s.vx < 0) s.vx = -s.vx * 0.35; }
+      if (s.x > maxX) { s.x = maxX; if (s.vx > 0) s.vx = -s.vx * 0.35; }
+      if (s.y < minY) { s.y = minY; if (s.vy < 0) s.vy = -s.vy * 0.35; }
+      if (s.y > maxY) { s.y = maxY; if (s.vy > 0) s.vy = -s.vy * 0.35; }
+    });
+    for (var i = 0; i < stars.length; i++) for (var j = i + 1; j < stars.length; j++) {
+      var a = stars[i], b = stars[j], dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
+      if (d >= 2 * R || d < 0.01) continue;
+      var ia = a.drag ? 0 : 1, ib = b.drag ? 0 : 1, w = ia + ib; if (!w) continue;
+      var nx = dx / d, ny = dy / d, push = (2 * R - d) * 0.35;
+      a.x -= nx * push * ia / w; a.y -= ny * push * ia / w; b.x += nx * push * ib / w; b.y += ny * push * ib / w;
+      var rv = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+      if (rv < 0) {
+        var e = 0.85 * smoothstep(TUNE.bounce * 0.6, TUNE.bounce * 1.6, -rv);
+        var J = -(1 + e) * rv / w;
+        a.vx -= J * nx * ia; a.vy -= J * ny * ia; b.vx += J * nx * ib; b.vy += J * ny * ib;
+      }
+    }
+  }
+  /* Drawing: while an orb is away from its line, a short faint "surface" shows where it belongs.
+     When it splashes through the line, a soft ripple spreads along it. */
+  function drawB(t) {
+    ctx.clearRect(0, 0, FW, FH);
+    if (!TUNE.lines) { stars.forEach(function (s) { s.el.style.transform = 'translate(' + (s.x - OX).toFixed(1) + 'px,' + (s.y - OY).toFixed(1) + 'px)'; }); ripples = []; return; }
+    var col = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#2F5D62';
+    ctx.strokeStyle = col; ctx.lineCap = 'round';
+    stars.forEach(function (s) {
+      s.el.style.transform = 'translate(' + (s.x - OX).toFixed(1) + 'px,' + (s.y - OY).toFixed(1) + 'px)';
+      var m = Math.abs(s.y - s.hy);
+      if (m < 8) return;
+      var a = Math.min(1, (m - 8) / 60);
+      ctx.globalAlpha = 0.45 * a; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(s.x - 34, s.hy); ctx.lineTo(s.x + 34, s.hy); ctx.stroke();
+    });
+    ripples = ripples.filter(function (r) { return t - r.t0 < 1.4; });
+    ripples.forEach(function (r) {
+      var u = (t - r.t0) / 1.4;
+      for (var n = 0; n < 2; n++) {
+        var v = u - n * 0.18; if (v <= 0) continue;
+        var w = 26 + v * (70 + 70 * r.k);
+        ctx.globalAlpha = (1 - v) * 0.5 * (0.5 + r.k);
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.ellipse(r.x, r.y, w, w * 0.16, 0, 0, 6.283); ctx.stroke();
+      }
+    });
+    ctx.globalAlpha = 1;
+  }
+  var lastT = performance.now(), reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function loopB(now) {
+    if ($('scrB').classList.contains('on')) {
+      var dt = Math.min(1 / 30, (now - lastT) / 1000), t = now / 1000;
+      var savedFloat = TUNE.float; if (reduce) TUNE.float = 0;
+      step(dt / 2, t); step(dt / 2, t);
+      TUNE.float = savedFloat;
+      drawB(t);
+      skyB(dt, t);
+    }
+    lastT = now;
+    requestAnimationFrame(loopB);
+  }
+  requestAnimationFrame(loopB);
+  function tuneHTML() {
+    return '<h2>Tune the feel</h2><div class="tune">' +
+      '<label for="tGrip">Grip <output id="oGrip"></output><input id="tGrip" type="range" min="8" max="200" step="1" value="' + TUNE.grip + '"><small>While you hold an orb: how strongly your finger pulls it toward you.</small></label>' +
+      '<label for="tResist">Resistance <output id="oResist"></output><input id="tResist" type="range" min="1" max="4" step="0.1" value="' + TUNE.resist + '"><small>How much the water holds it back while you pull. At 1 it just reaches your finger; higher feels heavier and lags more. It never goes past your finger.</small></label>' +
+      '<label for="tFall">Fall <output id="oFall"></output><input id="tFall" type="range" min="300" max="3000" step="50" value="' + TUNE.fall + '"><small>Gravity in the air: how quickly it speeds up falling back to its line.</small></label>' +
+      '<label for="tThick">Water thickness <output id="oThick"></output><input id="tThick" type="range" min="2" max="16" step="0.5" value="' + TUNE.thick + '"><small>How fast the water brakes it after the splash. Thicker means a shorter dive.</small></label>' +
+      '<label for="tBuoy">Float back <output id="oBuoy"></output><input id="tBuoy" type="range" min="2" max="40" step="1" value="' + TUNE.buoy + '"><small>How strongly it rises back to the surface after the dive.</small></label>' +
+      '<label for="tBounce">Bounce from speed <output id="oBounce"></output><input id="tBounce" type="range" min="100" max="1000" step="10" value="' + TUNE.bounce + '"><small>Below this speed orbs only nudge each other. Above it they bounce.</small></label>' +
+      '<label for="tFloat">Float <output id="oFloat"></output><input id="tFloat" type="range" min="0" max="12" step="0.5" value="' + TUNE.float + '"><small>How much they bob up and down while resting.</small></label>' +
+      '<h2 style="margin-top:10px">Background geometry</h2>' +
+      '<div class="chips" role="group" aria-label="Spiral">' + [['sunflower', 'Sunflower'], ['galaxy', 'Galaxy']].map(function (g) { return '<button class="chip" style="padding:0 14px" data-geo="' + g[0] + '" aria-pressed="' + (TUNE.geo === g[0]) + '">' + g[1] + '</button>'; }).join('') + '</div>' +
+      '<p id="geoNote" style="margin:0;font-size:13px;color:var(--muted)">' + GEO_NOTES[TUNE.geo] + '</p>' +
+      '<label for="tWind">Wind <output id="oWind"></output><input id="tWind" type="range" min="0.25" max="2" step="0.05" value="' + TUNE.wind + '"><small>How far the points travel along the spiral when the friends move sideways.</small></label>' +
+      '<label for="tDrift">Drift <output id="oDrift"></output><input id="tDrift" type="range" min="0" max="10" step="0.5" value="' + TUNE.drift + '"><small>A very slow turn of the whole figure while nothing moves. 0 is off.</small></label>' +
+      '<label for="tGeo" style="display:flex;gap:10px;align-items:center"><input id="tGeo" type="checkbox"' + (TUNE.showGeo ? ' checked' : '') + '> Show the geometry (mean, points 2 and 3, the spiral)</label>' +
+      '<label for="tLines" style="display:flex;gap:10px;align-items:center"><input id="tLines" type="checkbox"' + (TUNE.lines ? ' checked' : '') + '> Show water lines and splashes</label>' +
+      '<button class="mini" id="tReset">Put everyone back</button></div>';
+  }
+  function bindTune() {
+    var map = { tGrip: ['grip', 'oGrip', function (v) { return v < 30 ? 'loose' : v < 90 ? 'medium' : 'tight'; }], tResist: ['resist', 'oResist', function (v) { return '×' + v.toFixed(1); }], tWind: ['wind', 'oWind', function (v) { return v.toFixed(2) + ' turn'; }], tDrift: ['drift', 'oDrift', function (v) { return v ? '1 turn / ' + v + ' min' : 'off'; }], tFall: ['fall', 'oFall', function (v) { return v < 900 ? 'floaty' : v < 1800 ? 'natural' : 'heavy'; }], tThick: ['thick', 'oThick', function (v) { return v < 5 ? 'thin' : v < 10 ? 'water' : 'honey'; }], tBuoy: ['buoy', 'oBuoy', function (v) { return v < 8 ? 'lazy' : v < 22 ? 'gentle' : 'quick'; }], tBounce: ['bounce', 'oBounce', function (v) { return v + ' px/s'; }], tFloat: ['float', 'oFloat', function (v) { return v + ' px'; }] };
+    Object.keys(map).forEach(function (id) {
+      var m = map[id], inp = $(id);
+      var show = function () { $(m[1]).textContent = m[2](+inp.value); };
+      show();
+      inp.addEventListener('input', function () { TUNE[m[0]] = +inp.value; show(); try { localStorage.setItem('orbTune2', JSON.stringify(TUNE)); } catch (e) {} });
+    });
+    $('tReset').addEventListener('click', function () { layoutB(true); });
+    var saveT = function () { try { localStorage.setItem('orbTune2', JSON.stringify(TUNE)); } catch (e) {} };
+    $('tGeo').addEventListener('change', function () { TUNE.showGeo = $('tGeo').checked ? 1 : 0; saveT(); });
+    [].forEach.call(document.querySelectorAll('[data-geo]'), function (b) {
+      b.addEventListener('click', function () {
+        TUNE.geo = b.dataset.geo; saveT();
+        [].forEach.call(document.querySelectorAll('[data-geo]'), function (x) { x.setAttribute('aria-pressed', x === b); });
+        $('geoNote').textContent = GEO_NOTES[TUNE.geo];
+      });
+    });
+    $('tLines').addEventListener('change', function () { TUNE.lines = $('tLines').checked ? 1 : 0; try { localStorage.setItem('orbTune2', JSON.stringify(TUNE)); } catch (e) {} });
+  }
+
+  /* ---------- C: deck ---------- */
+  var LEAVES = [
+    { t: 'Home', s: '2 waiting for you', body: function () { return homeHTML(false); } },
+    { t: 'Ranking', s: 'You are second · 1,532', body: function () { return rankHTML(false); } },
+    { t: 'History', s: '23 matches · 61% won', body: function () { return histHTML(false); } }
+  ];
+  var order = [2, 1, 0];
+  var deck = $('deck');
+  LEAVES.forEach(function (l, k) {
+    var el = document.createElement('div'); el.className = 'leaf';
+    el.innerHTML = '<button class="leaf-head" data-act="leaf" data-k="' + k + '"><b>' + l.t + '</b><span>' + l.s + '</span></button><div class="leaf-body">' + l.body() + '</div>';
+    deck.appendChild(el); l.el = el;
+  });
+  function placeDeck() {
+    order.forEach(function (k, slot) {
+      var el = LEAVES[k].el, front = slot === order.length - 1;
+      el.style.top = (48 + slot * 56) + 'px';
+      el.style.zIndex = slot + 1;
+      el.style.transform = front ? 'none' : 'scale(' + (0.94 + slot * 0.03) + ')';
+      el.style.transformOrigin = '50% 0';
+      el.classList.toggle('front', front);
+      el.querySelector('.leaf-head').tabIndex = front ? -1 : 0;
+    });
+  }
+  function bringFront(k) {
+    if (order[order.length - 1] === k) return;
+    order = order.filter(function (x) { return x !== k; }).concat(k);
+    placeDeck();
+  }
+  placeDeck();
+
+  /* ---------- Time of day (moods from the Bubble app). Fast day: 24 h pass in 60 s. ---------- */
+  var MOODS = [[0, .24, .055, [285, 310, 255]], [5, .36, .06, [300, 330, 255]], [6.5, .80, .065, [345, 60, 290]], [8, .92, .075, [350, 95, 200]],
+    [12, .94, .05, [110, 200, 60]], [15, .91, .06, [90, 150, 230]], [18, .88, .07, [70, 30, 250]], [19.5, .76, .09, [45, 350, 290]],
+    [20.5, .36, .06, [300, 330, 255]], [22, .24, .055, [285, 310, 255]], [24, .24, .055, [285, 310, 255]]];
+  var DARKV = { '--ink': '#E7EEEF', '--muted': '#A7B5B8', '--line': 'rgba(231,238,239,0.16)', '--glass': 'rgba(22,29,38,0.50)', '--glass-strong': 'rgba(26,33,42,0.86)', '--accent': '#8EC3C2', '--on-accent': '#10201F', '--sheet': '#1C232B', '--page': '#11161B' };
+  var LIGHTV = { '--ink': '#1F2D2E', '--muted': '#4A5859', '--line': 'rgba(31,45,46,0.14)', '--glass': 'rgba(250,252,251,0.52)', '--glass-strong': 'rgba(250,252,251,0.82)', '--accent': '#2F5D62', '--on-accent': '#FFFFFF', '--sheet': '#F4F6F5', '--page': '#E6ECEA' };
+  var fastDay = true, dayT0 = performance.now(), lastDark = null;
+  function hueMix(a, b, t) { var d = ((b - a + 540) % 360) - 180; return (a + d * t + 360) % 360; }
+  function dayTick(now) {
+    var h;
+    if (fastDay) { h = ((now - dayT0) / 60000 * 24 + 6) % 24; frozenH = h; }
+    else h = frozenH;
+    var i = 0; while (MOODS[i + 1][0] <= h) i++;
+    var A = MOODS[i], B = MOODS[i + 1], t = (h - A[0]) / (B[0] - A[0]); t = t * t * (3 - 2 * t);
+    var L = A[1] + (B[1] - A[1]) * t, C = A[2] + (B[2] - A[2]) * t, ph = $('phone');
+    for (var k = 0; k < 3; k++) ph.style.setProperty('--p' + (k + 1), 'oklch(' + L.toFixed(3) + ' ' + C.toFixed(3) + ' ' + hueMix(A[3][k], B[3][k], t).toFixed(1) + ')');
+    ph.style.setProperty('--sky', 'oklch(' + Math.min(0.97, L + 0.02).toFixed(3) + ' ' + (C * 0.5).toFixed(3) + ' ' + hueMix(A[3][0], B[3][0], t).toFixed(1) + ')');
+    var dark = L < 0.55;
+    if (dark !== lastDark) { lastDark = dark; var V = dark ? DARKV : LIGHTV; for (var v in V) ph.style.setProperty(v, V[v]); }
+    var hh = Math.floor(h), mm = Math.floor((h - hh) * 60);
+    $('clock').textContent = hh + ':' + (mm < 10 ? '0' : '') + mm;
+    requestAnimationFrame(dayTick);
+  }
+  requestAnimationFrame(dayTick);
+  /* Unticking freezes the sky at the hour it shows; ticking again resumes from there. */
+  var frozenH = 6;
+  $('fastDay').addEventListener('change', function () {
+    fastDay = $('fastDay').checked;
+    if (fastDay) dayT0 = performance.now() - ((frozenH - 6 + 24) % 24) / 24 * 60000;
+  });
+
+  /* ---------- concept switch ---------- */
+  var NOTES = {
+    A: { why: 'Three rooms side by side, Home in the middle. Swipe left for History, right for Ranking. The sky slides with you a little slower than the content, so it feels like one continuous place instead of three pages.',
+      good: ['Nothing to go back from: every room is one swipe away', 'Builds muscle memory fast', 'The moving sky makes every swipe feel calm'],
+      watch: ['Rooms are invisible until you swipe; the labels at the top have to teach it'],
+      tr: 'Swipe the phone sideways, or tap History / Ranking at the top.' },
+    B: { why: 'Chosen. Each friend floats at the height of their Elo, and that height is like a water surface. Pull an orb up or down and let go: the side you pulled it to behaves like air, so it falls back, speeding up, splashes through its line, slows in the water and floats back up. Sideways it stays wherever you leave it. Orbs that touch slowly just nudge each other; only a fast throw makes them bounce.',
+      good: ['Hold an orb and move your finger: it follows through the water, lagging behind, and never goes past your finger', 'Drag an orb far up and let go, then far down', 'Push one slowly into another, then throw one hard at another', 'A quick tap still opens the player card'],
+      watch: ['The names under the orbs can overlap when two players sit close in Elo'],
+      tr: 'Use the sliders below to tune the feel. They are saved in this browser.' },
+    C: { why: 'The three sections are glass sheets stacked like cards. The one in front is open; the others peek out above it and show a live line, so you see what is behind without opening it.',
+      good: ['Always see where you could go', 'Any section is one tap away', 'Easy to understand on first use'],
+      watch: ['It is the closest of the three to ordinary tabs'],
+      tr: 'Tap the edge of Ranking or History peeking out at the top.' }
+  };
+  function setConcept(c) {
+    ['A', 'B', 'C'].forEach(function (k) { $('scr' + k).classList.toggle('on', k === c); });
+    [].forEach.call(document.querySelectorAll('.opt'), function (b) { b.setAttribute('aria-pressed', b.dataset.c === c); });
+    $('phone').classList.toggle('wide', c === 'A');
+    $('phone').classList.toggle('driven', c === 'B');
+    $('sky').style.transform = ''; $('sky').style.background = '';
+    closeAll();
+    var n = NOTES[c];
+    $('detail').innerHTML = '<h2>How it works</h2><p style="color:var(--ink);margin:0">' + n.why + '</p><h2>Good</h2><ul>' + n.good.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul><h2>Watch out</h2><ul>' + n.watch.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul><p class="try">' + n.tr + '</p>' + (c === 'B' ? tuneHTML() : '');
+    if (c === 'B') bindTune();
+    if (c === 'A') { var home = function () { pano.scrollTo({ left: pano.clientWidth, behavior: 'instant' }); onPano(); }; home(); requestAnimationFrame(home); setTimeout(home, 120); }
+    if (c === 'B') layoutB();
+    try { localStorage.setItem('navConcept2', c); } catch (e) {}
+  }
+  [].forEach.call(document.querySelectorAll('.opt'), function (b) { b.addEventListener('click', function () { setConcept(b.dataset.c); }); });
+  window.addEventListener('resize', function () { if ($('scrB').classList.contains('on')) layoutB(); if ($('scrA').classList.contains('on')) { pano.scrollLeft = Math.round(pano.scrollLeft / pano.clientWidth) * pano.clientWidth; onPano(); } });
+  setConcept('B');
+
+  /* ---------- Plots of the spiral functions ---------- */
+  var PL = { sunflower: 1, galaxy: 1, p2: 1, p3: 1, s: 0.4, play: false };
+  var PCOL = { golden: 'oklch(0.70 0.13 70)', sunflower: 'oklch(0.65 0.13 150)', galaxy: 'oklch(0.62 0.13 280)' };
+  var NAMES = { sunflower: 'Sunflower', galaxy: 'Galaxy', p2: 'Point 2', p3: 'Point 3' };
+  $('plotOpts').innerHTML = Object.keys(NAMES).map(function (k) { return '<button class="chip" style="padding:0 12px' + (PCOL[k] ? ';border-color:' + PCOL[k] : '') + '" data-pl="' + k + '" aria-pressed="true">' + NAMES[k] + '</button>'; }).join('');
+  $('plotOpts').addEventListener('click', function (e) { var b = e.target.closest('[data-pl]'); if (!b) return; PL[b.dataset.pl] = PL[b.dataset.pl] ? 0 : 1; b.setAttribute('aria-pressed', !!PL[b.dataset.pl]); drawPlots(); });
+  $('plotS').addEventListener('input', function () { PL.s = +$('plotS').value; drawPlots(); });
+  $('plotPlay').addEventListener('click', function () { PL.play = !PL.play; $('plotPlay').textContent = PL.play ? 'Pause' : 'Play'; });
+  function drawPlots() {
+    var cv1 = $('plot'), g = cv1.getContext('2d'), W = 360, D = 1, sc = W / 2 / 0.85, cx = W / 2, cy = W / 2;
+    var ink = getComputedStyle(document.documentElement).getPropertyValue('--ink').trim();
+    var dm = TUNE.wind * 2 * Math.PI;
+    $('plotSo').textContent = (PL.s >= 0 ? '+' : '−') + Math.abs(PL.s).toFixed(2);
+    g.clearRect(0, 0, W, W);
+    g.strokeStyle = ink; g.globalAlpha = 0.15; g.lineWidth = 1;
+    [0.25, 0.5, 0.75].forEach(function (r) { g.beginPath(); g.arc(cx, cy, r * sc, 0, 6.283); g.stroke(); });
+    g.globalAlpha = 0.6; g.lineWidth = 2; g.beginPath(); g.moveTo(cx - 6, cy); g.lineTo(cx + 6, cy); g.moveTo(cx, cy - 6); g.lineTo(cx, cy + 6); g.stroke();
+    ['sunflower', 'galaxy'].forEach(function (m) {
+      if (!PL[m]) return;
+      g.strokeStyle = g.fillStyle = PCOL[m];
+      [0, 1].forEach(function (k) {
+        if (!PL[k ? 'p3' : 'p2']) return;
+        g.globalAlpha = 0.75; g.lineWidth = 2; g.setLineDash(k ? [5, 4] : []); g.beginPath();
+        for (var i = 0; i <= 200; i++) { var s = -1 + 2 * i / 200, q = geoPoints(m, [0, 0], dm * s, D, 0)[k]; var x = cx + q[0] * sc, y = cy + q[1] * sc; if (i) g.lineTo(x, y); else g.moveTo(x, y); }
+        g.stroke(); g.setLineDash([]);
+        var p = geoPoints(m, [0, 0], dm * PL.s, D, 0)[k];
+        g.globalAlpha = 1; g.beginPath(); g.arc(cx + p[0] * sc, cy + p[1] * sc, 6, 0, 6.283); if (k) { g.lineWidth = 2.5; g.stroke(); } else g.fill();
+      });
+    });
+    var c2 = $('plotR'), h = c2.getContext('2d'), H = 150, pad = 24;
+    h.clearRect(0, 0, W, H);
+    h.strokeStyle = h.fillStyle = ink; h.globalAlpha = 0.5; h.font = '11px Figtree, sans-serif';
+    h.fillText('distance from mean', 4, 12); h.fillText('s = −1', 4, H - 4); h.fillText('+1', W - 18, H - 4);
+    h.globalAlpha = 0.15; h.beginPath(); h.moveTo(W / 2, 16); h.lineTo(W / 2, H - pad + 6); h.stroke();
+    var ry = function (r) { return H - pad - r / 0.85 * (H - pad - 18); };
+    ['sunflower', 'galaxy'].forEach(function (m) {
+      if (!PL[m]) return;
+      h.strokeStyle = PCOL[m];
+      [0, 1].forEach(function (k) {
+        if (!PL[k ? 'p3' : 'p2']) return;
+        h.globalAlpha = 0.8; h.lineWidth = 2; h.setLineDash(k ? [5, 4] : []); h.beginPath();
+        for (var i = 0; i <= 120; i++) { var s = -1 + 2 * i / 120, q = geoPoints(m, [0, 0], dm * s, D, 0)[k], x = 8 + (W - 16) * i / 120, y = ry(Math.hypot(q[0], q[1])); if (i) h.lineTo(x, y); else h.moveTo(x, y); }
+        h.stroke(); h.setLineDash([]);
+      });
+    });
+    h.strokeStyle = ink; h.globalAlpha = 0.5; var xs = 8 + (W - 16) * (PL.s + 1) / 2; h.beginPath(); h.moveTo(xs, 16); h.lineTo(xs, H - pad); h.stroke();
+    h.globalAlpha = 1;
+  }
+  var plotDir = 1;
+  (function plotLoop() {
+    if (PL.play) { PL.s += plotDir * 0.006; if (PL.s > 1 || PL.s < -1) { plotDir = -plotDir; PL.s = Math.max(-1, Math.min(1, PL.s)); } $('plotS').value = PL.s; drawPlots(); }
+    requestAnimationFrame(plotLoop);
+  })();
+  drawPlots();
+  document.addEventListener('input', function (e) { if (e.target.id === 'tWind') drawPlots(); });
+  document.addEventListener('click', function (e) { if (e.target.closest('[data-geo]')) drawPlots(); });
+})();
+</script>
