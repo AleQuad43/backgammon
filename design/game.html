@@ -821,7 +821,14 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   /* House rule: no doubling at all while either player is one point from winning the match. */
   var MATCH = 5;
   function canDouble() { return G.score.me < MATCH - 1 && G.score.them < MATCH - 1 && G.cube.v < 64; }
+  /* While a double waits for an answer the day turns 12 hours over; once it's answered it turns back. */
+  var DAYF = 0;
+  function dayFlip() {
+    var want = G && (G.phase === 'offered' || G.phase === 'wait') ? 12 : 0;
+    if (want !== DAYF) { DAYF = want; if (window.skyShift) window.skyShift(want); }
+  }
   function cubeUI() {
+    if (G && G.phase !== 'demo') dayFlip();
     var c = $('cube'), live = G.turn === ME && G.phase === 'roll' && G.cube.owner !== TH && canDouble();
     c.classList.toggle('live', live);
     $('railDie').style.transform = oriStr(dori(G.cube.v));
@@ -887,8 +894,8 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
 
   /* Hold an empty part of the board: a ring fills under your finger. When it closes, the words appear and sliding right
      turns the whole sky once around with your finger. Back where it started = turn ended (or game given up). */
-  var hold = null, SLIDE_W = 190, HOLD = { s: 0.5 };
-  try { var hs = parseFloat(localStorage.getItem('holdS')); if (hs > 0) HOLD.s = hs; } catch (e) {}
+  var hold = null, SLIDE_W = 110, HOLD = { s: 0.25 };
+  try { var hs = parseFloat(localStorage.getItem('holdS2')); if (hs > 0) HOLD.s = hs; } catch (e) {}
   function ease(u) { return u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2; }
   function placeSlide() {
     var sl = $('slide'), x = Math.max(110, Math.min(W - 110, hold.x)), y = Math.max(60, hold.y - 34);
@@ -910,7 +917,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
       if (u >= 1) { hold.slide = true; $('slide').hidden = false; placeSlide(); if (navigator.vibrate) try { navigator.vibrate(12); } catch (e) {} }
     }
   }
-  $('holdMs').addEventListener('input', function () { HOLD.s = +$('holdMs').value; $('holdOut').textContent = HOLD.s.toFixed(2) + ' s'; try { localStorage.setItem('holdS', HOLD.s); } catch (e) {} });
+  $('holdMs').addEventListener('input', function () { HOLD.s = +$('holdMs').value; $('holdOut').textContent = HOLD.s.toFixed(2) + ' s'; try { localStorage.setItem('holdS2', HOLD.s); } catch (e) {} });
   $('holdMs').value = HOLD.s; $('holdOut').textContent = HOLD.s.toFixed(2) + ' s';
 
   /* ---------- Doubling ----------
@@ -1165,7 +1172,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     G.phase = 'roll'; setTurn(ME); say('Your turn. Throw your dice.');
   }
   function gameOver(winner, dropped) {
-    G.phase = 'over';
+    G.phase = 'over'; dayFlip();
     /* Single 1, gammon 2 (loser bore off nothing), backgammon 3 (also still on the bar or in the winner's home board). */
     var loser = other(winner), gam = !dropped && stacks['off-' + loser].length === 0, bg = false;
     if (gam) { bg = stacks['bar-' + loser].length > 0; for (var r = 1; r <= 6 && !bg; r++) bg = stacks[absOf(winner, r)].some(function (id) { return ck[id].side === loser; }); }

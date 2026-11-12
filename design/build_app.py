@@ -86,7 +86,7 @@ api = r"""
       var fresh = CUR !== o.id || !G; CUR = o.id; OPP = o; setNames();
       if (fresh) { CASE.fresh = true; G = null; if (o.to) { MATCH = o.to; $('scTo').textContent = 'to ' + MATCH; } start(); }
     },
-    close: function () { $('gv').hidden = true; $('over').hidden = true; if (history.state && history.state.bg) try { history.back(); } catch (e) {} },
+    close: function () { if (DAYF) { DAYF = 0; if (window.skyShift) window.skyShift(0, 600); } $('gv').hidden = true; $('over').hidden = true; if (history.state && history.state.bg) try { history.back(); } catch (e) {} },
     seat: function () { CUR = 'duo'; showBoard(); if (DB) pickSeat(); else say('The shared game needs the published page.'); },
     bearOff: function () { tryBearOff(); },
     restart: function () { if (DUO) newGame(true); else { G = null; start(); } },
