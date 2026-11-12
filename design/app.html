@@ -229,11 +229,11 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
 /* The doubling cube is a real die: ivory, numbers cut into each face (2 4 8 16 32 64). */
 #gv .cube .face { width: 50px; height: 50px; background: none; box-shadow: none; perspective: 260px; border-radius: 0; }
 #gv .cube.live .face { background: none; box-shadow: none; }
-#gv .dz { --h: 19px; position: relative; width: 38px; height: 38px; transform-style: preserve-3d; transform: rotateX(-26deg) rotateY(32deg); }
+#gv .dz { --h: 20px; position: relative; width: 40px; height: 40px; transform-style: preserve-3d; }
 #gv .dc { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .7s cubic-bezier(.3,.7,.2,1); }
 #gv .cf-in .dc { --h: 22px; inset: 3px; transition: none; }
 #gv .fc { position: absolute; inset: 0; border-radius: 8px; display: flex; align-items: center; justify-content: center; backface-visibility: hidden; -webkit-backface-visibility: hidden;
-  background: radial-gradient(120% 120% at 30% 25%, #FBF5E8, #EADFC8 60%, #D9CBAE); color: #4A2C18; font-weight: 800; font-size: 17px; font-variant-numeric: tabular-nums; letter-spacing: -0.03em;
+  background: radial-gradient(75% 75% at 50% 50%, transparent 55%, rgba(110,75,35,0.28) 100%), linear-gradient(140deg, rgba(255,252,242,0.55), transparent 45%, rgba(70,40,15,0.16)), var(--ivory, linear-gradient(#F1E7D2, #E2D4B8)); background-size: cover; color: #4A2C18; font-weight: 800; font-size: 17px; font-variant-numeric: tabular-nums; letter-spacing: -0.03em;
   text-shadow: 0 1px 0 rgba(255,255,255,0.75), 0 -1px 0 rgba(60,30,10,0.35); box-shadow: inset 0 0 0 1px rgba(90,60,30,0.22), inset 0 -5px 9px rgba(120,85,45,0.18), inset 0 4px 6px rgba(255,255,255,0.5); }
 #gv .cf-in .fc { font-size: 19px; }
 #gv .fc.n3 { font-size: 14px; } .cf-in .fc.n3 { font-size: 16px; }
@@ -243,6 +243,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
 #gv .fc.f3 { transform: rotateY(90deg) translateZ(var(--h)); }
 #gv .fc.f4 { transform: rotateY(-90deg) translateZ(var(--h)); }
 #gv .fc.f5 { transform: rotateY(180deg) translateZ(var(--h)); }
+#gv .fc::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: radial-gradient(3px 2px at 22% 78%, rgba(70,45,20,0.35), transparent), radial-gradient(2px 2px at 81% 30%, rgba(70,45,20,0.3), transparent), radial-gradient(10px 4px at 70% 88%, rgba(255,250,235,0.5), transparent); }
 #gv .dzs { position: absolute; left: 6px; right: 6px; bottom: -7px; height: 10px; border-radius: 50%; background: rgba(40,20,8,0.28); filter: blur(4px); }
 #gv .cfs { position: absolute; left: 4px; right: 4px; bottom: -4px; height: 12px; border-radius: 50%; background: rgba(40,20,8,0.35); filter: blur(5px); transform-origin: 50% 50%; }
 #gv .over { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
@@ -317,11 +318,13 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       ['Aged', '#CDB283', '#8C6C42'], ['Camel', '#B8955F', '#6E5230'] ] },
     bakelite: { n: 'Bakelite', gloss: 0.9, tones: [
       ['Butterscotch', '#D8922E', '#F2C46A'], ['Cherry', '#8E1E1E', '#C2503F'], ['Racing green', '#1F4A35', '#4F8A64'],
-      ['Navy', '#1E2C48', '#4A6490'], ['Jet', '#18181A', '#45454A'] ] }
+      ['Navy', '#1E2C48', '#4A6490'], ['Jet', '#18181A', '#45454A'] ] },
+    classic: { n: 'Classic', gloss: 0.55, tones: [
+      ['White', '#F3ECDF', '#E3D8C3'], ['Black', '#2F3B42', '#222B31'] ] }
   };
   /* thickness ÷ diameter, from real sets: tournament acrylic 12 / 44 mm, vintage bakelite 9.7 / 49 mm,
      extra-thick wood 10 mm; marble and bone kept a touch slimmer */
-  var THICK = { wood: 0.27, marble: 0.22, bone: 0.2, bakelite: 0.22 };
+  var THICK = { wood: 0.27, marble: 0.22, bone: 0.2, bakelite: 0.22, classic: 0.22 };
   var FACES = [['flat', 'Flat'], ['dish', 'Dished'], ['rings', 'Turned rings'], ['star', 'Eight-point star'], ['rosette', 'Rosette']];
   var INLAYS = [['none', 'None'], ['pearl', 'Mother-of-pearl'], ['brass', 'Brass']];
   var S = { m: 'wood', t: 3, f: 'rings', i: 'none', a: 0, s: 1 + (Math.random() * 99999 | 0) };
@@ -358,6 +361,8 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
         var st = fbm(x / 1.6, y / 70, seed, 4), bl = fbm(x / 60, y / 60, seed + 5, 3);
         c = mix(A, B, Math.max(0, (st - 0.45) * 0.55 + (bl - 0.5) * 0.5));
         if (hash(x, y, seed + 7) < 0.0016) c = mix(c, B, 0.7);
+      } else if (m === 'classic') { /* the board's own set: plain resin with the faintest cloud */
+        c = mix(A, B, Math.max(0, (fbm(x / 110, y / 110, seed, 4) - 0.45) * 0.6));
       } else {                      /* bakelite / catalin: soft marbled swirls */
         var sw = fbm(x / 80, y / 80, seed, 5) * 7 + (x + y) / N * 1.5;
         var s1 = 0.5 + 0.5 * Math.sin(sw * 2.2);
@@ -390,7 +395,8 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     wood:     { patina: ['#7A4E24', 0.42], grime: 0.55, chips: 3, scratch: 22, dent: 9, crack: 2, frac: '#D9B884', rub: 0.18, haze: 0 },
     marble:   { patina: ['#CDB98E', 0.32], grime: 0.32, chips: 4, scratch: 34, dent: 0, crack: 3, frac: '#EEEBE4', rub: 0.22, haze: 0.08 },
     bone:     { patina: ['#B5832F', 0.6],  grime: 0.5,  chips: 3, scratch: 10, dent: 3, crack: 6, frac: '#EFE6D0', rub: 0.18, haze: 0 },
-    bakelite: { patina: ['#B98422', 0.38], grime: 0.38, chips: 5, scratch: 46, dent: 3, crack: 1, frac: null,      rub: 0.25, haze: 0.1 }
+    bakelite: { patina: ['#B98422', 0.38], grime: 0.38, chips: 5, scratch: 46, dent: 3, crack: 1, frac: null,      rub: 0.25, haze: 0.1 },
+    classic:  { patina: ['#A88A5C', 0.3],  grime: 0.4,  chips: 4, scratch: 38, dent: 4, crack: 1, frac: null,      rub: 0.22, haze: 0.08 }
   };
   function rng(seed) { var a = seed >>> 0; return function () { a = (a + 0x6D2B79F5) | 0; var t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
   var DIRT = {};
@@ -607,7 +613,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
 
   var AGES = [[0, 'New'], [0.15, 'Gently used'], [0.35, 'Well played'], [0.55, 'Seasoned'], [0.75, 'Worn'], [0.9, 'Heirloom']];
   function ageName(a) { var n = AGES[0][1]; AGES.forEach(function (x) { if (a >= x[0]) n = x[1]; }); return n; }
-  function randomChecker() { var ks = Object.keys(MAT); return { m: ks[Math.random() * 4 | 0], t: Math.random() * 5 | 0, f: FACES[Math.random() * 5 | 0][0], i: Math.random() < 0.7 ? 'none' : INLAYS[1 + (Math.random() * 2 | 0)][0], a: Math.round(Math.pow(Math.random(), 1.4) * 100) / 100, s: 1 + (Math.random() * 99999 | 0) }; }
+  function randomChecker() { var ks = Object.keys(MAT); return { m: ks[Math.random() * ks.length | 0], t: Math.random() * 5 | 0, f: FACES[Math.random() * 5 | 0][0], i: Math.random() < 0.7 ? 'none' : INLAYS[1 + (Math.random() * 2 | 0)][0], a: Math.round(Math.pow(Math.random(), 1.4) * 100) / 100, s: 1 + (Math.random() * 99999 | 0) }; }
   window.Checker = { MAT: MAT, FACES: FACES, INLAYS: INLAYS, AGES: AGES, ageName: ageName, random: randomChecker, top: drawTop, tilt: drawTilt, texture: texture, chips: chipsFor, frac: fracColour, THICK: THICK };
 })();
 </script>
@@ -1189,6 +1195,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     requestAnimationFrame(loopB);
   }
   window.addEventListener('resize', layoutB);
+  if ((/[?&]demo=double/.test(Q) || window.DEMO === 'double') && !CLOUD) setTimeout(function () { window.BG.open({ id: 'bot', name: 'Computer', ini: 'bot', to: 5 }); setTimeout(function () { window.__demoDouble(); }, 2600); }, 600);
   layoutB(); requestAnimationFrame(loopB);
 
   /* ---------- accounts: name, email and a 4-digit PIN. Forgot it? Firebase emails a link to choose a new one. ---------- */
@@ -1601,6 +1608,16 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
         if (d.x > R.x1 - h) { d.x = R.x1 - h; d.vx = -Math.abs(d.vx) * 0.55; d.va += (Math.random() - 0.5) * 12; }
         if (d.y < L.y0 + h) { d.y = L.y0 + h; d.vy = Math.abs(d.vy) * 0.55; d.va += (Math.random() - 0.5) * 12; }
         if (d.y > L.y0 + L.fh - h) { d.y = L.y0 + L.fh - h; d.vy = -Math.abs(d.vy) * 0.55; d.va += (Math.random() - 0.5) * 12; }
+        /* the wooden bar stands proud of the playing field: a die that reaches it slowly knocks against it and comes back;
+           a hard one hops over (each die its own throw, so one may bounce and the other not) */
+        var bc = L.barX + L.bw / 2, bh = L.bw / 2 + h * 0.8, px = d.px == null ? d.x : d.px;
+        if (!d.over && ((px <= bc - bh && d.x > bc - bh && d.vx > 0) || (px >= bc + bh && d.x < bc + bh && d.vx < 0))) {
+          if (!d.jump) d.jump = 600 * (W / 640) * (0.82 + Math.random() * 0.36);
+          if (Math.abs(d.vx) < d.jump) { d.x = d.vx > 0 ? bc - bh : bc + bh; d.vx = -d.vx * 0.42; d.vy *= 0.85; d.va += (Math.random() - 0.5) * 16; d.knock = now; }
+          else { d.over = now; d.vx *= 0.8; d.va += (Math.random() - 0.5) * 6; }
+        }
+        if (d.over && Math.abs(d.x - bc) > bh + 2) d.over = 0;
+        d.px = d.x;
         sp = Math.hypot(d.vx, d.vy);
         if (sp > 70 && now - d.lastFace > 45 + 9000 / sp) { var f = rnd6(); d.face = f === d.face ? (f % 6) + 1 : f; d.lastFace = now; }
         if (sp < 16) { d.settled = true; d.vx = d.vy = 0; d.face = d.v; d.popT = now; }
@@ -1628,6 +1645,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   function drawDie(d, now, ghost) {
     var s = L.ds, sc = 1;
     if (d.popT) { var t = (now - d.popT) / 520; if (t < 1) sc = 1 + 0.42 * Math.sin(Math.PI * t) * (1 - t * 0.3); }
+    if (d.over) { var th = (now - d.over) / 260; if (th < 1) sc *= 1 + 0.22 * Math.sin(Math.PI * th); }
     if (!ghost && d.settled && d.tidy && !d.used && remaining()[0] === d && G.phase === 'move' && G.turn === ME) sc *= 1.08;
     ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(d.a); ctx.scale(sc, sc);
     ctx.globalAlpha = ghost ? 0.62 : d.used ? 0.32 : 1;
@@ -1648,8 +1666,26 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   }
 
   /* ---------- drawing ---------- */
+  /* The board's set is the workshop's "Classic" material: white and black, dished face, brand new. */
+  var CKS = {};
+  function ckSprite(side) {
+    var C = window.Checker, R = L.r, key = side + Math.round(R * DPR);
+    if (!C || !C.MAT.classic) return null;
+    if (CKS[key]) return CKS[key];
+    var n = Math.ceil(R * 2.2 * DPR), cv2 = document.createElement('canvas'); cv2.width = cv2.height = n;
+    var g = cv2.getContext('2d'); g.translate(n / 2, n / 2); g.scale(DPR, DPR);
+    C.top(g, { m: 'classic', t: side === ME ? 0 : 1, f: 'dish', i: 'none', a: 0, s: 7 }, R, { noShadow: true, noChips: true });
+    return (CKS[key] = cv2);
+  }
   function drawChecker(c, x, y, lift) {
-    var r = L.r * (lift ? 1.12 : 1), iv = c.side === ME;
+    var r = L.r * (lift ? 1.12 : 1), iv = c.side === ME, sp = ckSprite(c.side);
+    if (sp) {
+      var w = sp.width / DPR * (lift ? 1.12 : 1);
+      ctx.save();
+      ctx.shadowColor = 'rgba(25,12,4,' + (lift ? 0.45 : 0.34) + ')'; ctx.shadowBlur = lift ? 14 : 4; ctx.shadowOffsetX = lift ? 2 : 1; ctx.shadowOffsetY = lift ? 8 : 2.5;
+      ctx.drawImage(sp, x - w / 2, y - w / 2, w, w);
+      ctx.restore(); return;
+    }
     ctx.save();
     ctx.shadowColor = 'rgba(25,12,4,' + (lift ? 0.45 : 0.32) + ')'; ctx.shadowBlur = lift ? 14 : 4; ctx.shadowOffsetY = lift ? 8 : 2;
     ctx.beginPath(); ctx.arc(x, y, r, 0, 6.283); ctx.fillStyle = iv ? '#F3ECDF' : '#2F3B42'; ctx.fill();
@@ -1822,7 +1858,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     }
     if (hold) {
       var hd = hold; hold = null; $('slide').hidden = true;
-      if (hd.slide && hd.k > 0.97) { paintSky(skyA); if (G.phase === 'offered') gameOver(TH, true); else finishTurn(); }
+      if (hd.slide && hd.k > 0.97) { paintSky(skyA); if (G.phase === 'offered') { offerGone(); $('cubeFloat').hidden = true; $('cube').classList.remove('dragging'); gameOver(TH, true); } else finishTurn(); }
       else if (hd.slide) skyBack(2 * Math.PI * ease(hd.k));
       return;
     }
@@ -2013,6 +2049,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   function dieFaces() { return [64, 2, 8, 4, 16, 32].map(function (n) { return '<div class="fc f' + DFACE[n] + (n > 9 ? ' n3' : '') + '">' + n + '</div>'; }).join(''); }
   function oriStr(o, extra) { return (extra || '') + ' rotateX(' + o[0].toFixed(1) + 'deg) rotateY(' + o[1].toFixed(1) + 'deg)'; }
   (function buildDie() {
+    try { if (window.Checker) { var tx = window.Checker.texture('bone', 1); document.documentElement.style.setProperty('--ivory', 'url(' + tx.toDataURL('image/jpeg', 0.85) + ')'); } } catch (e) {}
     $('cubeFace').innerHTML = '<span class="dzs"></span><span class="dz"><span class="dc" id="railDie">' + dieFaces() + '</span></span>';
     $('cfIn').innerHTML = '<span class="cfs" id="cfShadow"></span><span class="dc" id="floatDie">' + dieFaces() + '</span>';
   })();
@@ -2038,12 +2075,12 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     cdrag.lx = cx; cdrag.ly = cy;
     var a = dori(G.cube.v), b = dori(G.cube.v * 2), e = k * k * (3 - 2 * k);
     $('cfIn').style.transform = 'scale(' + (1 + 0.22 * k).toFixed(3) + ')';
-    $('floatDie').style.transform = oriStr([a[0] + (b[0] - a[0]) * e, a[1] + (b[1] - a[1]) * e], 'rotateX(' + (-24 * (1 - k)).toFixed(1) + 'deg) rotateY(' + (30 * (1 - k)).toFixed(1) + 'deg)');
+    $('floatDie').style.transform = oriStr([a[0] + (b[0] - a[0]) * e, a[1] + (b[1] - a[1]) * e]);
   }
   $('cube').addEventListener('pointerdown', function (e) {
     if (!$('cube').classList.contains('live')) return;
     e.preventDefault(); try { $('cube').setPointerCapture(e.pointerId); } catch (er) {}
-    cdrag = { k: 0, vx: 0, lx: null };
+    cdrag = { k: 0, vx: 0, lx: null }; $('floatDie').style.transform = oriStr(dori(G.cube.v));
     var fl = $('cubeFloat'); fl.classList.remove('home'); fl.hidden = false; $('cube').classList.add('dragging');
     placeFloat(e.clientX, e.clientY);
   });
@@ -2058,7 +2095,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   $('cube').addEventListener('pointercancel', cubeUp);
   function floatHome(el, done) {
     var r = el.getBoundingClientRect(), fl = $('cubeFloat'), p = devPos(r.left + r.width / 2, r.top + Math.min(r.height, 60) / 2);
-    fl.classList.add('home'); fl.style.left = (p[0] - 25) + 'px'; fl.style.top = (p[1] - 25) + 'px'; $('cfIn').style.transition = 'transform .35s ease'; $('cfIn').style.transform = ''; $('floatDie').style.transition = 'transform .35s ease'; $('floatDie').style.transform = oriStr(dori(G.cube.v), 'rotateX(-24deg) rotateY(30deg)');
+    fl.classList.add('home'); fl.style.left = (p[0] - 25) + 'px'; fl.style.top = (p[1] - 25) + 'px'; $('cfIn').style.transition = 'transform .35s ease'; $('cfIn').style.transform = ''; $('floatDie').style.transition = 'transform .35s ease'; $('floatDie').style.transform = oriStr(dori(G.cube.v));
     setTimeout(function () { fl.hidden = true; fl.classList.remove('home'); $('cfIn').style.transition = ''; $('floatDie').style.transition = ''; if (done) done(); }, 380);
   }
   /* Let go on the table: the die drops, rolls over once in the direction you were moving, and settles on the doubled face. */
@@ -2083,6 +2120,60 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       done();
     };
   }
+  /* Their double: the die lifts out of its place, sails over the board and rolls onto your side, landing big with the
+     doubled face up; the sky turns to you as it comes. Tap it to take. */
+  function cvClient(x, y) { var r = cv.getBoundingClientRect(); return [r.left + x / W * r.width, r.top + y / H * r.height]; }
+  function arriveOffer() {
+    var fl = $('cubeFloat'), die = $('floatDie'), sh = $('cfShadow'), o = dori(G.cube.v * 2);
+    var cr = $('cube').getBoundingClientRect(), a = devPos(cr.left + cr.width / 2, cr.top + 27), op = offerPos(), bpt = cvClient(op[0], op[1]), b = devPos(bpt[0], bpt[1]);
+    $('cube').classList.add('dragging'); fl.classList.remove('home'); fl.hidden = false;
+    fl.getAnimations().forEach(function (x) { x.cancel(); }); $('cfIn').getAnimations().forEach(function (x) { x.cancel(); });
+    fl.style.left = (b[0] - 25) + 'px'; fl.style.top = (b[1] - 25) + 'px'; die.style.transform = oriStr(o); $('cfIn').style.transform = '';
+    if (reduce || !die.animate) { $('cfIn').style.transform = 'scale(1.45)'; return; }
+    var dir = b[0] > a[0] ? 1 : -1, T = 1500, mx = (a[0] + b[0]) / 2, my = Math.min(a[1], b[1]) - 40;
+    fl.animate([{ left: (a[0] - 25) + 'px', top: (a[1] - 25) + 'px' }, { left: (mx - 25) + 'px', top: (my - 25) + 'px', offset: 0.35 }, { left: (b[0] - 25 - dir * 40) + 'px', top: (b[1] - 25) + 'px', offset: 0.62 }, { left: (b[0] - 25) + 'px', top: (b[1] - 25) + 'px' }],
+      { duration: T, easing: 'cubic-bezier(.3,.5,.25,1)' });
+    $('cfIn').animate([{ transform: 'scale(1)' }, { transform: 'scale(2.1)', offset: 0.35 }, { transform: 'scale(1.5)', offset: 0.62 }, { transform: 'scale(1.62)', offset: 0.75 }, { transform: 'scale(1.45)' }],
+      { duration: T, easing: 'ease-in-out', fill: 'forwards' });
+    die.animate([{ transform: 'rotateX(0deg) ' + oriStr(dori(G.cube.v)) }, { transform: 'rotateY(' + (-dir * 540) + 'deg) rotateX(160deg)' + oriStr(o), offset: 0.35 },
+      { transform: 'rotateY(' + (-dir * 180) + 'deg) rotateX(0deg)' + oriStr(o), offset: 0.62 }, { transform: 'rotateY(' + (dir * 10) + 'deg) rotateX(0deg)' + oriStr(o), offset: 0.8 }, { transform: oriStr(o) }],
+      { duration: T, easing: 'cubic-bezier(.3,.5,.25,1)' });
+    sh.animate([{ opacity: 0.3, transform: 'scale(0.6) translateY(30px)' }, { opacity: 0.25, transform: 'scale(0.8) translateY(40px)', offset: 0.35 }, { opacity: 1, transform: 'scale(1)', offset: 0.62 }, { opacity: 1, transform: 'scale(1)' }], { duration: T });
+    if (navigator.vibrate) setTimeout(function () { try { navigator.vibrate([14, 60, 8]); } catch (e) {} }, T * 0.62);
+  }
+  function offerGone() { var fl = $('cubeFloat'); fl.getAnimations().forEach(function (x) { x.cancel(); }); $('cfIn').getAnimations().forEach(function (x) { x.cancel(); }); }
+  /* Demo for the preview (?demo=double): you double and they take, then they double you and you take, 3 s to answer, on a loop. */
+  function demoDouble() {
+    var cube = $('cube'), wait = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+    function glide(from, to, ms) {
+      return new Promise(function (res) {
+        var t0 = performance.now();
+        (function f(now) { var u = Math.min(1, (now - t0) / ms), e = u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
+          placeFloat(from[0] + (to[0] - from[0]) * e, from[1] + (to[1] - from[1]) * e); if (u < 1) requestAnimationFrame(f); else res(); })(t0);
+      });
+    }
+    (async function loop() {
+      clearDice(); G.cube = { v: 1, owner: null }; G.phase = 'demo'; setTurn(ME); cubeUI();
+      say('Your turn. You double.'); await wait(1400);
+      var cr = cube.getBoundingClientRect(), from = [cr.left + cr.width / 2, cr.top + 27], R = region(ME), to = cvClient((R.x0 + R.x1) / 2 + 30, L.mid - 20);
+      cdrag = { k: 0, vx: 0, lx: null }; $('floatDie').style.transform = oriStr(dori(G.cube.v));
+      var fl = $('cubeFloat'); fl.classList.remove('home'); fl.hidden = false; cube.classList.add('dragging');
+      await glide(from, to, 1100); var vx = cdrag.vx; cdrag = null;
+      await new Promise(function (r) { rollDown(vx || -4, r); });
+      spinSky(); setTurn(TH); say(NAME.them + ' is thinking about your double…'); await wait(3000);
+      G.cube.v = 2; G.cube.owner = TH; spinSky();
+      floatHome($('whoThem'), function () { cube.classList.remove('dragging'); cubeUI(); });
+      say(NAME.them + ' took it. Playing for 2.'); await wait(2600);
+      setTurn(TH); say(NAME.them + '’s turn…'); await wait(1200);
+      G.phase = 'offered'; spinSky(); setTurn(TH); arriveOffer(); cubeUI();
+      say(NAME.them + ' doubles to ×4. Tap it to take, or hold and slide to give up.'); await wait(3000);
+      G.cube.v = 4; G.cube.owner = ME; G.phase = 'demo'; spinSky(); setTurn(ME);
+      offerGone(); $('cfIn').style.transform = ''; floatHome($('whoMe'), function () { cube.classList.remove('dragging'); cubeUI(); });
+      say('You took it. Playing for 4.'); await wait(3000);
+      loop();
+    })();
+  }
+  window.__demoDouble = demoDouble;
   function offerMine() {
     G.phase = 'wait'; cubeUI(); spinSky(); say(NAME.them + ' is thinking about your double…');
     if (DUO) { save({ phase: 'offered', turn: DUO.seat, offerBy: DUO.seat }); return; }
@@ -2096,7 +2187,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   }
   function offerPos() { var R = region(ME); return [(R.x0 + R.x1) / 2, L.mid]; }
   function drawOffer(now) {
-    if (G.phase !== 'offered') return;
+    if (G.phase !== 'offered' || !$('cubeFloat').hidden) return;
     if (!SKYC) skyColours();
     var p = offerPos(), s = L.ds * 1.9 * (1 + 0.04 * Math.sin(now / 300));
     ctx.save(); ctx.translate(p[0], p[1]);
@@ -2114,14 +2205,15 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     for (var a = 1; a <= 24; a++) { me += own(S, ME, a) * a; th += own(S, TH, a) * (25 - a); }
     return th < me - 12 && Math.random() < 0.3;
   }
-  function aiOffer() { G.phase = 'offered'; spinSky(); cubeUI(); say(NAME.them + ' doubles to ×' + G.cube.v * 2 + '. Tap it to take, or hold and slide to give up.'); }
+  function aiOffer() { G.phase = 'offered'; spinSky(); cubeUI(); arriveOffer(); say(NAME.them + ' doubles to ×' + G.cube.v * 2 + '. Tap it to take, or hold and slide to give up.'); }
   function takeDouble() {
+    var toMe = function () { offerGone(); $('cfIn').style.transition = 'transform .35s ease'; $('cfIn').style.transform = ''; floatHome($('whoMe'), function () { $('cube').classList.remove('dragging'); cubeUI(); }); };
     if (DUO) {
-      G.cube.v *= 2; G.cube.owner = ME; G.phase = 'remote'; spinSky(); cubeUI();
+      G.cube.v *= 2; G.cube.owner = ME; G.phase = 'remote'; spinSky(); cubeUI(); toMe();
       say('You took it. Playing for ' + G.cube.v + '. ' + NAME.them + '’s turn to throw.');
       save({ phase: 'roll', turn: DUO.other }); return;
     }
-    G.cube.v *= 2; G.cube.owner = ME; G.phase = 'ai'; spinSky(); cubeUI();
+    G.cube.v *= 2; G.cube.owner = ME; G.phase = 'ai'; spinSky(); cubeUI(); toMe();
     say('You took it. Playing for ' + G.cube.v + '. ' + NAME.them + ' is playing.');
     setTimeout(function () { if (G.phase === 'ai') throwDice(TH, 2, null, function () { rolled(TH); }); }, 900);
   }
@@ -2365,7 +2457,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     if (d.phase === 'offered') {
       if (d.offerBy === DUO.other) {
         clearDice(); setTurn(TH);
-        if (prev !== 'offered') { G.phase = 'offered'; spinSky(); }
+        if (prev !== 'offered') { G.phase = 'offered'; spinSky(); arriveOffer(); }
         say(NAME.them + ' doubles to ×' + G.cube.v * 2 + '. Tap it to take, or hold and slide to give up.');
       } else { setTurn(ME); if (prev !== 'wait') { G.phase = 'wait'; if (fresh) spinSky(); } say(NAME.them + ' is thinking about your double…'); }
       cubeUI(); return;
