@@ -138,8 +138,8 @@ WEB_HEAD = """<!doctype html>
 <meta name="apple-mobile-web-app-title" content="Backgammon">
 <meta name="theme-color" content="#E6ECEA">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="icon-180.png">
-<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon2-180.png">
+<link rel="icon" href="icon2-192.png">
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>

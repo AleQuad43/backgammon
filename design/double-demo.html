@@ -6,7 +6,7 @@
 <title>Backgammon</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Marcellus&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Caveat:wght@500;700&display=swap">
 <style>
 /* The app: friends float at their Elo on a sky that follows the time of day; tapping a game opens the board on the same sky.
    Colours below are the daytime set; the clock code swaps them for the night set after dusk. */
@@ -251,20 +251,28 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
 #gv .fc::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: radial-gradient(3px 2px at 22% 78%, rgba(70,45,20,0.35), transparent), radial-gradient(2px 2px at 81% 30%, rgba(70,45,20,0.3), transparent), radial-gradient(10px 4px at 70% 88%, rgba(255,250,235,0.5), transparent); }
 #gv .dzs { position: absolute; left: 6px; right: 6px; bottom: -7px; height: 10px; border-radius: 50%; background: rgba(40,20,8,0.28); filter: blur(4px); }
 #gv .cfs { position: absolute; left: 4px; right: 4px; bottom: -4px; height: 12px; border-radius: 50%; background: rgba(40,20,8,0.35); filter: blur(5px); transform-origin: 50% 50%; }
-#gv .over .card2 { align-items: center; gap: 4px; padding: 20px 30px 18px; min-width: 240px; border-radius: 20px; color: #3A2616;
-  background: radial-gradient(120% 90% at 50% 0%, rgba(255,250,238,0.97), rgba(243,233,214,0.95)); box-shadow: 0 18px 44px rgba(30,15,5,0.32), inset 0 0 0 1px rgba(160,120,50,0.35), inset 0 0 0 5px rgba(255,250,238,0.9), inset 0 0 0 6px rgba(176,134,60,0.45); }
-#gv .over .card2 .khatam { width: 34px; height: 34px; color: #A7802F; margin-bottom: 2px; }
-#gv .over .card2.won .khatam { animation: khturn 9s linear infinite; }
-@keyframes khturn { to { transform: rotate(360deg); } }
-#gv .over .card2 b { font-family: 'Marcellus', Georgia, serif; font-weight: 400; font-size: 30px; letter-spacing: 0.01em; line-height: 1.1; }
-#gv .over .card2 i { font-style: normal; font-size: 13px; color: #7A5A3A; font-weight: 600; letter-spacing: 0.02em; }
-#gv .over .card2 .sc2 { display: flex; align-items: baseline; gap: 10px; margin-top: 10px; background: none; padding: 0; box-shadow: none; border-radius: 0; backdrop-filter: none; -webkit-backdrop-filter: none; flex-direction: row; }
-#gv .over .card2 .sc2 span { font-size: 12px; font-weight: 700; color: #7A5A3A; text-transform: uppercase; letter-spacing: 0.08em; max-width: none; }
-#gv .over .card2 .sc2 em { font-style: normal; font-family: 'Marcellus', Georgia, serif; font-size: 30px; font-variant-numeric: tabular-nums; }
-#gv .over .card2 .sc2 small { color: #B08A4A; }
-#gv .over .card2 p { margin: 0; font-size: 12px; color: #8A6A48; }
-#gv .over .card2 #again, #gv .over .card2 .lens button { margin-top: 10px; background: #3A2616; color: #F6EBD6; border-radius: 22px; padding: 0 22px; height: 42px; font-weight: 700; }
-#gv .over .card2 .lens { margin-top: 6px; } .over .card2 .lens button { margin-top: 0; min-width: 42px; padding: 0 10px; }
+#gv .over .card3 { position: relative; align-items: center; gap: 2px; padding: 16px 26px 14px; min-width: 300px; border-radius: 6px; color: #3B2A1E; transform: rotate(-1.2deg);
+  background: radial-gradient(140% 100% at 20% 0%, #FBF4E4, #F2E6CC 70%, #EAD9B6), #F3E8D0; box-shadow: 0 1px 1px rgba(60,40,20,0.15), 0 16px 34px rgba(30,15,5,0.32); backdrop-filter: none; -webkit-backdrop-filter: none; }
+#gv .over .card3::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: .5;
+  background: repeating-linear-gradient(0deg, transparent 0 23px, rgba(120,150,170,0.18) 23px 24px); }
+#gv .over .card3 .ring { position: absolute; right: -14px; top: -16px; width: 74px; height: 74px; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, transparent 58%, rgba(120,70,30,0.22) 61%, rgba(120,70,30,0.10) 66%, transparent 70%); transform: rotate(20deg) scaleY(0.92); }
+#gv .over .card3 .hand, #gv .over .card3 b.hand { font-family: 'Caveat', 'Segoe Print', cursive; font-weight: 700; font-size: 40px; line-height: 1; color: #2E1F14; }
+#gv .over .card3 .tr { font-size: 11px; font-weight: 600; color: #8A6A48; letter-spacing: 0.03em; }
+#gv .over .card3 .what { margin: 4px 0 0; font-size: 13px; font-weight: 600; color: #5C4330; }
+#gv .over .card3 .duo3 { display: flex; flex-direction: row; align-items: center; gap: 8px; margin-top: 2px; background: none; padding: 0; box-shadow: none; border-radius: 0; backdrop-filter: none; -webkit-backdrop-filter: none; }
+#gv .over .card3 .pc { position: relative; display: flex; flex-direction: column; align-items: center; gap: 0; background: none; padding: 0; box-shadow: none; border-radius: 0; backdrop-filter: none; -webkit-backdrop-filter: none; --foot: 1; --lift: 0; }
+#gv .over .card3 .pc::before { content: ""; position: absolute; left: 50%; top: 50px; width: 62px; height: 62px; margin: -31px 0 0 -31px; border-radius: 50%; background: rgba(60,35,15,0.32);
+  transform: translate(calc(var(--lift) * 6px + 2px), calc(var(--lift) * 8px + 4px)) scaleX(var(--foot)); filter: blur(calc(4px + var(--lift) * 8px)); opacity: calc(1 - var(--lift) * 0.8); }
+#gv .over .card3 canvas.sp { position: relative; width: 100px; height: 100px; touch-action: none; cursor: grab; }
+#gv .over .card3 .pc span { font-size: 12px; font-weight: 700; color: #5C4330; margin-top: -10px; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#gv .over .card3 .sc3 { display: flex; flex-direction: row; align-items: baseline; gap: 6px; background: none; padding: 0; box-shadow: none; border-radius: 0; backdrop-filter: none; -webkit-backdrop-filter: none; }
+#gv .over .card3 .sc3 em { font-family: 'Caveat', cursive; font-style: normal; font-weight: 700; font-size: 44px; line-height: 1; }
+#gv .over .card3 .sc3 small { font-size: 24px; color: #9A7A58; }
+#gv .over .card3 .sc3 span { font-size: 11px; color: #8A6A48; font-weight: 600; }
+#gv .over .card3 #again { margin-top: 4px; background: #3B2A1E; color: #F8EEDB; border-radius: 24px; height: auto; padding: 4px 22px 6px; font-size: 26px; display: flex; flex-direction: column; align-items: center; line-height: 1.05; }
+#gv .over .card3 #again small { font-family: 'Figtree', sans-serif; font-size: 11px; font-weight: 600; opacity: .75; }
+#gv .over .card3 .lens { margin-top: 4px; } .over .card3 .lens button { background: #3B2A1E; color: #F8EEDB; border-radius: 18px; min-width: 40px; height: 36px; padding: 0 10px; }
 #gv .over { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
 #gv .over div { pointer-events: auto; background: var(--glass-strong); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); padding: 18px 24px; border-radius: 22px; text-align: center; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 16px 40px rgba(8,12,22,0.25); }
 #gv .over b { font-size: 22px; }
@@ -744,7 +752,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   function av(p, cls) { return '<div class="av ck ' + (cls || '') + '"><img alt="" src="' + ckSrc(p.ck) + '"></div>'; }
   window.ckAv = function (el, ini) {
     var p = P.filter(function (x) { return x.id === ini || x.i === ini; })[0]; if (!p) { el.textContent = ini; el.classList.remove('ck'); return; }
-    el.classList.add('ck'); el.innerHTML = '<img alt="" src="' + ckSrc(p.ck, true) + '">';
+    el.classList.add('ck'); el.dataset.ck = JSON.stringify(p.ck); el.innerHTML = '<img alt="" src="' + ckSrc(p.ck, true) + '">';
   };
   var byId = {}; function reindex() { byId = {}; P.forEach(function (p) { byId[p.id] = p; }); } reindex();
   var GAMES = CLOUD ? [] : [{ p: 'no', s: 'yours', sc: [0, 0], to: 5, when: 'now', duo: true }, { p: 'ra', s: 'them', sc: [1, 2], to: 5, when: '' }];
@@ -1115,6 +1123,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     [[u0, v0], [u1, v1], [u2, v2]].forEach(function (p, k) { var px = p[0] + (p[0] - cx) * 0.06, py = p[1] + (p[1] - cy) * 0.06; if (k) g.lineTo(px, py); else g.moveTo(px, py); });
     g.closePath(); g.clip(); g.setTransform(a, b, c2, d2, e, f); g.drawImage(img, 0, 0); g.restore();
   }
+  window.flipFrame = flipFrame; window.FLIP_NF = NF;
   function flipStep(now) {
     var P2 = 4200, u = (now % P2) / P2, e = 0;
     if (u > 0.52) { var v = (u - 0.52) / 0.48; e = v < 0.5 ? 4 * v * v * v : 1 - Math.pow(-2 * v + 2, 3) / 2; }
@@ -2353,24 +2362,69 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     if (DUO) { DUO.overShown = true; save({ phase: 'over', result: { winner: seatOf(winner), pts: pts, dropped: !!dropped, gammon: gam, bg: bg } }); }
     showOver(winner, pts, dropped, gam, bg);
   }
-  /* Proposal: the end of a game spoken the way it's played across the Levant. Mabrouk for a win, mars for a gammon,
-     a Turkish mars for a backgammon, inshallah for the next one; a brass eight-point star on an ivory card. */
-  var STAR = '<svg class="khatam" viewBox="0 0 40 40" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="9" y="9" width="22" height="22"/><rect x="9" y="9" width="22" height="22" transform="rotate(45 20 20)"/><circle cx="20" cy="20" r="4.2"/></g></svg>';
+  /* Proposal: the end of a game as a note on a café table. The words come from one of five backgammon cultures, picked
+     at random each time, with a small translation; both players' checkers sit on the paper and spin like coins on a
+     table: a nudge now and then in a random direction, and you can flick them yourself. */
+  var CULT = [
+    { n: 'Turkish', win: ['Helal olsun!', 'well deserved'], lose: ['Bir dahaki sefere', 'next time'], gam: ['Mars!', 'gammon'], again: ['Hadi, bir el daha', 'come on, one more hand'] },
+    { n: 'Levantine Arabic', win: ['Mabrouk!', 'congratulations'], lose: ['Ma’alesh…', 'never mind'], gam: ['Mars!', 'gammon'], again: ['Yalla, kamaan wahad', 'come on, one more'] },
+    { n: 'Persian', win: ['Ahsant!', 'bravo'], lose: ['Eshkal nadare', 'no problem'], gam: ['Mars!', 'gammon'], again: ['Yek dast-e dige?', 'another hand?'] },
+    { n: 'Greek', win: ['Opa!', 'bravo'], lose: ['Den peirazei', 'it doesn’t matter'], gam: ['Diplo!', 'a double'], again: ['Ela, allo ena', 'come on, another'] },
+    { n: 'Hebrew', win: ['Kol hakavod!', 'well done'], lose: ['Pa’am haba’a', 'next time'], gam: ['Mars!', 'gammon'], again: ['Yalla, od ahat', 'come on, one more'] }
+  ];
   function overWords(winner, pts, dropped, gam, bg, match) {
-    var me = winner === ME, n = NAME.them;
-    if (match) return me ? ['Alf mabrouk', 'The match is yours'] : ['Kol hakavod, ' + n, n + ' takes the match'];
-    if (dropped) return me ? ['Mabrouk', n + ' passed on the double'] : ['Next one, inshallah', 'You gave up on the double'];
-    if (bg) return me ? ['Mars turki!', 'Backgammon · three points'] : ['Mars turki…', n + ' takes three'];
-    if (gam) return me ? ['Mars!', 'Gammon · two points'] : ['Mars…', n + ' takes two'];
-    return me ? ['Mabrouk', 'One point to you'] : ['Next one, inshallah', n + ' takes the point'];
+    var me = winner === ME, n = NAME.them, c = CULT[Math.random() * CULT.length | 0];
+    var head = me ? ((gam || bg) && !match ? c.gam : c.win) : c.lose;
+    var what = match ? (me ? 'The match is yours' : n + ' takes the match')
+      : dropped ? (me ? n + ' passed on the double' : 'You gave up on the double')
+      : (me ? 'You win ' : n + ' wins ') + (bg ? 'a backgammon · three points' : gam ? 'a gammon · two points' : 'one point');
+    return { c: c, head: head, what: what };
   }
+  var SPIN = [];
   function showOver2(winner, pts, dropped, gam, bg, match) {
     var o = $('over'), w = overWords(winner, pts, dropped, gam, bg, match), mult = G.cube.v > 1 && !match ? ' · cube ×' + G.cube.v : '';
     o.hidden = false;
-    o.innerHTML = '<div class="card2' + (winner === ME ? ' won' : '') + '">' + STAR + '<b>' + w[0] + '</b><i>' + w[1] + mult + '</i>' +
-      '<div class="sc2"><span>You</span><em>' + G.score.me + '</em><small>·</small><em>' + G.score.them + '</em><span>' + NAME.them + '</span></div><p>match to ' + MATCH + '</p>' +
-      (match ? '<p>New match to</p><div class="lens">' + [1, 3, 5, 7, 9, 11, 15].map(function (n) { return '<button data-to="' + n + '"' + (n === MATCH ? ' class="on"' : '') + '>' + n + '</button>'; }).join('') + '</div>'
-        : '<button id="again">Yalla, next game</button>') + '</div>';
+    o.innerHTML = '<div class="card3"><i class="ring"></i>' +
+      '<b class="hand">' + w.head[0] + '</b><small class="tr">' + w.c.n + ' · “' + w.head[1] + '”</small>' +
+      '<p class="what">' + w.what + mult + '</p>' +
+      '<div class="duo3"><div class="pc"><canvas class="sp" data-who="me" width="240" height="240"></canvas><span>You</span></div>' +
+      '<div class="sc3"><em>' + G.score.me + '</em><small>–</small><em>' + G.score.them + '</em><span>to ' + MATCH + '</span></div>' +
+      '<div class="pc"><canvas class="sp" data-who="them" width="240" height="240"></canvas><span>' + NAME.them + '</span></div></div>' +
+      (match ? '<p class="what">New match to</p><div class="lens">' + [1, 3, 5, 7, 9, 11, 15].map(function (n) { return '<button data-to="' + n + '"' + (n === MATCH ? ' class="on"' : '') + '>' + n + '</button>'; }).join('') + '</div>'
+        : '<button id="again" class="hand">' + w.c.again[0] + '<small>' + w.c.again[1] + '</small></button>') + '</div>';
+    startSpins(o);
+  }
+  function ckFrom(id) { try { return JSON.parse($(id).dataset.ck); } catch (e) { return null; } }
+  function startSpins(o) {
+    SPIN = [];
+    if (!window.flipFrame) return;
+    Array.prototype.forEach.call(o.querySelectorAll('canvas.sp'), function (cv2) {
+      var ck2 = ckFrom(cv2.dataset.who === 'me' ? 'avMe' : 'avThem'); if (!ck2) return;
+      var sp = { cv: cv2, ck: ck2, a: Math.random(), w: (Math.random() < 0.5 ? -1 : 1) * (0.8 + Math.random()), next: performance.now() + 1500 + Math.random() * 3000, drag: null, fi: -1 };
+      SPIN.push(sp);
+      cv2.addEventListener('pointerdown', function (e) { e.stopPropagation(); try { cv2.setPointerCapture(e.pointerId); } catch (er) {} sp.drag = { x: e.clientX, t: performance.now(), v: 0 }; sp.w = 0; });
+      cv2.addEventListener('pointermove', function (e) {
+        if (!sp.drag) return; var now = performance.now(), dx = e.clientX - sp.drag.x, dt = Math.max(1, now - sp.drag.t), da = dx / (cv2.clientWidth * 1.6);
+        sp.a += da; sp.drag.v = 0.6 * (da / dt * 1000) + 0.4 * sp.drag.v; sp.drag.x = e.clientX; sp.drag.t = now;
+      });
+      var up = function () { if (!sp.drag) return; sp.w = Math.max(-6, Math.min(6, sp.drag.v)); sp.drag = null; sp.next = performance.now() + 3000 + Math.random() * 3000; };
+      cv2.addEventListener('pointerup', up); cv2.addEventListener('pointercancel', up);
+    });
+    var last = performance.now();
+    (function tick(now) {
+      if (!SPIN.length || $('over').hidden || !SPIN[0].cv.isConnected) return;
+      var dt = Math.min(0.05, (now - last) / 1000); last = now;
+      SPIN.forEach(function (sp) {
+        if (!sp.drag) {
+          if (now > sp.next) { sp.w += (Math.random() < 0.5 ? -1 : 1) * (0.6 + Math.random() * 1.6); sp.next = now + 2000 + Math.random() * 4500; }
+          sp.a += sp.w * dt; sp.w *= Math.exp(-dt * 0.55);
+        }
+        var NFr = window.FLIP_NF, i = ((Math.round(sp.a * NFr) % NFr) + NFr) % NFr;
+        if (i !== sp.fi) { sp.fi = i; var fr = window.flipFrame(sp.ck, i), g = sp.cv.getContext('2d'); g.clearRect(0, 0, 240, 240); g.drawImage(fr.cv, 0, 0);
+          var sh = sp.cv.parentNode; sh.style.setProperty('--foot', fr.foot.toFixed(3)); sh.style.setProperty('--lift', fr.lift.toFixed(3)); }
+      });
+      requestAnimationFrame(tick);
+    })(last);
   }
   function showOver(winner, pts, dropped, gam, bg) {
     var o = $('over'); o.hidden = false;
