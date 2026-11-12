@@ -52,7 +52,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
 /* your move: the checker flips over on its north–south axis every few seconds, its edge lit;
    their move: it turns slowly flat on the sky; no game: it rests */
 .orb.ck { perspective: 340px; }
-.orb.ck canvas.fl { position: absolute; left: 50%; top: 50%; width: 92px; height: 92px; transform: translate(-50%, -50%); pointer-events: none; display: none; }
+.orb.ck canvas.fl { position: absolute; left: 50%; top: 50%; width: 120px; height: 120px; transform: translate(-50%, -50%); pointer-events: none; display: none; }
 .orb.ck.yours canvas.fl { display: block; }
 .orb.ck.yours img { display: none; }
 .orb.ck.them img { animation: ckspin 14s linear infinite; }
@@ -896,7 +896,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       var g = GAMES.filter(function (x) { return x.p === s.p.id; })[0];
       var st = s.p === ME || !g ? '' : g.s === 'yours' || g.s === 'req' ? 'yours' : 'them';
       s.el.querySelector('.orb').className = 'orb ck ' + (s.p === ME ? 'me ' : '') + st;
-      if (st === 'yours' && !s.el.querySelector('canvas.fl')) { var fc = document.createElement('canvas'); fc.className = 'fl'; fc.width = fc.height = 184; s.el.querySelector('.orb').appendChild(fc); s.fi = -1; }
+      if (st === 'yours' && !s.el.querySelector('canvas.fl')) { var fc = document.createElement('canvas'); fc.className = 'fl'; fc.width = fc.height = 240; s.el.querySelector('.orb').appendChild(fc); s.fi = -1; }
       s.flip = st === 'yours';
       var lab = s.el.querySelector('.st'); lab.className = 'st ' + st; lab.textContent = st === 'yours' ? 'your move' : st === 'them' ? 'their move' : '';
     });
@@ -911,45 +911,89 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     restX();
   }
   function restX() { var sx = 0; P.forEach(function (p) { sx += xOf(p); }); REST_X = (P.length ? sx / P.length : 0.5) * FW; }
-  /* ---------- your move: the checker flips over like a coin, drawn in 3D (thickness, grain on the edge, chips) ---------- */
-  var FLIPS = {}, NF = 60;
+  /* ---------- your move: the checker flips over like a real disc. A tiny 3D renderer: the carved face is mapped onto the
+     turning disc with perspective, the side wall is lit and carries the material's grain, chips bite into the wall, and the
+     checker lifts a little off the table while it turns. Frames are drawn once per look and reused. ---------- */
+  var FLIPS = {}, NF = 72, FN = 240;
   function flipFrame(ck, i) {
-    var key = JSON.stringify(ck), set = FLIPS[key] || (FLIPS[key] = []);
-    if (set[i]) return set[i];
-    var C = window.Checker, n = 184, c = document.createElement('canvas'); c.width = c.height = n;
-    var g = c.getContext('2d'), R = n * 0.33, T = 2 * R * C.THICK[ck.m], th = i / NF * Math.PI * 2, cs = Math.cos(th), sn = Math.sin(th), dx = -T * sn, rx = Math.max(0.5, R * Math.abs(cs));
-    g.translate(n / 2, n / 2);
-    var face = document.createElement('canvas'); face.width = face.height = n;
-    var fg = face.getContext('2d'); fg.translate(n / 2, n / 2); C.top(fg, ck, R, { noShadow: true });
-    /* the edge: the band between the near face and the far one, with the material's own grain */
-    if (Math.abs(sn) > 0.01) {
-      var L = document.createElement('canvas'); L.width = L.height = n;
-      var lg = L.getContext('2d'); lg.translate(n / 2, n / 2);
-      lg.beginPath(); lg.ellipse(0, 0, rx, R, 0, 0, Math.PI * 2); lg.ellipse(dx, 0, rx, R, 0, 0, Math.PI * 2); lg.rect(Math.min(0, dx), -R, Math.abs(dx), 2 * R); lg.save(); lg.clip();
-      lg.save(); lg.rotate(Math.PI / 2); lg.drawImage(C.texture(ck.m, ck.t), -R, -R, 2 * R, 2 * R); lg.restore();
-      var a = ck.a || 0, A = { wood: '#7A4E24', marble: '#CDB98E', bone: '#B5832F', bakelite: '#B98422' }[ck.m];
-      if (a > 0.01) { lg.globalCompositeOperation = 'multiply'; lg.globalAlpha = a * 0.4; lg.fillStyle = A; lg.fillRect(-n, -n, 2 * n, 2 * n); lg.globalAlpha = 1; lg.globalCompositeOperation = 'source-over'; }
-      var vg = lg.createLinearGradient(0, -R, 0, R);
-      vg.addColorStop(0, 'rgba(0,0,0,0.4)'); vg.addColorStop(0.3, 'rgba(255,248,235,0.06)'); vg.addColorStop(0.5, 'rgba(255,248,235,0.14)'); vg.addColorStop(0.8, 'rgba(0,0,0,0.1)'); vg.addColorStop(1, 'rgba(0,0,0,0.45)');
-      lg.fillStyle = vg; lg.fillRect(-n, -n, 2 * n, 2 * n);
-      lg.fillStyle = dx < 0 ? 'rgba(255,250,240,0.14)' : 'rgba(0,0,0,0.14)'; lg.fillRect(-n, -n, 2 * n, 2 * n);
-      lg.restore();
-      /* chips bite into the edge too, going part of the way through the thickness */
-      C.chips(ck, R).forEach(function (ch) {
-        lg.save(); lg.globalCompositeOperation = 'destination-out';
-        for (var k = 0; k <= 8; k++) { var o = dx * 0.55 * k / 8; lg.beginPath(); ch.pts.forEach(function (q, j) { var x = q[0] * cs + o, y = q[1]; if (j) lg.lineTo(x, y); else lg.moveTo(x, y); }); lg.closePath(); lg.fill(); }
-        lg.restore();
-        lg.save(); lg.globalCompositeOperation = 'source-atop'; lg.globalAlpha = 0.8;
-        lg.beginPath(); ch.pts.forEach(function (q, j) { var x = q[0] * cs + dx * 0.3, y = q[1]; if (j) lg.lineTo(x, y); else lg.moveTo(x, y); }); lg.closePath();
-        lg.strokeStyle = C.frac(ck); lg.lineWidth = ch.s * 0.5; lg.lineJoin = 'round'; lg.stroke(); lg.restore();
-      });
-      g.drawImage(L, -n / 2, -n / 2);
+    var key = JSON.stringify(ck), set = FLIPS[key] || (FLIPS[key] = { f: [], face: null, rim: null, chips: null });
+    if (set.f[i]) return set.f[i];
+    var C = window.Checker, n = FN, R = 184 * 0.33, T = 2 * R * C.THICK[ck.m], H = T / 2;
+    if (!set.face) {
+      var fc = document.createElement('canvas'); fc.width = fc.height = n;
+      var fx = fc.getContext('2d'); fx.translate(n / 2, n / 2); C.top(fx, ck, R, { noShadow: true });
+      set.face = fc;
+      /* colours around the rim, sampled from the material, so the wall keeps the grain */
+      var tx = C.texture(ck.m, ck.t), td = tx.getContext('2d').getImageData(0, 0, tx.width, tx.height).data, rim = [];
+      var pat = { wood: [122, 78, 36], marble: [205, 185, 142], bone: [181, 131, 47], bakelite: [185, 132, 34] }[ck.m], a0 = ck.a || 0;
+      for (var q = 0; q < 96; q++) {
+        var ph = q / 96 * Math.PI * 2, px = Math.round(tx.width / 2 + Math.cos(ph) * tx.width * 0.46), py = Math.round(tx.height / 2 + Math.sin(ph) * tx.height * 0.46), k = (py * tx.width + px) * 4;
+        var col = [td[k], td[k + 1], td[k + 2]];
+        if (a0 > 0.01) col = col.map(function (v, j) { return v * (1 - a0 * 0.35) + v * pat[j] / 255 * a0 * 0.35; });
+        rim.push(col);
+      }
+      set.rim = rim; set.chips = C.chips(ck, R); set.frac = C.frac(ck);
     }
-    /* the near face, foreshortened, darker as it turns away from the light */
-    g.save(); g.scale(cs, 1); g.drawImage(face, -n / 2, -n / 2); g.restore();
-    var dim = (1 - Math.abs(cs)) * 0.45 + (cs < 0 ? 0.04 : 0);
-    if (dim > 0.01) { g.save(); g.globalCompositeOperation = 'source-atop'; g.fillStyle = 'rgba(10,6,2,' + dim + ')'; g.beginPath(); g.ellipse(0, 0, rx + 1, R + 1, 0, 0, Math.PI * 2); g.fill(); g.restore(); }
-    return (set[i] = c);
+    var c = document.createElement('canvas'); c.width = c.height = n;
+    var g = c.getContext('2d'), th = i / NF * Math.PI * 2, ct = Math.cos(th), st = Math.sin(th);
+    var lift = R * 0.32 * Math.sin(th / 2), D = R * 7;
+    /* local (x right, y down, z toward you) → turned about the north–south axis → lifted → perspective */
+    function P(x, y, z) { var x1 = x * ct + z * st, z1 = -x * st + z * ct + lift, s = D / (D - z1); return [n / 2 + x1 * s, n / 2 + y * s, z1]; }
+    var L = [-0.42, -0.5, 0.76];                                   /* light from the top left, in front */
+    function lightOf(nx, ny, nz) { return nx * L[0] + ny * L[1] + nz * L[2]; }
+    /* the wall: thin quads around the rim, only those facing you */
+    var SEG = 120, dph = Math.PI * 2 / SEG;
+    for (var j = 0; j < SEG; j++) {
+      var p0 = j * dph, p1 = p0 + dph * 1.25, pm = p0 + dph / 2;
+      var nx = Math.cos(pm) * ct, ny = Math.sin(pm), nz = -Math.cos(pm) * st;
+      if (nz <= 0.002) continue;
+      /* chips take a bite out of the front half of the wall */
+      var top = H, scar = 0;
+      set.chips.forEach(function (ch) {
+        var d = Math.abs(((pm - ch.th + Math.PI * 3) % (Math.PI * 2)) - Math.PI), half = ch.s / R * 0.9;
+        if (d < half) { var cut = T * 0.6 * (1 - (d / half) * (d / half)); if (H - cut < top) { top = H - cut; scar = cut; } }
+      });
+      var col = set.rim[Math.floor(pm / (Math.PI * 2) * 96) % 96], lit = 0.5 + 0.62 * Math.max(0, lightOf(nx, ny, nz));
+      var a = P(Math.cos(p0) * R, Math.sin(p0) * R, -H), b = P(Math.cos(p1) * R, Math.sin(p1) * R, -H), e = P(Math.cos(p1) * R, Math.sin(p1) * R, top), f = P(Math.cos(p0) * R, Math.sin(p0) * R, top);
+      g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(e[0], e[1]); g.lineTo(f[0], f[1]); g.closePath();
+      g.fillStyle = 'rgb(' + col.map(function (v) { return Math.min(255, Math.round(v * lit)); }).join(',') + ')'; g.fill();
+      if (scar > 0) {                                            /* the fresh break: lighter, set back from the rim */
+        var rr = R - scar * 0.9, u = P(Math.cos(p0) * rr, Math.sin(p0) * rr, top), v = P(Math.cos(p1) * rr, Math.sin(p1) * rr, top), w = P(Math.cos(p1) * rr, Math.sin(p1) * rr, H), x = P(Math.cos(p0) * rr, Math.sin(p0) * rr, H);
+        g.beginPath(); g.moveTo(f[0], f[1]); g.lineTo(e[0], e[1]); g.lineTo(v[0], v[1]); g.lineTo(w[0], w[1]); g.lineTo(x[0], x[1]); g.lineTo(u[0], u[1]); g.closePath();
+        g.fillStyle = set.frac; g.globalAlpha = 0.55 + 0.4 * Math.max(0, lightOf(nx, ny, nz)); g.fill(); g.globalAlpha = 1;
+      }
+    }
+    /* the face you can see (front, or the back once it has turned over), mapped in small triangles so perspective holds */
+    var front = ct > 0, zf = front ? H : -H, sx = front ? 1 : -1, G = 12, step = 2 * R / G;
+    for (var gy = 0; gy < G; gy++) for (var gx = 0; gx < G; gx++) {
+      var x0 = -R + gx * step, y0 = -R + gy * step;
+      var qx = Math.max(x0, Math.min(0, x0 + step)), qy = Math.max(y0, Math.min(0, y0 + step)); if (Math.hypot(qx, qy) > R + 1) continue;
+      [[[x0, y0], [x0 + step, y0], [x0, y0 + step]], [[x0 + step, y0], [x0 + step, y0 + step], [x0, y0 + step]]].forEach(function (tri) {
+        var d = tri.map(function (p) { return P(p[0] * sx, p[1], zf); }), s0 = tri.map(function (p) { return [p[0] + n / 2, p[1] + n / 2]; });
+        tex(g, set.face, s0, d);
+      });
+    }
+    /* shade the face as it turns away from the light, catch a glint as it faces it */
+    var fl = front ? lightOf(st, 0, ct) : lightOf(-st, 0, -ct), dim = Math.max(0, 0.76 - fl) * 0.62;
+    g.save(); g.globalCompositeOperation = 'source-atop';
+    g.beginPath(); for (var k2 = 0; k2 <= 48; k2++) { var an = k2 / 48 * Math.PI * 2, pp = P(Math.cos(an) * R * sx, Math.sin(an) * R, zf); if (k2) g.lineTo(pp[0], pp[1]); else g.moveTo(pp[0], pp[1]); }
+    g.fillStyle = 'rgba(12,7,3,' + dim.toFixed(3) + ')'; g.fill();
+    if (fl > 0.8) { g.fillStyle = 'rgba(255,252,245,' + ((fl - 0.8) * 1.2 * C.MAT[ck.m].gloss).toFixed(3) + ')'; g.fill(); }
+    g.restore();
+    return (set.f[i] = { cv: c, lift: lift / R, foot: Math.abs(ct) * 0.82 + 0.18 });
+  }
+  /* draw one triangle of an image with an affine map (s = source points, d = destination points) */
+  function tex(g, img, s, d) {
+    var x0 = s[0][0], y0 = s[0][1], x1 = s[1][0], y1 = s[1][1], x2 = s[2][0], y2 = s[2][1];
+    var u0 = d[0][0], v0 = d[0][1], u1 = d[1][0], v1 = d[1][1], u2 = d[2][0], v2 = d[2][1];
+    var det = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0); if (!det) return;
+    var a = ((u1 - u0) * (y2 - y0) - (u2 - u0) * (y1 - y0)) / det, b = ((v1 - v0) * (y2 - y0) - (v2 - v0) * (y1 - y0)) / det;
+    var c2 = ((u2 - u0) * (x1 - x0) - (u1 - u0) * (x2 - x0)) / det, d2 = ((v2 - v0) * (x1 - x0) - (v1 - v0) * (x2 - x0)) / det;
+    var e = u0 - a * x0 - c2 * y0, f = v0 - b * x0 - d2 * y0;
+    var cx = (u0 + u1 + u2) / 3, cy = (v0 + v1 + v2) / 3;
+    g.save(); g.beginPath();
+    [[u0, v0], [u1, v1], [u2, v2]].forEach(function (p, k) { var px = p[0] + (p[0] - cx) * 0.06, py = p[1] + (p[1] - cy) * 0.06; if (k) g.lineTo(px, py); else g.moveTo(px, py); });
+    g.closePath(); g.clip(); g.setTransform(a, b, c2, d2, e, f); g.drawImage(img, 0, 0); g.restore();
   }
   function flipStep(now) {
     var P2 = 4200, u = (now % P2) / P2, e = 0;
@@ -958,11 +1002,13 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     var i = Math.round(e * NF) % NF;
     stars.forEach(function (s) {
       if (!s.flip) return;
-      if (reduce) i = 0;
-      if (s.fi === i) return; s.fi = i;
+      var k = reduce ? 0 : i;
+      if (s.fi === k) return; s.fi = k;
       var cv = s.el.querySelector('canvas.fl'); if (!cv) return;
-      var g = cv.getContext('2d'); g.clearRect(0, 0, cv.width, cv.height); g.drawImage(flipFrame(s.p.ck, i), 0, 0);
-      var sh = s.el.querySelector('.shd'); if (sh) sh.style.width = (60 * (0.35 + 0.65 * Math.abs(Math.cos(i / NF * Math.PI * 2))) + 10 * Math.abs(Math.sin(i / NF * Math.PI * 2))).toFixed(1) + 'px';
+      var fr = flipFrame(s.p.ck, k), g = cv.getContext('2d'); g.clearRect(0, 0, cv.width, cv.height); g.drawImage(fr.cv, 0, 0);
+      /* the shadow stays on the table: narrower when edge-on, softer and further away while the checker is lifted */
+      var sh = s.el.querySelector('.shd');
+      if (sh) { sh.style.transform = 'translate(-46%, -42%) translate(' + (fr.lift * 9).toFixed(1) + 'px,' + (fr.lift * 12).toFixed(1) + 'px) scaleX(' + fr.foot.toFixed(3) + ')'; sh.style.filter = 'blur(' + (5 + fr.lift * 10).toFixed(1) + 'px)'; sh.style.opacity = (1 - fr.lift * 0.9).toFixed(2); }
     });
   }
 
