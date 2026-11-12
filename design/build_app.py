@@ -84,7 +84,7 @@ api = r"""
       }
       if (DUO) { if (DUO.unsub) DUO.unsub(); DUO = null; }
       var fresh = CUR !== o.id || !G; CUR = o.id; OPP = o; setNames();
-      if (fresh) { CASE.fresh = true; G = null; start(); }
+      if (fresh) { CASE.fresh = true; G = null; if (o.to) { MATCH = o.to; $('scTo').textContent = 'to ' + MATCH; } start(); }
     },
     close: function () { $('gv').hidden = true; $('over').hidden = true; },
     seat: function () { CUR = 'duo'; showBoard(); if (DB) pickSeat(); else say('The shared game needs the published page.'); },

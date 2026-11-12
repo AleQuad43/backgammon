@@ -677,6 +677,8 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   var ME = { id: 'qu', n: 'Quad', i: 'QU', elo: 1500, d: 0, ck: { m: 'bone', t: 2, f: 'rosette', i: 'brass', a: 0.2, s: 4242 } };
   var P = [ME, { id: 'no', n: 'Nolf', i: 'NO', elo: 1500, d: 0, ck: { m: 'marble', t: 2, f: 'star', i: 'pearl', a: 0.45, s: 7719 } },
     { id: 'ra', n: 'Rafi', i: 'RA', elo: 1545, d: 0, ck: { m: 'wood', t: 4, f: 'rings', i: 'none', a: 0.6, s: 3301 } }];
+  /* A computer opponent for trying the app alone: it plays on this device, nothing is saved. */
+  var BOT = { id: 'bot', n: 'Computer', i: 'bot', elo: 1500, d: 0, bot: true, ck: { m: 'bakelite', t: 0, f: 'flat', i: 'none', a: 0, s: 1 } };
   if (CLOUD) { ME = null; P = []; }
   else try { var saved = JSON.parse(localStorage.getItem('myChecker')); if (saved && saved.m) ME.ck = saved; } catch (e) {}
   function esc(t) { return String(t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -779,6 +781,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   function openGame(pid) {
     var g = GAMES.filter(function (x) { return x.p === pid; })[0], p = byId[pid];
     closeAll();
+    if (p.bot) { window.BG.open({ id: pid, name: p.n, ini: pid, to: ng.to }); return; }
     if (CLOUD) {
       var seat = UID < pid ? 'A' : 'B', seats = {};
       seats[seat] = { name: ME.n, ini: UID }; seats[seat === 'A' ? 'B' : 'A'] = { name: p.n, ini: pid };
@@ -1202,7 +1205,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     };
     var listenGames = function () {
       P.forEach(function (p) {
-        if (p.id === UID || GL[p.id]) return;
+        if (p.id === UID || p.bot || GL[p.id]) return;
         var seat = UID < p.id ? 'A' : 'B';
         GL[p.id] = FS.doc('games/' + [UID, p.id].sort().join('_')).onSnapshot(function (snap) {
           var d = null; try { d = snap.exists ? JSON.parse(snap.data().j) : null; } catch (e) {}
@@ -1233,7 +1236,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       FS.doc('meta/admin').get().then(function (d) { ADMIN = d.exists && d.data().uid === UID; }).catch(function () {});
       unsubP = FS.collection('players').onSnapshot(function (qs) {
         P = qs.docs.map(function (d) { var v = d.data(); return { id: d.id, n: v.name || 'Player', i: d.id, elo: v.elo || 1500, d: 0, ck: v.ck || window.Checker.random() }; });
-        reindex(); ME = byId[UID] || null;
+        P.push(BOT); reindex(); ME = byId[UID] || null;
         if (!ME) {
           if ($('edit').hidden) {
             FS.doc('emails/' + UID).get().then(function (d) {
@@ -2359,7 +2362,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       }
       if (DUO) { if (DUO.unsub) DUO.unsub(); DUO = null; }
       var fresh = CUR !== o.id || !G; CUR = o.id; OPP = o; setNames();
-      if (fresh) { CASE.fresh = true; G = null; start(); }
+      if (fresh) { CASE.fresh = true; G = null; if (o.to) { MATCH = o.to; $('scTo').textContent = 'to ' + MATCH; } start(); }
     },
     close: function () { $('gv').hidden = true; $('over').hidden = true; },
     seat: function () { CUR = 'duo'; showBoard(); if (DB) pickSeat(); else say('The shared game needs the published page.'); },

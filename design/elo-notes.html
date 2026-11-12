@@ -1,0 +1,144 @@
+<title>Backgammon Elo notes</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap">
+<style>
+/* Layout: one reading column like a set of lecture notes; each idea is a numbered section because the argument builds in order. */
+:root {
+  --bg: #EEF2EF; --paper: #F9FBFA; --ink: #1F2D2E; --muted: #4F5E5F; --line: rgba(31,45,46,0.13);
+  --accent: #2F5D62; --warm: #9A5B1E; --tint: #E2ECE9;
+  --display: 'Fraunces', Georgia, serif; --body: 'Figtree', system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121A1B; --paper: #18221F; --ink: #E4ECE9; --muted: #A3B2AF; --line: rgba(228,236,233,0.12);
+  --accent: #8CC3BF; --warm: #E2A766; --tint: #1F2D2A; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #121A1B; --paper: #18221F; --ink: #E4ECE9; --muted: #A3B2AF; --line: rgba(228,236,233,0.12);
+  --accent: #8CC3BF; --warm: #E2A766; --tint: #1F2D2A; color-scheme: dark }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 17px; line-height: 1.65;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 40px 80px; }
+main { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+header h1 { font-family: var(--display); font-weight: 600; font-size: clamp(32px, 6vw, 46px); line-height: 1.1; margin: 0 0 10px; text-wrap: balance; }
+header p { margin: 0; color: var(--muted); max-width: 60ch; }
+.eyebrow { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); font-weight: 700; margin-bottom: 8px; }
+section { background: var(--paper); border: 1px solid var(--line); border-radius: 22px; padding: 22px 24px; min-width: 0; }
+section h2 { font-family: var(--display); font-weight: 500; font-size: 25px; margin: 0 0 6px; text-wrap: balance; display: flex; gap: 12px; align-items: baseline; }
+section h2 span { color: var(--accent); font-size: 18px; font-variant-numeric: tabular-nums; }
+section h3 { font-size: 15px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 18px 0 4px; }
+p { margin: 8px 0; max-width: 66ch; }
+.m { overflow-x: auto; overflow-y: hidden; padding: 4px 0; font-size: 1.05em; }
+.take { background: var(--tint); border-radius: 14px; padding: 12px 16px; margin-top: 14px; }
+.take b { color: var(--accent); }
+.warn b { color: var(--warm); }
+.tbl { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 15px; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+th { color: var(--muted); font-weight: 600; }
+ul { margin: 8px 0; padding-left: 20px; } li { margin: 4px 0; }
+.dec { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 10px; }
+.dec div { border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+.dec strong { display: block; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); margin-bottom: 4px; }
+.katex { color: var(--ink); } math { font-size: 1.15em; } math[display="block"] { margin: 6px 0; }
+</style>
+<main>
+<header>
+  <div class="eyebrow">Backgammon · rating notes</div>
+  <h1>A Bayesian rating for ten friends</h1>
+  <p>Why the update looks the way it does: the likelihood, the gradient, where √N comes from, what the margin costs, and how newcomers fit in once ratings carry their own uncertainty.</p>
+</header>
+
+<section>
+  <h2><span>1</span>The model</h2>
+  <p>Each player has a latent strength R. For a match to N points between you and an opponent, with gap D = R<sub>you</sub> − R<sub>opp</sub>, the probability you win is logistic in the gap:</p>
+  <div class="m" data-t="P(\text{win}\mid D, N) \;=\; E \;=\; \sigma\!\left(c\sqrt{N}\,D\right), \qquad \sigma(x) = \frac{1}{1+e^{-x}}, \qquad c = \frac{\ln 10}{2000}"></div>
+  <p>Written in base 10, this is the FIBS formula used by online backgammon servers:</p>
+  <div class="m" data-t="E = \frac{1}{1 + 10^{-D\sqrt{N}/2000}}"></div>
+  <table style="margin-top:10px"><tr><th>Gap D</th><th>1-pointer</th><th>Match to 5</th><th>Match to 11</th></tr>
+    <tr><td>50</td><td>0.51</td><td>0.53</td><td>0.55</td></tr>
+    <tr><td>100</td><td>0.53</td><td>0.56</td><td>0.60</td></tr>
+    <tr><td>200</td><td>0.56</td><td>0.63</td><td>0.69</td></tr>
+    <tr><td>400</td><td>0.62</td><td>0.74</td><td>0.82</td></tr></table>
+  <p>Backgammon is luck-heavy: even a 400-point gap barely matters in a single point, and longer matches let skill show.</p>
+</section>
+
+<section>
+  <h2><span>2</span>Why √N</h2>
+  <p>Think of a match to N as a sum of roughly N independent games, each giving the stronger player a small edge δ in expected points per game with standard deviation σ. By the central limit theorem:</p>
+  <div class="m" data-t="P(\text{win match}) \;\approx\; \Phi\!\left(\frac{\delta\sqrt{N}}{\sigma}\right)"></div>
+  <p>The match "z-score" grows like √N. A probit and a logistic are nearly the same curve (σ(1.7x) ≈ Φ(x)), so putting √N inside the logistic is the same statement. Doubling the length does not double the edge; quadrupling it does.</p>
+</section>
+
+<section>
+  <h2><span>3</span>Elo is a gradient step</h2>
+  <p>Observe outcome S ∈ {0, 1}. The log-likelihood of one match and its derivative in your own rating:</p>
+  <div class="m" data-t="\ell(R) = S\log E + (1-S)\log(1-E), \qquad \frac{\partial \ell}{\partial R} = c\sqrt{N}\,(S - E)"></div>
+  <p>One stochastic-gradient step with learning rate η is therefore</p>
+  <div class="m" data-t="R' = R + \underbrace{\eta\, c\sqrt{N}}_{K}\,(S - E)"></div>
+  <p>That's the Elo update, and it explains the stakes: <b>K ∝ √N falls out of the gradient</b>; it isn't a separate assumption. With η chosen so that K = 10√N:</p>
+  <table><tr><th>N</th><th>1</th><th>3</th><th>5</th><th>7</th><th>9</th><th>11</th><th>15</th></tr>
+    <tr><td>K</td><td>10</td><td>17</td><td>22</td><td>26</td><td>30</td><td>33</td><td>39</td></tr></table>
+  <h3>Information view</h3>
+  <p>The Fisher information one match carries about D:</p>
+  <div class="m" data-t="\mathcal{I}_N(D) = \mathbb{E}\!\left[\left(\tfrac{\partial \ell}{\partial D}\right)^2\right] = c^2 N\, E(1-E)"></div>
+  <p>A match to N is worth N one-pointers of information about the gap. That's the probabilistic foundation you asked for.</p>
+  <h3>The constant</h3>
+  <p>Only the 10 is a choice. With a fixed step, ratings never fully settle: they jitter around the truth with a spread that grows like √K. Larger K tracks a player who improves faster; smaller K gives steadier numbers. For about 10 friends playing a few matches a week, 10√N is a reasonable middle.</p>
+</section>
+
+<section>
+  <h2><span>4</span>What the margin costs</h2>
+  <p>We score a win by its margin instead of 1:</p>
+  <div class="m" data-t="S_{\text{win}} = 0.75 + 0.25\cdot\frac{N - s_{\text{loser}}}{N}, \qquad S_{\text{loss}} = 1 - S_{\text{win}}"></div>
+  <p>With a constant step, the ratings settle where the expected step is zero:</p>
+  <div class="m" data-t="\mathbb{E}[S - E] = 0 \;\;\Longleftrightarrow\;\; E = \mathbb{E}[S]"></div>
+  <p>With binary S, E[S] = p, the true win probability, so E is calibrated. With margins, E converges to the <i>expected share</i>, which is pulled toward ½:</p>
+  <div class="m" data-t="\mathbb{E}[S] = \tfrac14 + \tfrac12\,p + \tfrac14\,\mathbb{E}\!\left[\pm\tfrac{N - s_{\text{loser}}}{N}\right]"></div>
+  <div class="take"><b>What we lose:</b> E as a literal win probability. A player who wins 70% of matches but usually narrowly has E[S] ≈ 0.62, so the gap reads like a 62% favourite.<br>
+  <b>What we keep:</b> convergence, and the ranking order, as long as stronger players also win by bigger margins, which in backgammon they do.<br>
+  <b>Small gain:</b> S is less extreme, so ratings are a little less noisy.</div>
+  <p>Formally, using a fractional S turns the Bernoulli likelihood into a quasi-likelihood, E<sup>S</sup>(1−E)<sup>1−S</sup>: a "soft label", like label smoothing. The machinery below still works, but the posterior is a pseudo-posterior.</p>
+  <h3>Concession</h3>
+  <p>A conceded match is scored as if the winner reached N and the conceder kept their score. Conceding at 3–4 in a match to 5 gives S<sub>win</sub> = 0.75 + 0.25·(2/5) = 0.85. That only makes sense with margins, which is why the two decisions go together.</p>
+</section>
+
+<section>
+  <h2><span>5</span>The Bayesian version</h2>
+  <p>Put a Gaussian prior on each strength and treat the logistic match as the likelihood:</p>
+  <div class="m" data-t="R_i \sim \mathcal{N}(\mu_i, \sigma_i^2), \qquad S \mid R_i, R_j \sim \text{Bernoulli}\big(\sigma(c\sqrt N\,(R_i - R_j))\big)"></div>
+  <p>The posterior isn't Gaussian, but a Laplace approximation around the prior mean (one Newton step) gives a closed form. Precisions add the Fisher information, and the mean moves by the posterior variance times the score:</p>
+  <div class="m" data-t="\frac{1}{\sigma_i'^2} = \frac{1}{\sigma_i^2} + c^2 N\,g_j^2\,E(1-E), \qquad \mu_i' = \mu_i + \sigma_i'^2\; c\sqrt N\, g_j\,(S - E)"></div>
+  <p>where the opponent's uncertainty flattens the curve: the expected score is computed through</p>
+  <div class="m" data-t="g_j = \frac{1}{\sqrt{1 + 3 c^2 N \sigma_j^2/\pi^2}}, \qquad E = \sigma\!\left(c\sqrt N\, g_j\,(\mu_i - \mu_j)\right)"></div>
+  <p>This is Glicko (Glickman, 1999) with the √N match scaling put in. Compare it with step 3: <b>Elo is this update with σ<sub>i</sub>′² frozen to a constant</b>. The "K" of a Bayesian is the posterior variance, so it shrinks as evidence builds.</p>
+  <h3>Between matches</h3>
+  <p>Skill drifts, so uncertainty grows back with time (a random-walk prior):</p>
+  <div class="m" data-t="\sigma_i^2 \leftarrow \min\!\left(\sigma_i^2 + \tau^2\, t,\; \sigma_0^2\right)"></div>
+  <p>Someone who hasn't played for months moves faster when they come back. That's the right behaviour, and Elo can't express it.</p>
+</section>
+
+<section>
+  <h2><span>6</span>Newcomers</h2>
+  <p>A newcomer starts with a wide prior (σ₀ large). From the update in section 5, the step each side takes is proportional to their own variance:</p>
+  <div class="m" data-t="\Delta\mu_i \;\propto\; \sigma_i'^2\,(S-E), \qquad \Delta\mu_j \;\propto\; \sigma_j'^2\,(E - S)"></div>
+  <ul>
+    <li>The newcomer moves a lot: the result is informative about them.</li>
+    <li>The established player moves <i>less</i> than usual, because g<sub>j</sub> &lt; 1: a result against an unknown says little about them.</li>
+  </ul>
+  <p>So the instinct "if the newcomer speeds up, the others must too" points the wrong way. It also explains what we give up: the updates are no longer equal and opposite, so the pool's mean isn't conserved. That's expected; the mean has no meaning by itself.</p>
+  <div class="take"><b>Simple Elo version:</b> the newcomer uses 2K for their first 5 matches; their opponent uses normal K. That's a two-level stand-in for σ.<br>
+  <b>Full version:</b> keep (μ, σ) per player and use section 5 directly. It's about 15 lines of code, and the app could show a rating as "1540 ± 80", which a Bayesian will appreciate.</div>
+</section>
+
+<section>
+  <h2><span>7</span>Decisions</h2>
+  <div class="dec">
+    <div><strong>Likelihood</strong>FIBS logistic with √N in the slope.</div>
+    <div><strong>Result S</strong>Margin-scored, 0.75 to 1 for a win. Accepted cost: E is a share, not a probability.</div>
+    <div><strong>Concession</strong>Winner credited N, conceder keeps their score.</div>
+    <div><strong>Stakes</strong>K = 10√N for Elo; or the posterior variance if we go Glicko.</div>
+    <div><strong>Newcomers</strong>2K for the first 5 matches, opponent at K, or Glicko's σ₀.</div>
+    <div><strong>Open</strong>Plain Elo with a newcomer boost, or full Glicko with "rating ± uncertainty" shown in the app?</div>
+  </div>
+</section>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script>document.querySelectorAll('[data-t]').forEach(function (e) { try { katex.render(e.dataset.t, e, { displayMode: true, throwOnError: false, output: 'mathml' }); } catch (x) { e.textContent = e.dataset.t; } });</script>
