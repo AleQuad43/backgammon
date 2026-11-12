@@ -31,27 +31,57 @@ img = walnut()
 d = ImageDraw.Draw(img)
 C = S / 2
 
-# marquetry ring: two thin brass lines with a band of alternating triangles between them
-r0, r1 = 352, 410
-n = 44
-for i in range(n):
-    a0, a1 = 2 * math.pi * i / n, 2 * math.pi * (i + 1) / n
-    am = (a0 + a1) / 2
-    p = lambda r, a: (C + r * math.cos(a), C + r * math.sin(a))
-    up = [p(r0, a0), p(r0, a1), p(r1, am)]
-    down = [p(r1, a1 - (a1 - a0)), p(r1, am), p(r0, a0)]
-    pearl = tuple(int(v) for v in (236 + rnd.randint(-8, 8), 232 + rnd.randint(-10, 10), 222 + rnd.randint(-12, 14)))
-    d.polygon(up, fill=pearl)
-    d.polygon([p(r1, a0), p(r1, am), p(r0, a0)], fill=(28, 18, 12))
-    d.polygon([p(r1, am), p(r1, a1), p(r0, a1)], fill=(28, 18, 12))
-for r, wdt in ((r0 - 6, 9), (r1 + 6, 9)):
-    d.ellipse((C - r, C - r, C + r, C + r), outline=(201, 158, 74), width=wdt)
-d.ellipse((C - r0 + 12, C - r0 + 12, C + r0 - 12, C + r0 - 12), outline=(150, 112, 50), width=3)
-
-# pearl sheen on the ring
+# A ten-fold rosette of inlaid wood, like the centre panels of Syrian boards but pared down: a pearl star, ten maple
+# petals edged in pearl with cherry hearts, ebony kites between them, and a fine mosaic band with brass lines around.
+def at(r, a):
+    return (C + r * math.cos(a), C + r * math.sin(a))
+def local(rad, along, across, a):
+    return (C + along * math.cos(a) - across * math.sin(a), C + along * math.sin(a) + across * math.cos(a))
+PEARL, MAPLE, CHERRY, EBONY, BRASS = (238, 230, 214), (205, 160, 100), (150, 82, 46), (30, 19, 12), (201, 158, 74)
+n = 10
+off = -math.pi / 2
+# mosaic band: tiny alternating pearl and ebony tiles between two brass lines
+rb0, rb1 = 382, 404
+m = 120
+for i in range(m):
+    a0, a1 = off + 2 * math.pi * i / m, off + 2 * math.pi * (i + 1) / m
+    d.polygon([at(rb0, a0), at(rb1, a0), at(rb1, a1), at(rb0, a1)], fill=PEARL if i % 2 else EBONY)
+for r, wdt in ((rb0 - 5, 8), (rb1 + 5, 8)):
+    d.ellipse((C - r, C - r, C + r, C + r), outline=BRASS, width=wdt)
+# ebony kites on the star's axes, each with a pearl dot
+for k in range(n):
+    a = off + 2 * math.pi * k / n
+    d.polygon([local(0, 300, 0, a), local(0, 335, -30, a), local(0, 366, 0, a), local(0, 335, 30, a)], fill=EBONY, outline=PEARL, width=3)
+    x, y = local(0, 335, 0, a); d.ellipse((x - 7, y - 7, x + 7, y + 7), fill=PEARL)
+# petals: elongated hexagons between the star's points
+for k in range(n):
+    a = off + 2 * math.pi * (k + 0.5) / n
+    hexo = [local(0, 168, 0, a), local(0, 205, -52, a), local(0, 300, -52, a), local(0, 340, 0, a), local(0, 300, 52, a), local(0, 205, 52, a)]
+    d.polygon(hexo, fill=PEARL)
+    hexm = [local(0, 180, 0, a), local(0, 211, -42, a), local(0, 294, -42, a), local(0, 326, 0, a), local(0, 294, 42, a), local(0, 211, 42, a)]
+    d.polygon(hexm, fill=MAPLE)
+    hexi = [local(0, 214, 0, a), local(0, 232, -20, a), local(0, 270, -20, a), local(0, 290, 0, a), local(0, 270, 20, a), local(0, 232, 20, a)]
+    d.polygon(hexi, fill=CHERRY)
+# the star: ten points in pearl, a walnut star inside it
+pts = []
+for k in range(2 * n):
+    a = off + math.pi * k / n
+    pts.append(at(190 if k % 2 == 0 else 120, a))
+d.polygon(pts, fill=PEARL)
+pts2 = [at(170 if k % 2 == 0 else 106, off + math.pi * k / n) for k in range(2 * n)]
+d.polygon(pts2, fill=(70, 43, 25))
+pts3 = [at(120 if k % 2 == 0 else 78, off + math.pi * k / n) for k in range(2 * n)]
+d.polygon(pts3, outline=PEARL, width=3)
+# grain inside the wood pieces and a soft varnish sheen across the whole inlay
+grain = Image.new('L', (S, S), 0)
+gd = ImageDraw.Draw(grain)
+for i in range(0, S, 7):
+    gd.line([(0, i), (S, i + 40)], fill=28, width=2)
+img = Image.composite(Image.new('RGB', (S, S), (60, 35, 18)), img, grain.filter(ImageFilter.GaussianBlur(1.5)))
+d = ImageDraw.Draw(img)
 sheen = Image.new('L', (S, S), 0)
-ImageDraw.Draw(sheen).ellipse((C - 520, C - 620, C + 220, C + 60), fill=70)
-img = Image.composite(Image.new('RGB', (S, S), (255, 250, 240)), img, sheen.filter(ImageFilter.GaussianBlur(90)))
+ImageDraw.Draw(sheen).ellipse((C - 560, C - 640, C + 160, C + 40), fill=55)
+img = Image.composite(Image.new('RGB', (S, S), (255, 248, 232)), img, sheen.filter(ImageFilter.GaussianBlur(110)))
 
 
 def die(cx, cy, size, ang, val):
@@ -88,10 +118,10 @@ def die(cx, cy, size, ang, val):
     img.paste(tile, (int(cx - pad), int(cy - pad)), tile)
 
 
-die(C - 128, C + 58, 232, 12, 6)
-die(C + 122, C - 76, 232, -17, 5)
+die(C - 104, C + 64, 196, 12, 6)
+die(C + 104, C - 66, 196, -17, 5)
 
 for n2 in (512, 192, 180):
-    img.resize((n2, n2), Image.LANCZOS).save(OUT / f'icon2-{n2}.png')
+    img.resize((n2, n2), Image.LANCZOS).save(OUT / f'icon3-{n2}.png')
 img.resize((512, 512), Image.LANCZOS).save(pathlib.Path(__file__).parent / 'icon-preview.png')
 print('icons done')
