@@ -208,8 +208,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
 #gv .av { border: none; }
 #gv .av.ck { background: none; box-shadow: none; }
-#gv .railTop { display: flex; justify-content: center; margin-bottom: 4px; }
-#gv .homeBtn { height: 28px; padding: 0 12px 0 8px; border: none; border-radius: 14px; background: var(--glass); display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--ink); }
+
 #gv .turnMsg { display: none; }
 @media (orientation: portrait) and (max-width: 700px) {
   #gv .turnMsg { display: flex; position: absolute; inset: 0; z-index: 60; align-items: center; justify-content: center; flex-direction: column; gap: 14px; padding: 32px; text-align: center; font-size: 17px; font-weight: 600; background: var(--sky); }
@@ -285,6 +284,17 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
 #gv .case .bk b { position: absolute; left: -6px; top: 50%; width: 14px; height: 46px; margin-top: -23px; border-radius: 5px; background: linear-gradient(90deg, #C9A45C, #E8CF8E 50%, #A9843E); box-shadow: 0 2px 5px rgba(0,0,0,0.35); }
 #gv .case .bk .shade { border-radius: 14px 0 0 14px; }
 
+/* The rail: opponent at the top, you at the bottom, score and cube in the middle. */
+#gv .rail { flex: 0 0 136px; justify-content: space-between; gap: 6px; padding: 0; }
+#gv .railTop { display: flex; align-items: flex-start; gap: 2px; min-width: 0; }
+#gv .railTop .who { flex: 1 1 auto; min-width: 0; }
+#gv .who { min-width: 0; padding: 5px 8px 5px 5px; }
+#gv .who > div:last-child { min-width: 0; }
+#gv .who b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#gv .homeBtn { flex: 0 0 30px; width: 30px; height: 30px; margin-top: 7px; padding: 0; border: none; border-radius: 50%; background: var(--glass); display: flex; align-items: center; justify-content: center; color: var(--muted); }
+#gv .railMid { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+#gv .railMid .status { min-height: 32px; }
+#gv .score b { font-size: 32px; }
 @media (prefers-reduced-motion: reduce) { .orb.ck.yours img, .orb.ck.them img, .orb.yours::before, .orb.req::after, .pip, #gv .who.turn .av::after, #gv .cube.armed .face { animation: none; } }
 </style>
 
@@ -625,13 +635,15 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     <div class="game" id="game">
       <div class="boardWrap" id="wrap"><canvas id="board" aria-label="Backgammon board"></canvas><div class="slide" id="slide" hidden>Slide to end your turn →</div><div class="over" id="over" hidden></div></div>
       <aside class="rail" id="rail">
-        <div>
-          <div class="railTop"><button class="homeBtn" id="homeBtn" aria-label="Back to your friends"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7" cy="9" r="3.2"/><circle cx="16.5" cy="6.5" r="2.4"/><circle cx="15" cy="16" r="3.6"/></svg>Friends</button></div>
+        <div class="railTop">
+          <div class="who" id="whoThem"><div class="av them" id="avThem">NO</div><div><b id="nmThem">Nolf</b><small id="pipThem"></small></div></div>
+          <button class="homeBtn" id="homeBtn" aria-label="Back to your friends"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7" cy="9" r="3.2"/><circle cx="16.5" cy="6.5" r="2.4"/><circle cx="15" cy="16" r="3.6"/></svg></button>
+        </div>
+        <div class="railMid">
           <div class="score"><b id="scMe">0</b><span>–</span><b id="scThem">0</b><small id="scTo">to 5</small></div>
           <div class="status" id="status" role="status"></div>
+          <button class="cube" id="cube"><span class="face" id="cubeFace">×2</span><span class="cl" id="cubeLabel">Double</span></button>
         </div>
-        <div class="who" id="whoThem"><div class="av them" id="avThem">NO</div><div><b id="nmThem">Nolf</b><small id="pipThem"></small></div></div>
-        <button class="cube" id="cube"><span class="face" id="cubeFace">×2</span><span class="cl" id="cubeLabel">Double</span></button>
         <div class="who" id="whoMe"><div class="av me" id="avMe">QU</div><div><b>You</b><small id="pipMe"></small></div></div>
       </aside>
     </div>
@@ -1742,6 +1754,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       if (draggedId >= 0) drawChecker(ck[draggedId], drag.x, drag.y, true);
       drawOffer(now);
       holdTick(now);
+      barTick(now);
     }
     requestAnimationFrame(frame);
   }
@@ -1766,6 +1779,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   cv.addEventListener('pointerdown', function (e) {
     var p = pt(e), x = p[0], y = p[1];
     hold = null; drag = null; flick = null;
+    BH = (x >= L.barX - 4 && x <= L.barX + L.bw + 4) ? { x: x, y: y, cx: e.clientX, t0: performance.now(), on: false } : null;
     try { cv.setPointerCapture(e.pointerId); } catch (er) {}
     if (G.turn === ME && (G.phase === 'roll' || G.phase === 'opening') && !G.rolling) {
       flick = { hist: [{ x: x, y: y, t: performance.now() }], x0: x, y0: y }; return;
@@ -1787,6 +1801,10 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   });
   cv.addEventListener('pointermove', function (e) {
     var p = pt(e);
+    if (BH) {
+      if (BH.on) { sideDrag(e.clientX); return; }
+      if (Math.hypot(p[0] - BH.x, p[1] - BH.y) > 10) BH = null;
+    }
     if (flick) { flick.hist.push({ x: p[0], y: p[1], t: performance.now() }); if (flick.hist.length > 6) flick.hist.shift(); return; }
     if (hold) {
       if (!hold.slide) { if (Math.hypot(p[0] - hold.x, p[1] - hold.y) > 10) hold = null; }
@@ -1804,6 +1822,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     else hover = null;
   });
   function endPointer(e) {
+    if (BH) { var bh = BH; BH = null; if (bh.on) { sideDrop(bh); return; } }
     if (flick) {
       var f = flick, h = f.hist; flick = null;
       var a = h[0], b = h[h.length - 1], dt = Math.max(0.016, (b.t - a.t) / 1000), vx = (b.x - a.x) / dt, vy = (b.y - a.y) / dt, sp = Math.hypot(vx, vy);
@@ -1924,6 +1943,54 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     setTimeout(aiRoll, 1400);
   }
 
+  /* Moving the board to the other side: hold the wooden bar in the middle for half a second (nothing shows while you
+     wait), the bar lightens, and the board follows your finger sideways while the rail fades. Let go past a third of the
+     way and the board settles on the other side and the rail comes back on the opposite one. Remembered on this device. */
+  var BH = null, SIDE = { k: 0, anim: 0 };
+  function railLeft() { return $('game').classList.contains('flip'); }
+  function travel() { var gm = $('game'), r = $('rail').getBoundingClientRect(), sc = gm.getBoundingClientRect().width / gm.offsetWidth || 1; return r.width / sc + 12; }
+  function barTick(now) {
+    if (BH && !BH.on && now - BH.t0 >= 500) {
+      BH.on = true; hold = null; drag = null; flick = null; hover = null; $('slide').hidden = true;
+      BH.T = travel(); BH.dir = railLeft() ? -1 : 1;
+      $('wrap').style.transition = 'none'; $('rail').style.transition = 'opacity .25s ease';
+      if (navigator.vibrate) try { navigator.vibrate(10); } catch (e) {}
+    }
+    var target = BH && BH.on ? 1 : 0;
+    SIDE.k += (target - SIDE.k) * 0.25;
+    if (SIDE.k > 0.01) {
+      ctx.save(); ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.globalAlpha = 0.32 * SIDE.k; ctx.fillStyle = '#FFF1DC';
+      ctx.fillRect(L.barX, 0, L.bw, H); ctx.restore();
+    }
+  }
+  function sideDrag(cx) {
+    var gm = $('game'), sc = gm.getBoundingClientRect().width / gm.offsetWidth || 1, dx = (cx - BH.cx) / sc;
+    var u = Math.max(0, Math.min(1, dx * BH.dir / BH.T)), v = u < 1 ? u : 1;
+    BH.u = v;
+    $('wrap').style.transform = 'translateX(' + (BH.dir * BH.T * v).toFixed(1) + 'px)';
+    $('rail').style.opacity = Math.max(0, 1 - v * 2).toFixed(2);
+  }
+  function sideDrop(bh) {
+    var wrap = $('wrap'), rail = $('rail'), u = bh.u || 0, EASE = 'cubic-bezier(.22,.8,.24,1)';
+    if (u < 0.33) {
+      wrap.style.transition = 'transform .35s ' + EASE; wrap.style.transform = '';
+      rail.style.transition = 'opacity .35s ease'; rail.style.opacity = '';
+      return;
+    }
+    /* Swap sides, then start the board where the finger left it and let it glide the rest of the way. */
+    var left = bh.dir * bh.T * u;
+    $('game').classList.toggle('flip');
+    try { localStorage.setItem('railSide', railLeft() ? 'left' : 'right'); } catch (e) {}
+    wrap.style.transition = 'none'; wrap.style.transform = 'translateX(' + (left - bh.dir * bh.T).toFixed(1) + 'px)';
+    rail.style.transition = 'none'; rail.style.opacity = '0'; rail.style.transform = 'translateX(' + (-bh.dir * 14) + 'px)';
+    void wrap.offsetWidth;
+    var dur = (0.25 + 0.35 * (1 - u)).toFixed(2);
+    wrap.style.transition = 'transform ' + dur + 's ' + EASE; wrap.style.transform = '';
+    setTimeout(function () { rail.style.transition = 'opacity .45s ease, transform .45s ' + EASE; rail.style.opacity = ''; rail.style.transform = ''; }, 120);
+    if (W !== $('wrap').clientWidth) layout();
+  }
+  try { if (localStorage.getItem('railSide') === 'left') $('game').classList.add('flip'); } catch (e) {}
+
   /* Hold an empty part of the board: a ring fills under your finger. When it closes, the words appear and sliding right
      turns the whole sky once around with your finger. Back where it started = turn ended (or game given up). */
   var hold = null, SLIDE_W = 190, HOLD = { s: 0.5 };
@@ -1939,7 +2006,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     (function st(now) { var u = Math.min(1, (now - t0) / 350); paintSky(skyA + off * (1 - ease(u))); if (u < 1) requestAnimationFrame(st); })(t0);
   }
   function holdTick(now) {
-    var ok = (G.turn === ME && G.phase === 'move' && !(remaining().length && anyMove(ME))) || G.phase === 'offered';
+    var ok = !BH && ((G.turn === ME && G.phase === 'move' && !(remaining().length && anyMove(ME))) || G.phase === 'offered');
     if (hold && !hold.slide && ok) {
       var u = Math.min(1, (now - hold.t0) / (HOLD.s * 1000));
       ctx.save(); ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.lineCap = 'round';

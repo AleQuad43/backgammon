@@ -42,7 +42,6 @@ resub(r"\n  document\.addEventListener\('pointerdown', function first[^\n]*", ""
 # The opponent is whoever you opened the game with.
 sub("SEATS[DUO.other] : { name: 'Luca', ini: 'LU' }", "SEATS[DUO.other] : OPP")
 sub("say('Luca is playing.')", "say(NAME.them + ' is playing.')")
-sub("'. Luca is playing.'", "'. ' + NAME.them + ' is playing.'")
 sub("say('Luca rolled ' + D[0].v + '. Throw yours.')", "say(NAME.them + ' rolled ' + D[0].v + '. Throw yours.')")
 sub("'Luca starts'", "NAME.them + ' starts'")
 sub("say('Luca rolled ' + v + ' when he challenged you. Throw yours.');", "say(NAME.them + ' rolled ' + v + ' when they challenged you. Throw yours.');")

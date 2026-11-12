@@ -599,6 +599,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
       if (draggedId >= 0) drawChecker(ck[draggedId], drag.x, drag.y, true);
       drawOffer(now);
       holdTick(now);
+      barTick(now);
     }
     requestAnimationFrame(frame);
   }
@@ -623,6 +624,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   cv.addEventListener('pointerdown', function (e) {
     var p = pt(e), x = p[0], y = p[1];
     hold = null; drag = null; flick = null;
+    BH = (x >= L.barX - 4 && x <= L.barX + L.bw + 4) ? { x: x, y: y, cx: e.clientX, t0: performance.now(), on: false } : null;
     try { cv.setPointerCapture(e.pointerId); } catch (er) {}
     if (G.turn === ME && (G.phase === 'roll' || G.phase === 'opening') && !G.rolling) {
       flick = { hist: [{ x: x, y: y, t: performance.now() }], x0: x, y0: y }; return;
@@ -644,6 +646,10 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   });
   cv.addEventListener('pointermove', function (e) {
     var p = pt(e);
+    if (BH) {
+      if (BH.on) { sideDrag(e.clientX); return; }
+      if (Math.hypot(p[0] - BH.x, p[1] - BH.y) > 10) BH = null;
+    }
     if (flick) { flick.hist.push({ x: p[0], y: p[1], t: performance.now() }); if (flick.hist.length > 6) flick.hist.shift(); return; }
     if (hold) {
       if (!hold.slide) { if (Math.hypot(p[0] - hold.x, p[1] - hold.y) > 10) hold = null; }
@@ -661,6 +667,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     else hover = null;
   });
   function endPointer(e) {
+    if (BH) { var bh = BH; BH = null; if (bh.on) { sideDrop(bh); return; } }
     if (flick) {
       var f = flick, h = f.hist; flick = null;
       var a = h[0], b = h[h.length - 1], dt = Math.max(0.016, (b.t - a.t) / 1000), vx = (b.x - a.x) / dt, vy = (b.y - a.y) / dt, sp = Math.hypot(vx, vy);
@@ -781,6 +788,54 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     setTimeout(aiRoll, 1400);
   }
 
+  /* Moving the board to the other side: hold the wooden bar in the middle for half a second (nothing shows while you
+     wait), the bar lightens, and the board follows your finger sideways while the rail fades. Let go past a third of the
+     way and the board settles on the other side and the rail comes back on the opposite one. Remembered on this device. */
+  var BH = null, SIDE = { k: 0, anim: 0 };
+  function railLeft() { return $('game').classList.contains('flip'); }
+  function travel() { var gm = $('game'), r = $('rail').getBoundingClientRect(), sc = gm.getBoundingClientRect().width / gm.offsetWidth || 1; return r.width / sc + 12; }
+  function barTick(now) {
+    if (BH && !BH.on && now - BH.t0 >= 500) {
+      BH.on = true; hold = null; drag = null; flick = null; hover = null; $('slide').hidden = true;
+      BH.T = travel(); BH.dir = railLeft() ? -1 : 1;
+      $('wrap').style.transition = 'none'; $('rail').style.transition = 'opacity .25s ease';
+      if (navigator.vibrate) try { navigator.vibrate(10); } catch (e) {}
+    }
+    var target = BH && BH.on ? 1 : 0;
+    SIDE.k += (target - SIDE.k) * 0.25;
+    if (SIDE.k > 0.01) {
+      ctx.save(); ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.globalAlpha = 0.32 * SIDE.k; ctx.fillStyle = '#FFF1DC';
+      ctx.fillRect(L.barX, 0, L.bw, H); ctx.restore();
+    }
+  }
+  function sideDrag(cx) {
+    var gm = $('game'), sc = gm.getBoundingClientRect().width / gm.offsetWidth || 1, dx = (cx - BH.cx) / sc;
+    var u = Math.max(0, Math.min(1, dx * BH.dir / BH.T)), v = u < 1 ? u : 1;
+    BH.u = v;
+    $('wrap').style.transform = 'translateX(' + (BH.dir * BH.T * v).toFixed(1) + 'px)';
+    $('rail').style.opacity = Math.max(0, 1 - v * 2).toFixed(2);
+  }
+  function sideDrop(bh) {
+    var wrap = $('wrap'), rail = $('rail'), u = bh.u || 0, EASE = 'cubic-bezier(.22,.8,.24,1)';
+    if (u < 0.33) {
+      wrap.style.transition = 'transform .35s ' + EASE; wrap.style.transform = '';
+      rail.style.transition = 'opacity .35s ease'; rail.style.opacity = '';
+      return;
+    }
+    /* Swap sides, then start the board where the finger left it and let it glide the rest of the way. */
+    var left = bh.dir * bh.T * u;
+    $('game').classList.toggle('flip');
+    try { localStorage.setItem('railSide', railLeft() ? 'left' : 'right'); } catch (e) {}
+    wrap.style.transition = 'none'; wrap.style.transform = 'translateX(' + (left - bh.dir * bh.T).toFixed(1) + 'px)';
+    rail.style.transition = 'none'; rail.style.opacity = '0'; rail.style.transform = 'translateX(' + (-bh.dir * 14) + 'px)';
+    void wrap.offsetWidth;
+    var dur = (0.25 + 0.35 * (1 - u)).toFixed(2);
+    wrap.style.transition = 'transform ' + dur + 's ' + EASE; wrap.style.transform = '';
+    setTimeout(function () { rail.style.transition = 'opacity .45s ease, transform .45s ' + EASE; rail.style.opacity = ''; rail.style.transform = ''; }, 120);
+    if (W !== $('wrap').clientWidth) layout();
+  }
+  try { if (localStorage.getItem('railSide') === 'left') $('game').classList.add('flip'); } catch (e) {}
+
   /* Hold an empty part of the board: a ring fills under your finger. When it closes, the words appear and sliding right
      turns the whole sky once around with your finger. Back where it started = turn ended (or game given up). */
   var hold = null, SLIDE_W = 190, HOLD = { s: 0.5 };
@@ -796,7 +851,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     (function st(now) { var u = Math.min(1, (now - t0) / 350); paintSky(skyA + off * (1 - ease(u))); if (u < 1) requestAnimationFrame(st); })(t0);
   }
   function holdTick(now) {
-    var ok = (G.turn === ME && G.phase === 'move' && !(remaining().length && anyMove(ME))) || G.phase === 'offered';
+    var ok = !BH && ((G.turn === ME && G.phase === 'move' && !(remaining().length && anyMove(ME))) || G.phase === 'offered');
     if (hold && !hold.slide && ok) {
       var u = Math.min(1, (now - hold.t0) / (HOLD.s * 1000));
       ctx.save(); ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.lineCap = 'round';
@@ -893,7 +948,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
       save({ phase: 'roll', turn: DUO.other }); return;
     }
     G.cube.v *= 2; G.cube.owner = ME; G.phase = 'ai'; spinSky(); cubeUI();
-    say('You took it. Playing for ' + G.cube.v + '. Luca is playing.');
+    say('You took it. Playing for ' + G.cube.v + '. ' + NAME.them + ' is playing.');
     setTimeout(function () { if (G.phase === 'ai') throwDice(TH, 2, null, function () { rolled(TH); }); }, 900);
   }
   $('aiDbl').addEventListener('click', function () { if (G) { G.forceAiDouble = true; $('aiDbl').textContent = 'Luca will double on his next turn'; } });
