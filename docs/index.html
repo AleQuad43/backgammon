@@ -63,6 +63,10 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
 .bhead b { font-size: 24px; font-weight: 700; letter-spacing: -0.01em; }
 .bhead span { font-size: 14px; color: var(--muted); }
 .field { top: 0; bottom: 0; touch-action: none; }
+/* a crowded field scrolls; checkers fade softly under the title and at the bottom edge when there's more that way */
+.field.up { -webkit-mask-image: linear-gradient(to bottom, transparent 70px, #000 135px); mask-image: linear-gradient(to bottom, transparent 70px, #000 135px); }
+.field.down { -webkit-mask-image: linear-gradient(to top, transparent 0, #000 70px); mask-image: linear-gradient(to top, transparent 0, #000 70px); }
+.field.up.down { -webkit-mask-image: linear-gradient(to bottom, transparent 70px, #000 135px, #000 calc(100% - 70px), transparent); mask-image: linear-gradient(to bottom, transparent 70px, #000 135px, #000 calc(100% - 70px), transparent); }
 .axis { position: absolute; left: 10px; top: 0; bottom: 0; width: 40px; pointer-events: none; }
 .axis span { position: absolute; left: 0; font-size: 11px; font-weight: 600; color: var(--muted); opacity: .7; font-variant-numeric: tabular-nums; }
 .axis span::after { content: ""; position: absolute; left: 34px; top: 8px; width: 480px; border-top: 1px dashed var(--line); }
@@ -905,13 +909,13 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       var f = field.getBoundingClientRect();
       el.setPointerCapture(e.pointerId);
       e.stopPropagation(); PV = 0;
-      s.drag = { ox: e.clientX - f.left + PAN - s.x, oy: e.clientY - f.top - s.y, px: e.clientX - f.left + PAN, py: e.clientY - f.top, sx: e.clientX, sy: e.clientY, t: performance.now(), moved: false };
+      s.drag = { ox: e.clientX - f.left - s.x, oy: e.clientY - f.top + PAN - s.y, px: e.clientX - f.left, py: e.clientY - f.top + PAN, sx: e.clientX, sy: e.clientY, t: performance.now(), moved: false };
       el.classList.add('held');
     });
     el.addEventListener('pointermove', function (e) {
       if (!s.drag) return;
       var f = field.getBoundingClientRect();
-      s.drag.px = e.clientX - f.left + PAN; s.drag.py = e.clientY - f.top;
+      s.drag.px = e.clientX - f.left; s.drag.py = e.clientY - f.top + PAN;
       if (Math.hypot(e.clientX - s.drag.sx, e.clientY - s.drag.sy) > 7) s.drag.moved = true;
     });
     function release() {
@@ -932,7 +936,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       if (FH) s.hy = yOf(p.elo, FH); return true;
     });
     P.forEach(function (p) { if (!stars.some(function (s) { return s.p.id === p.id; })) addStar(p); });
-    if (VW) layoutB(); else restX();
+    if (VH) layoutB(); else restX();
     markOrbs(); updateTitle();
   }
   function markOrbs() {
@@ -946,28 +950,45 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     });
   }
   markOrbs();
-  var LO = 1350, HI = 1625, FW = 0, FH = 0, REST_X = 0, VW = 0, PAN = 0, PV = 0, PANNING = null;
-  function yOf(elo, H) { var top = 170, bot = H - 120; return bot - (elo - LO) / (HI - LO) * (bot - top); }
+  var LO = 1350, HI = 1625, FW = 0, FH = 0, REST_X = 0, VH = 0, PAN = 0, PV = 0, PANNING = null;
+  /* Height = Elo, always in order. With a few friends the scale is linear; once it gets crowded, the scale bends so that
+     busy Elo ranges get more room (a blend of the linear scale and each friend's rank). */
+  var RANKS = [[1350, 0], [1625, 1]], ALPHA = 1;
+  function eloFrac(elo) {
+    var lin = (elo - LO) / (HI - LO); if (ALPHA >= 1) return lin;
+    var r = RANKS, rk = r[r.length - 1][1];
+    for (var i = 1; i < r.length; i++) if (elo <= r[i][0]) { var a = r[i - 1], b = r[i]; rk = a[1] + (b[1] - a[1]) * (elo - a[0]) / Math.max(1e-6, b[0] - a[0]); break; }
+    return ALPHA * lin + (1 - ALPHA) * rk;
+  }
+  function yOf(elo, H) { var top = 170, bot = H - 120; return bot - eloFrac(elo) * (bot - top); }
+  function buildRanks() {
+    var e = P.map(function (p) { return p.elo; }).sort(function (a, b) { return a - b; }), n = e.length, pts = [[LO, 0]];
+    for (var i = 0; i < n;) { var j = i; while (j < n && e[j] === e[i]) j++; pts.push([e[i], ((i + j) / 2) / n]); i = j; }
+    pts.push([HI, 1]); RANKS = pts;
+  }
   /* The Elo range follows the friends, never narrower than 1400–1600. */
   function eloRange() {
     var lo = 1400, hi = 1600; P.forEach(function (p) { lo = Math.min(lo, p.elo - 40); hi = Math.max(hi, p.elo + 25); });
     LO = lo; HI = hi;
   }
-  /* Width of the world the checkers live in: the screen, or wider once they'd crowd (about 78 px each). */
-  function worldW() { return Math.max(VW, Math.round(P.length * 78 + 90)); }
-  function clampPan(p) { return Math.max(0, Math.min(FW - VW, p)); }
+  /* Height of the world the checkers live in: the screen, or taller once they'd crowd. About 4 checkers share a row
+     across a phone, each row needs ~100 px, and the Elo scale stretches to give them that room. */
+  function worldH() {
+    var per = Math.max(3, Math.floor((FW - 100) / 78)), rows = Math.ceil(P.length / per);
+    ALPHA = Math.min(1, 2 / Math.max(1, rows)); buildRanks();
+    return Math.max(VH, Math.round(rows * 125 + 290));
+  }
+  function clampPan(p) { return Math.max(0, Math.min(FH - VH, p)); }
   function layoutB() {
     eloRange();
-    var oldW = FW;
-    VW = field.clientWidth; FH = field.clientHeight; FW = worldW();
-    if (oldW && oldW !== FW) stars.forEach(function (s) { s.x *= FW / oldW; });
+    FW = field.clientWidth; VH = field.clientHeight; FH = worldH();
     PAN = clampPan(PAN);
-    var ticks = []; for (var v = Math.ceil(LO / 100) * 100; v <= HI; v += 100) ticks.push(v);
+    var ticks = [], stepE = FH > VH * 1.2 ? 50 : 100; for (var v = Math.ceil(LO / stepE) * stepE; v <= HI; v += stepE) ticks.push(v);
     $('axis').innerHTML = ticks.map(function (v) { return '<span style="top:' + (yOf(v, FH) - 8).toFixed(0) + 'px">' + v + '</span>'; }).join('');
     $('axis').innerHTML = [1400, 1500, 1600].map(function (v) { return '<span style="top:' + (yOf(v, FH) - 8).toFixed(0) + 'px">' + v + '</span>'; }).join('');
     stars.forEach(function (s) { s.hy = yOf(s.p.elo, FH); if (!s.placed) { s.x = xOf(s.p) * FW; s.y = s.hy; s.placed = true; } });
     restX();
-    if (!layoutB.done && ME && FW > VW) { layoutB.done = true; var me = stars.filter(function (s) { return s.p === ME; })[0]; if (me) PAN = clampPan(me.x - VW / 2); }
+    if (!layoutB.done && ME && FH > VH) { layoutB.done = true; var me = stars.filter(function (s) { return s.p === ME; })[0]; if (me) PAN = clampPan(me.hy - VH / 2); }
   }
   function restX() { var sx = 0; P.forEach(function (p) { sx += xOf(p); }); REST_X = (P.length ? sx / P.length : 0.5) * FW; }
   /* ---------- your move: the checker flips over like a real disc. A tiny 3D renderer: the carved face is mapped onto the
@@ -1080,10 +1101,10 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     if (!GEO.p1) GEO.p1 = [mx, my];
     var f = 1 - Math.exp(-dt / 1.2);
     GEO.p1[0] += (mx - GEO.p1[0]) * f; GEO.p1[1] += (my - GEO.p1[1]) * f;
-    var sh = Math.max(-1, Math.min(1, (GEO.p1[0] - REST_X) / (VW * 0.25)));
-    var D = Math.hypot(field.offsetLeft * 2 + VW, FH), d = TUNE.wind * 2 * Math.PI * sh;
+    var sh = Math.max(-1, Math.min(1, (GEO.p1[0] - REST_X) / (FW * 0.25)));
+    var D = Math.hypot(field.offsetLeft * 2 + FW, VH), d = TUNE.wind * 2 * Math.PI * sh;
     var th = THETA0 + d + 2 * Math.PI * t / (TUNE.drift * 60), cc = Math.min(0.8 * D, 0.24 * D * (1 + Math.abs(d) / (2 * Math.PI)));
-    var ox = field.offsetLeft - PAN, c = [GEO.p1[0] + ox, GEO.p1[1]];
+    var ox = field.offsetLeft, c = [GEO.p1[0] + ox, GEO.p1[1] - PAN];
     var Pt = [c, [c[0] + cc * Math.cos(th + GOLDEN_ANGLE), c[1] + cc * Math.sin(th + GOLDEN_ANGLE)], [c[0] + Math.min(0.8 * D, cc * Math.SQRT2) * Math.cos(th + 2 * GOLDEN_ANGLE), c[1] + Math.min(0.8 * D, cc * Math.SQRT2) * Math.sin(th + 2 * GOLDEN_ANGLE)]];
     var ST = [4, 2, 1], V = ['--p1', '--p2', '--p3'];
     $('sky').style.background = [2, 1, 0].map(function (i) {
@@ -1127,32 +1148,33 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       if (rv < 0) { var e = 0.85 * smoothstep(TUNE.bounce * 0.6, TUNE.bounce * 1.6, -rv), J = -(1 + e) * rv / w; a.vx -= J * nx * ia; a.vy -= J * ny * ia; b.vx += J * nx * ib; b.vy += J * ny * ib; }
     }
   }
-  /* Panning a crowded field: drag the empty sky sideways (or scroll a trackpad); it glides and eases to a stop,
+  /* Scrolling a crowded field: drag the empty sky up or down (or use a trackpad); it glides and eases to a stop,
      with a soft rubber edge. Nothing moves when everyone fits. */
   function panStep(dt) {
-    if (PANNING || FW <= VW) { if (FW <= VW) PAN = 0; return; }
-    var lo = 0, hi = FW - VW;
+    if (FH <= VH) { PAN = 0; return; }
+    if (PANNING) return;
+    var lo = 0, hi = FH - VH;
     if (PAN < lo || PAN > hi) { var tgt = PAN < lo ? lo : hi; PV = 0; PAN += (tgt - PAN) * (1 - Math.exp(-dt * 14)); if (Math.abs(tgt - PAN) < 0.3) PAN = tgt; return; }
     if (Math.abs(PV) > 4) { PAN += PV * dt; PV *= Math.exp(-dt * 3.2); } else PV = 0;
   }
-  function rubber(p) { var hi = FW - VW; return p < 0 ? -Math.pow(-p, 0.72) : p > hi ? hi + Math.pow(p - hi, 0.72) : p; }
+  function rubber(p) { var hi = FH - VH; return p < 0 ? -Math.pow(-p, 0.72) : p > hi ? hi + Math.pow(p - hi, 0.72) : p; }
   field.addEventListener('pointerdown', function (e) {
-    if (FW <= VW || e.target.closest('.star')) return;
+    if (FH <= VH || e.target.closest('.star')) return;
     field.setPointerCapture(e.pointerId);
-    PANNING = { x: e.clientX, raw: PAN, t: performance.now(), lx: e.clientX, lt: performance.now() }; PV = 0;
+    PANNING = { y: e.clientY, raw: PAN, ly: e.clientY, lt: performance.now() }; PV = 0;
   });
   field.addEventListener('pointermove', function (e) {
     if (!PANNING) return;
-    var now = performance.now(), raw = PANNING.raw - (e.clientX - PANNING.x);
-    PAN = rubber(raw);
-    var dtm = Math.max(1, now - PANNING.lt); PV = 0.8 * (-(e.clientX - PANNING.lx) / dtm * 1000) + 0.2 * PV;
-    PANNING.lx = e.clientX; PANNING.lt = now;
+    var now = performance.now();
+    PAN = rubber(PANNING.raw - (e.clientY - PANNING.y));
+    var dtm = Math.max(1, now - PANNING.lt); PV = 0.8 * (-(e.clientY - PANNING.ly) / dtm * 1000) + 0.2 * PV;
+    PANNING.ly = e.clientY; PANNING.lt = now;
   });
   function endPan() { if (!PANNING) return; if (performance.now() - PANNING.lt > 80) PV = 0; PANNING = null; }
   field.addEventListener('pointerup', endPan); field.addEventListener('pointercancel', endPan);
   field.addEventListener('wheel', function (e) {
-    if (FW <= VW) return; e.preventDefault();
-    PAN = clampPan(PAN + (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY)); PV = 0;
+    if (FH <= VH) return; e.preventDefault();
+    PAN = clampPan(PAN + e.deltaY); PV = 0;
   }, { passive: false });
   var lastT = performance.now(), reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   function loopB(now) {
@@ -1161,8 +1183,8 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       var dt = Math.min(1 / 30, (now - lastT) / 1000), t = now / 1000, fl = TUNE.float;
       if (reduce) TUNE.float = 0;
       step(dt / 2, t); step(dt / 2, t); TUNE.float = fl;
-      panStep(dt);
-      stars.forEach(function (s) { s.el.style.transform = 'translate(' + (s.x - PAN - OX).toFixed(1) + 'px,' + (s.y - OY).toFixed(1) + 'px)'; });
+      panStep(dt); field.classList.toggle('up', PAN > 4); field.classList.toggle('down', PAN < FH - VH - 4); $('axis').style.transform = 'translateY(' + (-PAN).toFixed(1) + 'px)';
+      stars.forEach(function (s) { s.el.style.transform = 'translate(' + (s.x - OX).toFixed(1) + 'px,' + (s.y - PAN - OY).toFixed(1) + 'px)'; });
       skyB(dt, t); flipStep(now);
     }
     lastT = now;
