@@ -63,7 +63,8 @@ api = r"""
   /* ---------- App hooks: the home screen opens and closes the board ---------- */
   var OPP = { name: 'Nolf', ini: 'NO' }, CUR = null, PENDING = null, NODB = false;
   function storedSeat() { var m = location.search.match(/[?&]seat=([AB])/); if (m) return m[1]; try { return localStorage.getItem('duoSeat'); } catch (e) { return null; } }
-  function showBoard() { $('gv').hidden = false; layout(); paintSky(skyA); }
+  /* The board is a step in the phone's history, so the back gesture takes you to your friends. */
+  function showBoard() { $('gv').hidden = false; layout(); paintSky(skyA); if (!(history.state && history.state.bg)) try { history.pushState({ bg: 1 }, ''); } catch (e) {} }
   window.BG = {
     open: function (o) {
       showBoard();
@@ -85,14 +86,14 @@ api = r"""
       var fresh = CUR !== o.id || !G; CUR = o.id; OPP = o; setNames();
       if (fresh) { CASE.fresh = true; G = null; if (o.to) { MATCH = o.to; $('scTo').textContent = 'to ' + MATCH; } start(); }
     },
-    close: function () { $('gv').hidden = true; $('over').hidden = true; },
+    close: function () { $('gv').hidden = true; $('over').hidden = true; if (history.state && history.state.bg) try { history.back(); } catch (e) {} },
     seat: function () { CUR = 'duo'; showBoard(); if (DB) pickSeat(); else say('The shared game needs the published page.'); },
     bearOff: function () { tryBearOff(); },
     restart: function () { if (DUO) newGame(true); else { G = null; start(); } },
     current: function () { return DUO && !DUO.gid ? 'no' : CUR; },
     ready: function () { return !!G && $('over').hidden && !$('gv').hidden && (CUR !== 'duo' || !!(DUO && DUO.lastDoc)); }
   };
-  $('homeBtn').addEventListener('click', function () { window.BG.close(); if (window.onBoardClosed) window.onBoardClosed(); });
+  window.addEventListener('popstate', function () { if (!$('gv').hidden) { window.BG.close(); if (window.onBoardClosed) window.onBoardClosed(); } });
 """
 sub("\n  /* ---------- start ---------- */", api + "\n  /* ---------- start ---------- */")
 
