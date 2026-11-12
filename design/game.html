@@ -1371,7 +1371,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   }
   /* A new match at 0–0, to however many points you pick. */
   function newMatch(n) {
-    MATCH = n; $('scTo').textContent = 'to ' + MATCH;
+    MATCH = n; $('scTo').textContent = 'match to ' + MATCH;
     if (DUO) { DUO.recorded = false; newGame(true); } else { G.score = { me: 0, them: 0 }; start(); }
   }
   function startBoard() {
@@ -1439,7 +1439,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     DUO.lastDoc = d;
     G.score = { me: (d.score && d.score[DUO.seat]) || 0, them: (d.score && d.score[DUO.other]) || 0 };
     $('scMe').textContent = G.score.me; $('scThem').textContent = G.score.them;
-    if (d.to) MATCH = d.to; $('scTo').textContent = 'to ' + MATCH;
+    if (d.to) MATCH = d.to; $('scTo').textContent = 'match to ' + MATCH;
     G.cube = { v: d.cube.v, owner: d.cube.owner ? sideOf(d.cube.owner) : null };
     applyBoard(d.board);
     var prev = G.phase;
@@ -1598,7 +1598,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   /* ---------- start ---------- */
   function start() {
     $('over').hidden = true;
-    var keep = G ? G.score : { me: 3, them: 2 }; $('scTo').textContent = 'to ' + MATCH;
+    var keep = G ? G.score : { me: 3, them: 2 }; $('scTo').textContent = 'match to ' + MATCH;
     G = { turn: ME, phase: 'opening', hist: [], cube: { v: 1, owner: null }, score: keep, rolling: false };
     $('scMe').textContent = keep.me; $('scThem').textContent = keep.them;
     setup(); D = []; pips(); setTurn(ME);

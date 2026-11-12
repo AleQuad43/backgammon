@@ -49,7 +49,7 @@ sub("var keep = G ? G.score : { me: 3, them: 2 };", "var keep = G ? G.score : (O
 # The two real players for the first test.
 sub("var SEATS = { A: { name: 'Alessandro', ini: 'AL' }, B: { name: 'Luca', ini: 'LU' } };", "var SEATS = { A: { name: 'Quad', ini: 'QU' }, B: { name: 'Nolf', ini: 'NO' } };")
 sub("'<button data-s=\"A\">Me (Alessandro)</button><button data-s=\"B\">Luca</button>", "'<button data-s=\"A\">Quad</button><button data-s=\"B\">Nolf</button>")
-sub("me = DUO ? SEATS[DUO.seat] : { ini: 'AL' }", "me = DUO ? SEATS[DUO.seat] : { ini: 'QU' }")
+sub("me = DUO ? SEATS[DUO.seat] : { ini: 'AL' }", "me = DUO ? SEATS[DUO.seat] : { ini: window.MYID || 'qu' }")
 # Seat choice: joining happens when you open the game with Luca, not on load.
 resub(r"var m = q\.match\(/\[\?&\]seat=\(\[AB\]\)/\), s = m \? m\[1\] : null;\n\s*if \(!s\) try \{ s = localStorage\.getItem\('duoSeat'\); \} catch \(e\) \{\}\n\s*if \(s === 'A' \|\| s === 'B'\) joinDuo\(s\); else if \(s !== 'ai'\) pickSeat\(\);",
       "if (PENDING) { var f = PENDING; PENDING = null; f(); }")
@@ -84,7 +84,7 @@ api = r"""
       }
       if (DUO) { if (DUO.unsub) DUO.unsub(); DUO = null; }
       var fresh = CUR !== o.id || !G; CUR = o.id; OPP = o; setNames();
-      if (fresh) { CASE.fresh = true; G = null; if (o.to) { MATCH = o.to; $('scTo').textContent = 'to ' + MATCH; } start(); }
+      if (fresh) { CASE.fresh = true; G = null; if (o.to) { MATCH = o.to; $('scTo').textContent = 'match to ' + MATCH; } start(); }
     },
     close: function () { if (DAYF) { DAYF = 0; if (window.skyShift) window.skyShift(0, 600); } $('gv').hidden = true; $('over').hidden = true; if (history.state && history.state.bg) try { history.back(); } catch (e) {} },
     seat: function () { CUR = 'duo'; showBoard(); if (DB) pickSeat(); else say('The shared game needs the published page.'); },

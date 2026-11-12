@@ -179,10 +179,15 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   #gv .turnMsg { display: flex; position: absolute; inset: 0; z-index: 60; align-items: center; justify-content: center; flex-direction: column; gap: 14px; padding: 32px; text-align: center; font-size: 17px; font-weight: 600; background: var(--sky); }
 }
 /*BOARD_CSS*/
-/* The rail: opponent at the top, you at the bottom, score and cube in the middle. */
-#gv .rail { flex: 0 0 136px; justify-content: space-between; gap: 6px; padding: 0; }
-#gv .railTop { display: flex; align-items: flex-start; gap: 2px; min-width: 0; }
-#gv .railTop .who { flex: 1 1 auto; min-width: 0; }
+/* The rail: opponent at the top, you at the bottom, each with their score beside their checker; the match length,
+   the messages and the cube in between. */
+#gv .rail { flex: 0 0 150px; justify-content: space-between; gap: 6px; padding: 0; }
+#gv .who { display: flex; align-items: center; gap: 8px; }
+#gv .who .nm { flex: 1 1 auto; min-width: 0; }
+#gv .who .pts { flex: 0 0 auto; font-size: 30px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; min-width: 22px; text-align: right; }
+#gv .railMid { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+#gv .railMid .to { font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: .04em; }
+#gv .railMid .status { min-height: 48px; max-width: 140px; font-size: 12.5px; line-height: 1.3; display: flex; align-items: center; justify-content: center; }
 #gv .who { min-width: 0; padding: 5px 8px 5px 5px; background: none !important; }
 /* players: just the checker, lifted off the screen by a soft shadow; whoever's turn it is sits a little higher */
 #gv .who .av { box-shadow: none !important; }
@@ -229,15 +234,13 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     <div class="game" id="game">
       <div class="boardWrap" id="wrap"><canvas id="board" aria-label="Backgammon board"></canvas><div class="slide" id="slide" hidden>Slide to end your turn →</div><div class="over" id="over" hidden></div></div>
       <aside class="rail" id="rail">
-        <div class="railTop">
-          <div class="who" id="whoThem"><div class="av them" id="avThem">NO</div><div><b id="nmThem">Nolf</b><small id="pipThem"></small></div></div>
-        </div>
+        <div class="who" id="whoThem"><div class="av them" id="avThem">NO</div><div class="nm"><b id="nmThem">Nolf</b><small id="pipThem"></small></div><b class="pts" id="scThem">0</b></div>
         <div class="railMid">
-          <div class="score"><b id="scMe">0</b><span>–</span><b id="scThem">0</b><small id="scTo">to 5</small></div>
+          <small class="to" id="scTo">to 5</small>
           <div class="status" id="status" role="status"></div>
           <button class="cube" id="cube"><span class="face" id="cubeFace">×2</span><span class="cl" id="cubeLabel">Double</span></button>
         </div>
-        <div class="who" id="whoMe"><div class="av me" id="avMe">QU</div><div><b>You</b><small id="pipMe"></small></div></div>
+        <div class="who" id="whoMe"><div class="av me" id="avMe">QU</div><div class="nm"><b>You</b><small id="pipMe"></small></div><b class="pts" id="scMe">0</b></div>
       </aside>
     </div>
     <div class="turnMsg"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M20 14a8 8 0 0 1-6 7.5M18.5 19.5l-4.5 2 1.8-4.4"/></svg>Turn your phone sideways to play.</div>
@@ -930,7 +933,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       FS.doc('meta/admin').get().then(function (d) { ADMIN = d.exists && d.data().uid === UID; }).catch(function () {});
       unsubP = FS.collection('players').onSnapshot(function (qs) {
         P = qs.docs.map(function (d) { var v = d.data(); return { id: d.id, n: v.name || 'Player', i: d.id, elo: v.elo || 1500, d: 0, ck: v.ck || window.Checker.random() }; });
-        P.push(BOT); reindex(); ME = byId[UID] || null;
+        P.push(BOT); reindex(); ME = byId[UID] || null; window.MYID = UID;
         if (!ME) {
           if ($('edit').hidden) {
             FS.doc('emails/' + UID).get().then(function (d) {
