@@ -124,6 +124,7 @@ out = shell.replace('/*BOARD_SCRIPT*/', js).replace('/*BOARD_CSS*/', css).replac
 print('app.html', len(out))
 (HERE / 'preview.html').write_text('<!doctype html>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n' + out)
 (HERE / 'double-demo.html').write_text('<!doctype html>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<title>Double demo</title>\n<script>window.DEMO = "double";</script>\n' + out)
+(HERE / 'over-demo.html').write_text('<!doctype html>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<title>End of game</title>\n<script>window.DEMO = "over";</script>\n' + out)
 
 # The deployed version (GitHub Pages, ../docs): same page, installable, with Firebase as the shared store.
 WEB_HEAD = """<!doctype html>

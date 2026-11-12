@@ -1,7 +1,7 @@
 <title>Backgammon</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Marcellus&display=swap">
 <style>
 /* The app: friends float at their Elo on a sky that follows the time of day; tapping a game opens the board on the same sky.
    Colours below are the daytime set; the clock code swaps them for the night set after dusk. */
@@ -183,7 +183,12 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
 #gv .rail { flex: 0 0 136px; justify-content: space-between; gap: 6px; padding: 0; }
 #gv .railTop { display: flex; align-items: flex-start; gap: 2px; min-width: 0; }
 #gv .railTop .who { flex: 1 1 auto; min-width: 0; }
-#gv .who { min-width: 0; padding: 5px 8px 5px 5px; }
+#gv .who { min-width: 0; padding: 5px 8px 5px 5px; background: none !important; }
+/* players: just the checker, lifted off the screen by a soft shadow; whoever's turn it is sits a little higher */
+#gv .who .av { box-shadow: none !important; }
+#gv .who .av::after { display: none !important; }
+#gv .who .av img { filter: drop-shadow(0 3px 4px rgba(25,12,4,0.28)); transition: scale .6s ease, translate .6s ease, filter .6s ease; }
+#gv .who.turn .av img { scale: 1.07; translate: 0 -2px; filter: drop-shadow(0 6px 7px rgba(25,12,4,0.32)); }
 #gv .who > div:last-child { min-width: 0; }
 #gv .who b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #gv .homeBtn { flex: 0 0 30px; width: 30px; height: 30px; margin-top: 7px; padding: 0; border: none; border-radius: 50%; background: var(--glass); display: flex; align-items: center; justify-content: center; color: var(--muted); }
@@ -243,6 +248,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
 (function () {
   var $ = function (id) { return document.getElementById(id); };
   var Q = location.search;
+  window.OVER2 = !(window.firebase && window.FB_CONFIG);   /* proposal: the new end-of-game card, preview only for now */
 
   /* ---------- Sky by the clock (moods from the Bubble app). ?hour=21 pins an hour, ?fastday runs 24 h in a minute. ---------- */
   var MOODS = [[0, .24, .055, [285, 310, 255]], [5, .36, .06, [300, 330, 255]], [6.5, .80, .065, [345, 60, 290]], [8, .92, .075, [350, 95, 200]],
@@ -318,7 +324,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   function av(p, cls) { return '<div class="av ck ' + (cls || '') + '"><img alt="" src="' + ckSrc(p.ck) + '"></div>'; }
   window.ckAv = function (el, ini) {
     var p = P.filter(function (x) { return x.id === ini || x.i === ini; })[0]; if (!p) { el.textContent = ini; el.classList.remove('ck'); return; }
-    el.classList.add('ck'); el.innerHTML = '<img alt="" src="' + ckSrc(p.ck) + '">';
+    el.classList.add('ck'); el.innerHTML = '<img alt="" src="' + ckSrc(p.ck, true) + '">';
   };
   var byId = {}; function reindex() { byId = {}; P.forEach(function (p) { byId[p.id] = p; }); } reindex();
   var GAMES = CLOUD ? [] : [{ p: 'no', s: 'yours', sc: [0, 0], to: 5, when: 'now', duo: true }, { p: 'ra', s: 'them', sc: [1, 2], to: 5, when: '' }];
@@ -805,6 +811,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     requestAnimationFrame(loopB);
   }
   window.addEventListener('resize', layoutB);
+  if ((/[?&]demo=over/.test(Q) || window.DEMO === 'over') && !CLOUD) setTimeout(function () { window.BG.open({ id: 'bot', name: 'Computer', ini: 'bot', to: 5 }); setTimeout(function () { window.__demoOver(); }, 1500); }, 600);
   if ((/[?&]demo=double/.test(Q) || window.DEMO === 'double') && !CLOUD) setTimeout(function () { window.BG.open({ id: 'bot', name: 'Computer', ini: 'bot', to: 5 }); setTimeout(function () { window.__demoDouble(); }, 2600); }, 600);
   layoutB(); requestAnimationFrame(loopB);
 
