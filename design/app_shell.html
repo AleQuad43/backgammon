@@ -273,6 +273,8 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   /* A computer opponent for trying the app alone: it plays on this device, nothing is saved. */
   var BOT = { id: 'bot', n: 'Computer', i: 'bot', elo: 1500, d: 0, bot: true, ck: { m: 'bakelite', t: 0, f: 'flat', i: 'none', a: 0, s: 1 } };
   if (CLOUD) { ME = null; P = []; }
+  else P.push(BOT);
+  if (CLOUD) {}
   else if (/[?&]many=(\d+)/.test(location.search)) {   /* testing a crowded home: ?many=20 */
     var NAMES = 'Avi Bea Cyd Dov Eli Fay Gil Hen Ida Jon Kai Lea Mor Nir Oz Pia Ron Sol Tal Uri Vic Yael Zoe Amit Ben Coby Dana Eden Gal Hila'.split(' ');
     for (var k = 0; k < +RegExp.$1 && k < NAMES.length; k++) P.push({ id: 'x' + k, n: NAMES[k], i: 'x' + k, elo: Math.round(1500 + (Math.random() - 0.5) * (k % 3 ? 90 : 260)), d: 0, ck: window.Checker.random() });
