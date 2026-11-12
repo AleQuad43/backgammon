@@ -117,7 +117,7 @@ ck = work[work.index('  /* ---------- materials'):work.index('  /* ---------- ca
 ages = re.search(r"  var AGES = .*?\n  function ageName.*?\n", work).group(0)
 rnd = re.search(r"  function randomChecker\(\) .*?\n", work).group(0)
 checker = ("(function () {\n" + ck + ages + rnd +
-           "  window.Checker = { MAT: MAT, FACES: FACES, INLAYS: INLAYS, AGES: AGES, ageName: ageName, random: randomChecker, top: drawTop, tilt: drawTilt };\n})();")
+           "  window.Checker = { MAT: MAT, FACES: FACES, INLAYS: INLAYS, AGES: AGES, ageName: ageName, random: randomChecker, top: drawTop, tilt: drawTilt, texture: texture, chips: chipsFor, frac: fracColour, THICK: THICK };\n})();")
 
 out = shell.replace('/*BOARD_SCRIPT*/', js).replace('/*BOARD_CSS*/', css).replace('/*CHECKER*/', checker)
 (HERE / 'app.html').write_text(out)

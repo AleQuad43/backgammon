@@ -84,6 +84,9 @@ h2 { font-size: 18px; margin: 30px 0 4px; }
       ['Butterscotch', '#D8922E', '#F2C46A'], ['Cherry', '#8E1E1E', '#C2503F'], ['Racing green', '#1F4A35', '#4F8A64'],
       ['Navy', '#1E2C48', '#4A6490'], ['Jet', '#18181A', '#45454A'] ] }
   };
+  /* thickness ÷ diameter, from real sets: tournament acrylic 12 / 44 mm, vintage bakelite 9.7 / 49 mm,
+     extra-thick wood 10 mm; marble and bone kept a touch slimmer */
+  var THICK = { wood: 0.27, marble: 0.22, bone: 0.2, bakelite: 0.22 };
   var FACES = [['flat', 'Flat'], ['dish', 'Dished'], ['rings', 'Turned rings'], ['star', 'Eight-point star'], ['rosette', 'Rosette']];
   var INLAYS = [['none', 'None'], ['pearl', 'Mother-of-pearl'], ['brass', 'Brass']];
   var S = { m: 'wood', t: 3, f: 'rings', i: 'none', a: 0, s: 1 + (Math.random() * 99999 | 0) };
@@ -341,7 +344,7 @@ h2 { font-size: 18px; margin: 30px 0 4px; }
 
   /* ---------- the same checker tilted, so you see its thickness ---------- */
   function drawTilt(g, o, R) {
-    var k = 0.52, T = R * 0.34, tn = MAT[o.m].tones[o.t], a = o.a || 0, A = AGE[o.m];
+    var k = 0.52, T = 2 * R * THICK[o.m] * 0.75, tn = MAT[o.m].tones[o.t], a = o.a || 0, A = AGE[o.m];
     g.save(); g.filter = 'blur(' + (R * 0.1) + 'px)'; g.fillStyle = 'rgba(20,10,4,0.5)';
     g.beginPath(); g.ellipse(R * 0.12, T + R * 0.1, R * 1.02, R * k * 1.02, 0, 0, Math.PI * 2); g.fill(); g.restore();
     var outer = g, Ly = layer(R * 1.2); g = Ly.g;

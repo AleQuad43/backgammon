@@ -49,12 +49,15 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
 /* the shadow stays still on the sky while the checker itself turns */
 .orb.ck .shd { position: absolute; left: 50%; top: 50%; width: 60px; height: 60px; border-radius: 50%; transform: translate(-46%, -42%); background: rgba(30,18,10,.34); filter: blur(5px); pointer-events: none; }
 .orb.ck.them::after { content: ""; position: absolute; inset: -7px; border-radius: 50%; border: 2px solid var(--accent); opacity: .8; }
-/* your turn: the opponent's checker slowly turns, and only its very edge lights up */
-.orb.ck.yours::before { content: ""; position: absolute; inset: 0; border-radius: 50%; background: none; opacity: 1; z-index: 1; pointer-events: none;
-  box-shadow: 0 0 0 1.5px color-mix(in oklab, var(--warm) 85%, white), 0 0 9px 1px color-mix(in oklab, var(--warm) 70%, transparent); animation: edge 3.6s ease-in-out infinite; transform: none; }
-.orb.ck.yours img { animation: ckspin 14s linear infinite; }
+/* your move: the checker flips over on its north–south axis every few seconds, its edge lit;
+   their move: it turns slowly flat on the sky; no game: it rests */
+.orb.ck { perspective: 340px; }
+.orb.ck canvas.fl { position: absolute; left: 50%; top: 50%; width: 92px; height: 92px; transform: translate(-50%, -50%); pointer-events: none; display: none; }
+.orb.ck.yours canvas.fl { display: block; }
+.orb.ck.yours img { display: none; }
+.orb.ck.them img { animation: ckspin 14s linear infinite; }
 @keyframes ckspin { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
-@keyframes edge { 50% { opacity: .45; } }
+.orb.ck.yours::before, .orb.ck.them::after { content: none; }
 .av.ck { background: none !important; border: none !important; box-shadow: none !important; position: relative; }
 .av.ck img { position: absolute; left: 50%; top: 50%; width: 148%; height: 148%; transform: translate(-50%, -50%); pointer-events: none; }
 .edit { position: absolute; inset: 0; z-index: 25; background: var(--sheet); display: flex; flex-direction: column; padding: calc(env(safe-area-inset-top, 0px) + 10px) 18px calc(env(safe-area-inset-bottom, 0px) + 14px); box-sizing: border-box; gap: 10px; opacity: 0; transform: translateY(24px); transition: opacity .3s ease, transform .38s cubic-bezier(.2,.8,.2,1); max-width: 560px; margin: 0 auto; }
@@ -78,7 +81,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
 /* sign in */
 .auth { position: absolute; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 24px 18px; box-sizing: border-box; }
 .auth[hidden] { display: none; }
-#home.out .bhead, #home.out .legend, #home.out .axis { visibility: hidden; }
+#home.out .bhead, #home.out .axis { visibility: hidden; }
 .auth .box { width: min(100%, 420px); background: var(--glass-strong); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); border-radius: 30px; padding: 26px 22px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 24px 60px rgba(8,12,22,.18); box-sizing: border-box; }
 .auth h1 { margin: 0; font-size: 30px; font-weight: 700; letter-spacing: -0.01em; }
 .auth p { margin: 0 0 4px; color: var(--muted); font-size: 15px; }
@@ -92,9 +95,14 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
 .emails { display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
 .emails div { display: flex; justify-content: space-between; gap: 10px; background: var(--page); border-radius: 12px; padding: 8px 12px; }
 .emails span { color: var(--muted); overflow-wrap: anywhere; text-align: right; -webkit-user-select: text; user-select: text; }
-.star small { font-size: 12px; font-weight: 600; line-height: 1.1; text-align: center; }
+.star small { font-size: 12px; font-weight: 600; line-height: 1.15; text-align: center; padding: 3px 8px 4px; border-radius: 11px; background: color-mix(in oklab, var(--glass) 70%, transparent); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.star .st { position: absolute; left: 50%; top: -21px; transform: translateX(-50%); white-space: nowrap; font-size: 11px; font-weight: 700; letter-spacing: .02em; line-height: 1; padding: 4px 9px; border-radius: 999px;
+  background: color-mix(in oklab, var(--glass-strong) 85%, transparent); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); opacity: 0; transition: opacity .4s ease; pointer-events: none; }
+.star .st.yours { opacity: 1; color: var(--warm-ink); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--warm) 55%, transparent); }
+.star .st.them { opacity: 1; color: var(--muted); }
+.star.held { z-index: 3; }
 .star small em { display: block; font-style: normal; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
-.legend { bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); z-index: 3; padding: 0 16px; box-sizing: border-box; }
+.legend { display: none; bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); z-index: 3; padding: 0 16px; box-sizing: border-box; }
 .legend div { display: flex; justify-content: space-between; gap: 6px; padding: 10px 14px; border-radius: 18px; background: var(--glass); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); font-size: 12px; color: var(--muted); }
 .legend span { display: flex; align-items: center; gap: 6px; }
 .legend i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
@@ -168,14 +176,13 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   #gv .turnMsg { display: flex; position: absolute; inset: 0; z-index: 60; align-items: center; justify-content: center; flex-direction: column; gap: 14px; padding: 32px; text-align: center; font-size: 17px; font-weight: 600; background: var(--sky); }
 }
 /*BOARD_CSS*/
-@media (prefers-reduced-motion: reduce) { .orb.ck.yours img, .orb.yours::before, .orb.req::after, .pip, #gv .who.turn .av::after, #gv .cube.armed .face { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .orb.ck.yours img, .orb.ck.them img, .orb.yours::before, .orb.req::after, .pip, #gv .who.turn .av::after, #gv .cube.armed .face { animation: none; } }
 </style>
 
 <div id="home">
   <div class="sky" id="sky"></div>
   <div class="col bhead"><b id="bTitle"></b><span>Higher up means higher Elo. Tap anyone, or pull them around.</span></div>
   <div class="col field" id="field"><div class="axis" id="axis"></div></div>
-  <div class="col legend"><div><span><i style="background:var(--warm)"></i>Your turn</span><span><i style="border:2px solid var(--accent)"></i>Their turn</span><span><i style="border:2px dashed var(--accent)"></i>Challenge</span></div></div>
   <button class="scrim" id="scrim" aria-label="Close"></button>
   <div class="col card" id="card" role="dialog" aria-modal="true"><div id="cardIn"></div></div>
   <div class="col sheet" id="sheet" role="dialog" aria-modal="true"></div>
@@ -257,7 +264,8 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   var AUTH = null, FS = null, UID = null, ADMIN = false;
   if (CLOUD) { if (!firebase.apps.length) firebase.initializeApp(window.FB_CONFIG); AUTH = firebase.auth(); FS = firebase.firestore(); }
   var ME = { id: 'qu', n: 'Quad', i: 'QU', elo: 1500, d: 0, ck: { m: 'bone', t: 2, f: 'rosette', i: 'brass', a: 0.2, s: 4242 } };
-  var P = [ME, { id: 'no', n: 'Nolf', i: 'NO', elo: 1500, d: 0, ck: { m: 'marble', t: 2, f: 'star', i: 'pearl', a: 0.45, s: 7719 } }];
+  var P = [ME, { id: 'no', n: 'Nolf', i: 'NO', elo: 1500, d: 0, ck: { m: 'marble', t: 2, f: 'star', i: 'pearl', a: 0.45, s: 7719 } },
+    { id: 'ra', n: 'Rafi', i: 'RA', elo: 1545, d: 0, ck: { m: 'wood', t: 4, f: 'rings', i: 'none', a: 0.6, s: 3301 } }];
   if (CLOUD) { ME = null; P = []; }
   else try { var saved = JSON.parse(localStorage.getItem('myChecker')); if (saved && saved.m) ME.ck = saved; } catch (e) {}
   function esc(t) { return String(t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -278,7 +286,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     el.classList.add('ck'); el.innerHTML = '<img alt="" src="' + ckSrc(p.ck) + '">';
   };
   var byId = {}; function reindex() { byId = {}; P.forEach(function (p) { byId[p.id] = p; }); } reindex();
-  var GAMES = CLOUD ? [] : [{ p: 'no', s: 'yours', sc: [0, 0], to: 5, when: 'now', duo: true }];
+  var GAMES = CLOUD ? [] : [{ p: 'no', s: 'yours', sc: [0, 0], to: 5, when: 'now', duo: true }, { p: 'ra', s: 'them', sc: [1, 2], to: 5, when: '' }];
   var H2H = {}; function h2h(id) { return H2H[id] || { w: 0, l: 0, g: '0–0', last: '' }; }
   var HIST = [];
   var X = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
@@ -464,12 +472,12 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   var field = $('field'), stars = [];
   function xOf(p) { var L = P.slice().sort(function (a, b) { return a.n < b.n ? -1 : 1; }), i = L.indexOf(p); return (i + 1) / (L.length + 1); }
   var TUNE = { fall: 1100, thick: 8, buoy: 9, bounce: 230, float: 3, grip: 29, resist: 2.2, wind: 0.75, drift: 4 };
-  var R = 44, OX = 43, OY = 31;
+  var R = 31, OX = 43, OY = 31;
   function starLabel(p) { return esc(p.n) + '<em>' + p.elo.toLocaleString('en') + '</em>'; }
   function addStar(p) {
     var el = document.createElement('button');
     el.className = 'star'; el.setAttribute('aria-label', p.n + ', Elo ' + p.elo);
-    el.innerHTML = '<div class="orb ck"><i class="shd"></i><img alt="" src="' + ckSrc(p.ck, true) + '"></div><small>' + starLabel(p) + '</small>';
+    el.innerHTML = '<b class="st"></b><div class="orb ck"><i class="shd"></i><img alt="" src="' + ckSrc(p.ck, true) + '"></div><small>' + starLabel(p) + '</small>';
     field.appendChild(el);
     var s = { el: el, p: p, x: 0, y: 0, vx: 0, vy: 0, hy: 0, ph: Math.random() * 6.28, placed: false, drag: null, side: 0 };
     if (FW) { s.hy = yOf(p.elo, FH); s.x = xOf(p) * FW; s.y = s.hy; s.placed = true; }
@@ -510,7 +518,11 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   function markOrbs() {
     stars.forEach(function (s) {
       var g = GAMES.filter(function (x) { return x.p === s.p.id; })[0];
-      s.el.firstChild.className = 'orb ck ' + (s.p === ME ? 'me' : g ? (g.s === 'yours' ? 'yours' : g.s === 'req' ? 'req' : 'them') : '');
+      var st = s.p === ME || !g ? '' : g.s === 'yours' || g.s === 'req' ? 'yours' : 'them';
+      s.el.querySelector('.orb').className = 'orb ck ' + (s.p === ME ? 'me ' : '') + st;
+      if (st === 'yours' && !s.el.querySelector('canvas.fl')) { var fc = document.createElement('canvas'); fc.className = 'fl'; fc.width = fc.height = 184; s.el.querySelector('.orb').appendChild(fc); s.fi = -1; }
+      s.flip = st === 'yours';
+      var lab = s.el.querySelector('.st'); lab.className = 'st ' + st; lab.textContent = st === 'yours' ? 'your move' : st === 'them' ? 'their move' : '';
     });
   }
   markOrbs();
@@ -523,6 +535,61 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     restX();
   }
   function restX() { var sx = 0; P.forEach(function (p) { sx += xOf(p); }); REST_X = (P.length ? sx / P.length : 0.5) * FW; }
+  /* ---------- your move: the checker flips over like a coin, drawn in 3D (thickness, grain on the edge, chips) ---------- */
+  var FLIPS = {}, NF = 60;
+  function flipFrame(ck, i) {
+    var key = JSON.stringify(ck), set = FLIPS[key] || (FLIPS[key] = []);
+    if (set[i]) return set[i];
+    var C = window.Checker, n = 184, c = document.createElement('canvas'); c.width = c.height = n;
+    var g = c.getContext('2d'), R = n * 0.33, T = 2 * R * C.THICK[ck.m], th = i / NF * Math.PI * 2, cs = Math.cos(th), sn = Math.sin(th), dx = -T * sn, rx = Math.max(0.5, R * Math.abs(cs));
+    g.translate(n / 2, n / 2);
+    var face = document.createElement('canvas'); face.width = face.height = n;
+    var fg = face.getContext('2d'); fg.translate(n / 2, n / 2); C.top(fg, ck, R, { noShadow: true });
+    /* the edge: the band between the near face and the far one, with the material's own grain */
+    if (Math.abs(sn) > 0.01) {
+      var L = document.createElement('canvas'); L.width = L.height = n;
+      var lg = L.getContext('2d'); lg.translate(n / 2, n / 2);
+      lg.beginPath(); lg.ellipse(0, 0, rx, R, 0, 0, Math.PI * 2); lg.ellipse(dx, 0, rx, R, 0, 0, Math.PI * 2); lg.rect(Math.min(0, dx), -R, Math.abs(dx), 2 * R); lg.save(); lg.clip();
+      lg.save(); lg.rotate(Math.PI / 2); lg.drawImage(C.texture(ck.m, ck.t), -R, -R, 2 * R, 2 * R); lg.restore();
+      var a = ck.a || 0, A = { wood: '#7A4E24', marble: '#CDB98E', bone: '#B5832F', bakelite: '#B98422' }[ck.m];
+      if (a > 0.01) { lg.globalCompositeOperation = 'multiply'; lg.globalAlpha = a * 0.4; lg.fillStyle = A; lg.fillRect(-n, -n, 2 * n, 2 * n); lg.globalAlpha = 1; lg.globalCompositeOperation = 'source-over'; }
+      var vg = lg.createLinearGradient(0, -R, 0, R);
+      vg.addColorStop(0, 'rgba(0,0,0,0.4)'); vg.addColorStop(0.3, 'rgba(255,248,235,0.06)'); vg.addColorStop(0.5, 'rgba(255,248,235,0.14)'); vg.addColorStop(0.8, 'rgba(0,0,0,0.1)'); vg.addColorStop(1, 'rgba(0,0,0,0.45)');
+      lg.fillStyle = vg; lg.fillRect(-n, -n, 2 * n, 2 * n);
+      lg.fillStyle = dx < 0 ? 'rgba(255,250,240,0.14)' : 'rgba(0,0,0,0.14)'; lg.fillRect(-n, -n, 2 * n, 2 * n);
+      lg.restore();
+      /* chips bite into the edge too, going part of the way through the thickness */
+      C.chips(ck, R).forEach(function (ch) {
+        lg.save(); lg.globalCompositeOperation = 'destination-out';
+        for (var k = 0; k <= 8; k++) { var o = dx * 0.55 * k / 8; lg.beginPath(); ch.pts.forEach(function (q, j) { var x = q[0] * cs + o, y = q[1]; if (j) lg.lineTo(x, y); else lg.moveTo(x, y); }); lg.closePath(); lg.fill(); }
+        lg.restore();
+        lg.save(); lg.globalCompositeOperation = 'source-atop'; lg.globalAlpha = 0.8;
+        lg.beginPath(); ch.pts.forEach(function (q, j) { var x = q[0] * cs + dx * 0.3, y = q[1]; if (j) lg.lineTo(x, y); else lg.moveTo(x, y); }); lg.closePath();
+        lg.strokeStyle = C.frac(ck); lg.lineWidth = ch.s * 0.5; lg.lineJoin = 'round'; lg.stroke(); lg.restore();
+      });
+      g.drawImage(L, -n / 2, -n / 2);
+    }
+    /* the near face, foreshortened, darker as it turns away from the light */
+    g.save(); g.scale(cs, 1); g.drawImage(face, -n / 2, -n / 2); g.restore();
+    var dim = (1 - Math.abs(cs)) * 0.45 + (cs < 0 ? 0.04 : 0);
+    if (dim > 0.01) { g.save(); g.globalCompositeOperation = 'source-atop'; g.fillStyle = 'rgba(10,6,2,' + dim + ')'; g.beginPath(); g.ellipse(0, 0, rx + 1, R + 1, 0, 0, Math.PI * 2); g.fill(); g.restore(); }
+    return (set[i] = c);
+  }
+  function flipStep(now) {
+    var P2 = 4200, u = (now % P2) / P2, e = 0;
+    if (u > 0.52) { var v = (u - 0.52) / 0.48; e = v < 0.5 ? 4 * v * v * v : 1 - Math.pow(-2 * v + 2, 3) / 2; }
+    var pin = (Q.match(/[?&]flipat=([\d.]+)/) || [])[1]; if (pin != null) e = +pin;   /* ?flipat=0.2 freezes the flip, for design checks */
+    var i = Math.round(e * NF) % NF;
+    stars.forEach(function (s) {
+      if (!s.flip) return;
+      if (reduce) i = 0;
+      if (s.fi === i) return; s.fi = i;
+      var cv = s.el.querySelector('canvas.fl'); if (!cv) return;
+      var g = cv.getContext('2d'); g.clearRect(0, 0, cv.width, cv.height); g.drawImage(flipFrame(s.p.ck, i), 0, 0);
+      var sh = s.el.querySelector('.shd'); if (sh) sh.style.width = (60 * (0.35 + 0.65 * Math.abs(Math.cos(i / NF * Math.PI * 2))) + 10 * Math.abs(Math.sin(i / NF * Math.PI * 2))).toFixed(1) + 'px';
+    });
+  }
+
   /* Sky: pool 1 sits on the (smoothed) mean of the orbs; pools 2 and 3 are the first two seeds of a sunflower spiral around it,
      wound by how far the friends have been pushed sideways, with a very slow drift. */
   var GEO = { p1: null }, THETA0 = -Math.PI / 3, GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
@@ -587,7 +654,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       if (reduce) TUNE.float = 0;
       step(dt / 2, t); step(dt / 2, t); TUNE.float = fl;
       stars.forEach(function (s) { s.el.style.transform = 'translate(' + (s.x - OX).toFixed(1) + 'px,' + (s.y - OY).toFixed(1) + 'px)'; });
-      skyB(dt, t);
+      skyB(dt, t); flipStep(now);
     }
     lastT = now;
     requestAnimationFrame(loopB);
