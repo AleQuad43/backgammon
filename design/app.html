@@ -226,6 +226,25 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
 #gv .cf { position: absolute; inset: 0; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; backface-visibility: hidden; -webkit-backface-visibility: hidden; box-shadow: 0 10px 22px rgba(30,10,5,0.35); }
 #gv .cf.front { background: #B8352F; color: #FFFFFF; }
 #gv .cf.back { background: var(--g1); color: #3A1A10; transform: rotateY(180deg); box-shadow: 0 10px 22px rgba(30,10,5,0.35), inset 0 0 0 2px rgba(255,255,255,0.7); }
+/* The doubling cube is a real die: ivory, numbers cut into each face (2 4 8 16 32 64). */
+#gv .cube .face { width: 50px; height: 50px; background: none; box-shadow: none; perspective: 260px; border-radius: 0; }
+#gv .cube.live .face { background: none; box-shadow: none; }
+#gv .dz { --h: 19px; position: relative; width: 38px; height: 38px; transform-style: preserve-3d; transform: rotateX(-26deg) rotateY(32deg); }
+#gv .dc { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .7s cubic-bezier(.3,.7,.2,1); }
+#gv .cf-in .dc { --h: 22px; inset: 3px; transition: none; }
+#gv .fc { position: absolute; inset: 0; border-radius: 8px; display: flex; align-items: center; justify-content: center; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  background: radial-gradient(120% 120% at 30% 25%, #FBF5E8, #EADFC8 60%, #D9CBAE); color: #4A2C18; font-weight: 800; font-size: 17px; font-variant-numeric: tabular-nums; letter-spacing: -0.03em;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.75), 0 -1px 0 rgba(60,30,10,0.35); box-shadow: inset 0 0 0 1px rgba(90,60,30,0.22), inset 0 -5px 9px rgba(120,85,45,0.18), inset 0 4px 6px rgba(255,255,255,0.5); }
+#gv .cf-in .fc { font-size: 19px; }
+#gv .fc.n3 { font-size: 14px; } .cf-in .fc.n3 { font-size: 16px; }
+#gv .fc.f0 { transform: translateZ(var(--h)); }
+#gv .fc.f1 { transform: rotateX(90deg) translateZ(var(--h)); }
+#gv .fc.f2 { transform: rotateX(-90deg) translateZ(var(--h)); }
+#gv .fc.f3 { transform: rotateY(90deg) translateZ(var(--h)); }
+#gv .fc.f4 { transform: rotateY(-90deg) translateZ(var(--h)); }
+#gv .fc.f5 { transform: rotateY(180deg) translateZ(var(--h)); }
+#gv .dzs { position: absolute; left: 6px; right: 6px; bottom: -7px; height: 10px; border-radius: 50%; background: rgba(40,20,8,0.28); filter: blur(4px); }
+#gv .cfs { position: absolute; left: 4px; right: 4px; bottom: -4px; height: 12px; border-radius: 50%; background: rgba(40,20,8,0.35); filter: blur(5px); transform-origin: 50% 50%; }
 #gv .over { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
 #gv .over div { pointer-events: auto; background: var(--glass-strong); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); padding: 18px 24px; border-radius: 22px; text-align: center; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 16px 40px rgba(8,12,22,0.25); }
 #gv .over b { font-size: 22px; }
@@ -1895,7 +1914,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   function cubeUI() {
     var c = $('cube'), live = G.turn === ME && G.phase === 'roll' && G.cube.owner !== TH && canDouble();
     c.classList.toggle('live', live);
-    $('cubeFace').textContent = '×' + G.cube.v;
+    $('railDie').style.transform = oriStr(dori(G.cube.v));
     $('cubeLabel').textContent = live ? 'Drag to double' : !canDouble() && G.score && (G.score.me === MATCH - 1 || G.score.them === MATCH - 1) ? 'No doubling at match point' : G.cube.owner === TH ? NAME.them + ' holds it' : G.cube.owner === ME ? 'You hold it' : 'Stake';
     c.setAttribute('aria-label', live ? 'Drag onto the board to double to ' + G.cube.v * 2 : 'Stake ×' + G.cube.v);
   }
@@ -1986,6 +2005,17 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
      Yours: drag the red cube from the rail onto the board. It turns over in step with how much of it is inside the
      playing area (the light wood); fully inside it shows ×2, and letting go there offers the double.
      Luca's: the sky turns to your side and a big ×2 in your sky's main colour sits where your dice go. */
+  /* faces: f0 front, f1/f2 the two around X, f3/f4 the two around Y, f5 back. Which face shows which number,
+     and how the die turns to bring a face to the front. 1 (no double yet) shows 64, as on a real board. */
+  var DFACE = { 64: 0, 2: 1, 8: 2, 4: 3, 16: 4, 32: 5 }, DORI = [[0, 0], [-90, 0], [90, 0], [0, -90], [0, 90], [0, 180]];
+  function dshow(v) { return v === 1 || v > 64 ? 64 : v; }
+  function dori(v) { return DORI[DFACE[dshow(v)]]; }
+  function dieFaces() { return [64, 2, 8, 4, 16, 32].map(function (n) { return '<div class="fc f' + DFACE[n] + (n > 9 ? ' n3' : '') + '">' + n + '</div>'; }).join(''); }
+  function oriStr(o, extra) { return (extra || '') + ' rotateX(' + o[0].toFixed(1) + 'deg) rotateY(' + o[1].toFixed(1) + 'deg)'; }
+  (function buildDie() {
+    $('cubeFace').innerHTML = '<span class="dzs"></span><span class="dz"><span class="dc" id="railDie">' + dieFaces() + '</span></span>';
+    $('cfIn').innerHTML = '<span class="cfs" id="cfShadow"></span><span class="dc" id="floatDie">' + dieFaces() + '</span>';
+  })();
   var cdrag = null;
   function devPos(cx, cy) {
     var dv = $('device'), r = dv.getBoundingClientRect(), sc = r.width / dv.offsetWidth;
@@ -2004,28 +2034,54 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     var p = devPos(cx, cy), fl = $('cubeFloat');
     fl.style.left = (p[0] - 25) + 'px'; fl.style.top = (p[1] - 25) + 'px';
     var k = insideFrac(cx, cy, p[2]); cdrag.k = k;
-    $('cfIn').style.transform = 'rotateY(' + (k * 180).toFixed(1) + 'deg) scale(' + (1 + 0.25 * k).toFixed(3) + ')';
+    if (cdrag.lx != null) cdrag.vx = 0.7 * cdrag.vx + 0.3 * (cx - cdrag.lx);
+    cdrag.lx = cx; cdrag.ly = cy;
+    var a = dori(G.cube.v), b = dori(G.cube.v * 2), e = k * k * (3 - 2 * k);
+    $('cfIn').style.transform = 'scale(' + (1 + 0.22 * k).toFixed(3) + ')';
+    $('floatDie').style.transform = oriStr([a[0] + (b[0] - a[0]) * e, a[1] + (b[1] - a[1]) * e], 'rotateX(' + (-24 * (1 - k)).toFixed(1) + 'deg) rotateY(' + (30 * (1 - k)).toFixed(1) + 'deg)');
   }
   $('cube').addEventListener('pointerdown', function (e) {
     if (!$('cube').classList.contains('live')) return;
     e.preventDefault(); try { $('cube').setPointerCapture(e.pointerId); } catch (er) {}
-    cdrag = { k: 0 }; $('cfFront').textContent = '×' + G.cube.v; $('cfBack').textContent = '×' + G.cube.v * 2;
+    cdrag = { k: 0, vx: 0, lx: null };
     var fl = $('cubeFloat'); fl.classList.remove('home'); fl.hidden = false; $('cube').classList.add('dragging');
     placeFloat(e.clientX, e.clientY);
   });
   $('cube').addEventListener('pointermove', function (e) { if (cdrag) placeFloat(e.clientX, e.clientY); });
   function cubeUp() {
     if (!cdrag) return;
-    var k = cdrag.k; cdrag = null;
-    if (k > 0.995) { offerMine(); return; }
+    var k = cdrag.k, vx = cdrag.vx; cdrag = null;
+    if (k > 0.995) { rollDown(vx, offerMine); return; }
     floatHome($('cube'), function () { $('cube').classList.remove('dragging'); });
   }
   $('cube').addEventListener('pointerup', cubeUp);
   $('cube').addEventListener('pointercancel', cubeUp);
   function floatHome(el, done) {
     var r = el.getBoundingClientRect(), fl = $('cubeFloat'), p = devPos(r.left + r.width / 2, r.top + Math.min(r.height, 60) / 2);
-    fl.classList.add('home'); fl.style.left = (p[0] - 25) + 'px'; fl.style.top = (p[1] - 25) + 'px'; $('cfIn').style.transition = 'transform .35s ease'; $('cfIn').style.transform = 'rotateY(0deg)';
-    setTimeout(function () { fl.hidden = true; fl.classList.remove('home'); $('cfIn').style.transition = ''; if (done) done(); }, 380);
+    fl.classList.add('home'); fl.style.left = (p[0] - 25) + 'px'; fl.style.top = (p[1] - 25) + 'px'; $('cfIn').style.transition = 'transform .35s ease'; $('cfIn').style.transform = ''; $('floatDie').style.transition = 'transform .35s ease'; $('floatDie').style.transform = oriStr(dori(G.cube.v), 'rotateX(-24deg) rotateY(30deg)');
+    setTimeout(function () { fl.hidden = true; fl.classList.remove('home'); $('cfIn').style.transition = ''; $('floatDie').style.transition = ''; if (done) done(); }, 380);
+  }
+  /* Let go on the table: the die drops, rolls over once in the direction you were moving, and settles on the doubled face. */
+  function rollDown(vx, done) {
+    var fl = $('cubeFloat'), die = $('floatDie'), sh = $('cfShadow'), dir = vx > 0.5 ? 1 : vx < -0.5 ? -1 : (railLeft() ? 1 : -1);
+    var x0 = parseFloat(fl.style.left) || 0, dist = 46 * dir, o = dori(G.cube.v * 2), end = oriStr(o);
+    if (reduce || !die.animate) { die.style.transform = end; $('cfIn').style.transform = ''; done(); return; }
+    $('cfIn').style.transform = '';
+    var T = 720, easing = 'cubic-bezier(.25,.6,.3,1)';
+    fl.animate([{ left: x0 + 'px' }, { left: (x0 + dist) + 'px' }], { duration: T, easing: easing, fill: 'forwards' });
+    var a = die.animate([
+      { transform: 'translateY(-10px) scale(1.22) rotateY(' + (-dir * 270) + 'deg)' + oriStr(o) },
+      { transform: 'translateY(0) scale(1.06) rotateY(' + (-dir * 90) + 'deg)' + oriStr(o), offset: 0.55 },
+      { transform: 'translateY(-3px) scale(1.03) rotateY(' + (dir * 8) + 'deg)' + oriStr(o), offset: 0.8 },
+      { transform: 'translateY(0) scale(1) ' + end }
+    ], { duration: T, easing: easing, fill: 'forwards' });
+    sh.animate([{ transform: 'scale(0.75)', opacity: 0.5 }, { transform: 'scale(1)', opacity: 1, offset: 0.55 }, { transform: 'scale(1)', opacity: 1 }], { duration: T, fill: 'forwards' });
+    if (navigator.vibrate) setTimeout(function () { try { navigator.vibrate(8); } catch (e) {} }, T * 0.55);
+    a.onfinish = function () {
+      fl.style.left = (x0 + dist) + 'px'; die.style.transform = end;
+      fl.getAnimations().forEach(function (x) { x.cancel(); }); a.cancel(); sh.getAnimations().forEach(function (x) { x.cancel(); });
+      done();
+    };
   }
   function offerMine() {
     G.phase = 'wait'; cubeUI(); spinSky(); say(NAME.them + ' is thinking about your double…');
