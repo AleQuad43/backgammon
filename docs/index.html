@@ -351,6 +351,20 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
 #gv .railMid { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 #gv .railMid .status { min-height: 32px; }
 #gv .score b { font-size: 32px; }
+/* The cube says it all without words, as on a real board: untouched it lies askew in the middle showing 64; once
+   doubled it sits square beside whoever holds it; when you may double it lifts a little; at match point it fades. */
+#gv .railMid { flex: 1 1 auto; min-height: 0; justify-content: center; gap: 10px; }
+#gv .railMid.held { justify-content: space-between; }
+#gv .railMid .msg { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+#gv .railMid.th .cube { order: -1; }
+#gv .cube .cl { display: none; }
+#gv .cube .dz { transition: transform .6s cubic-bezier(.3,.7,.2,1), translate .5s ease; }
+#gv .cube.fresh .dz { transform: rotate(-17deg); }
+#gv .cube .dzs { transition: opacity .5s ease, transform .5s ease; }
+#gv .cube.live .dz { translate: 0 -3px; }
+#gv .cube.live .dzs { transform: scale(1.12) translateY(2px); }
+#gv .cube { transition: opacity .5s ease; }
+#gv .cube.off { opacity: .4; }
 @media (prefers-reduced-motion: reduce) { .orb.ck.yours img, .orb.ck.them img, .orb.yours::before, .orb.req::after, .pip, #gv .who.turn .av::after, #gv .cube.armed .face { animation: none; } }
 </style>
 
@@ -703,8 +717,8 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       <aside class="rail" id="rail">
         <div class="who" id="whoThem"><div class="av them" id="avThem">NO</div><div class="nm"><b id="nmThem">Nolf</b><small id="pipThem"></small></div><b class="pts" id="scThem">0</b></div>
         <div class="railMid">
-          <small class="to" id="scTo">to 5</small>
-          <div class="status" id="status" role="status"></div>
+          <div class="msg"><small class="to" id="scTo">to 5</small>
+          <div class="status" id="status" role="status"></div></div>
           <button class="cube" id="cube"><span class="face" id="cubeFace">×2</span><span class="cl" id="cubeLabel">Double</span></button>
         </div>
         <div class="who" id="whoMe"><div class="av me" id="avMe">QU</div><div class="nm"><b>You</b><small id="pipMe"></small></div><b class="pts" id="scMe">0</b></div>
@@ -2069,8 +2083,18 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     var c = $('cube'), live = G.turn === ME && G.phase === 'roll' && G.cube.owner !== TH && canDouble();
     c.classList.toggle('live', live);
     $('railDie').style.transform = oriStr(dori(G.cube.v));
-    $('cubeLabel').textContent = live ? 'Drag to double' : !canDouble() && G.score && (G.score.me === MATCH - 1 || G.score.them === MATCH - 1) ? 'No doubling at match point' : G.cube.owner === TH ? NAME.them + ' holds it' : G.cube.owner === ME ? 'You hold it' : 'Stake';
-    c.setAttribute('aria-label', live ? 'Drag onto the board to double to ' + G.cube.v * 2 : 'Stake ×' + G.cube.v);
+    var mp = !canDouble() && G.score && (G.score.me === MATCH - 1 || G.score.them === MATCH - 1);
+    var lab = live ? 'Drag onto the board to double to ' + G.cube.v * 2 : mp ? 'No doubling at match point' : G.cube.owner === TH ? NAME.them + ' holds the cube at ' + G.cube.v : G.cube.owner === ME ? 'You hold the cube at ' + G.cube.v : 'No double yet';
+    $('cubeLabel').textContent = ''; c.setAttribute('aria-label', lab); c.title = lab;
+    c.classList.toggle('fresh', !G.cube.owner); c.classList.toggle('off', !!mp);
+    /* the cube moves to whoever holds it; glide it there instead of jumping */
+    var rm = c.parentNode, own = G.cube.owner === TH ? 'th' : G.cube.owner === ME ? 'me' : '';
+    if ((rm.dataset.own || '') !== own) {
+      var r0 = c.getBoundingClientRect();
+      rm.dataset.own = own; rm.classList.toggle('held', !!own); rm.classList.toggle('th', own === 'th');
+      var r1 = c.getBoundingClientRect(), dy = r0.top - r1.top;
+      if (r0.height && Math.abs(dy) > 1 && c.animate) c.animate([{ transform: 'translateY(' + dy + 'px)' }, { transform: 'none' }], { duration: 650, easing: 'cubic-bezier(.3,.7,.2,1)' });
+    }
   }
   function finishTurn() {
     if (G.turn !== ME || G.phase !== 'move') return;
