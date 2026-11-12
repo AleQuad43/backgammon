@@ -967,9 +967,9 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
      playing area (the light wood); fully inside it shows ×2, and letting go there offers the double.
      Luca's: the sky turns to your side and a big ×2 in your sky's main colour sits where your dice go. */
   /* faces: f0 front, f1/f2 the two around X, f3/f4 the two around Y, f5 back. Which face shows which number,
-     and how the die turns to bring a face to the front. 1 (no double yet) shows 64, as on a real board. */
+     and how the die turns to bring a face to the front. 1 (no double yet) shows 2, so anyone can see what it's for. */
   var DFACE = { 64: 0, 2: 1, 8: 2, 4: 3, 16: 4, 32: 5 }, DORI = [[0, 0], [-90, 0], [90, 0], [0, -90], [0, 90], [0, 180]];
-  function dshow(v) { return v === 1 || v > 64 ? 64 : v; }
+  function dshow(v) { return v === 1 ? 2 : v > 64 ? 64 : v; }
   function dori(v) { return DORI[DFACE[dshow(v)]]; }
   function dieFaces() { return [64, 2, 8, 4, 16, 32].map(function (n) { return '<div class="fc f' + DFACE[n] + (n > 9 ? ' n3' : '') + '">' + n + '</div>'; }).join(''); }
   function oriStr(o, extra) { return (extra || '') + ' rotateX(' + o[0].toFixed(1) + 'deg) rotateY(' + o[1].toFixed(1) + 'deg)'; }
@@ -999,6 +999,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     if (cdrag.lx != null) cdrag.vx = 0.7 * cdrag.vx + 0.3 * (cx - cdrag.lx);
     cdrag.lx = cx; cdrag.ly = cy;
     var a = dori(G.cube.v), b = dori(G.cube.v * 2), e = k * k * (3 - 2 * k);
+    if (G.cube.v === 1) b = [b[0], b[1] - 360]; /* the 2 is already up: turn it right round instead */
     $('cfIn').style.transform = 'scale(' + (1 + 0.22 * k).toFixed(3) + ')';
     $('floatDie').style.transform = oriStr([a[0] + (b[0] - a[0]) * e, a[1] + (b[1] - a[1]) * e]);
   }

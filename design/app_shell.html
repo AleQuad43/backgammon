@@ -208,7 +208,17 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
 #gv .railMid.th .cube { order: -1; }
 #gv .cube .cl { display: none; }
 #gv .cube .dz { transition: transform .6s cubic-bezier(.3,.7,.2,1), translate .5s ease; }
-#gv .cube.fresh .dz { transform: rotate(-17deg); }
+#gv .cube.fresh .dz { transform: rotate(-17deg); animation: idleRoll 16s infinite; }
+/* the untouched cube rests on its 2, then now and then rolls once over from top left to bottom right: slow to start,
+   quicker through the middle, settling back on the 2 with a small rock */
+@keyframes idleRoll {
+  0%, 46% { rotate: 1 -1 0 0deg; animation-timing-function: cubic-bezier(.5,0,.8,.4); }
+  60% { rotate: 1 -1 0 95deg; animation-timing-function: linear; }
+  71% { rotate: 1 -1 0 255deg; animation-timing-function: cubic-bezier(.2,.6,.3,1); }
+  86% { rotate: 1 -1 0 368deg; animation-timing-function: ease-in-out; }
+  93%, 100% { rotate: 1 -1 0 360deg; }
+}
+@media (prefers-reduced-motion: reduce) { #gv .cube.fresh .dz { animation: none; } }
 #gv .cube .dzs { transition: opacity .5s ease, transform .5s ease; }
 #gv .cube.live .dz { translate: 0 -3px; }
 #gv .cube.live .dzs { transform: scale(1.12) translateY(2px); }
