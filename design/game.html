@@ -80,7 +80,16 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
 .acts button[hidden] { display: block !important; visibility: hidden; }
 
 .slide { position: absolute; pointer-events: none; font-size: 16px; font-weight: 700; color: #FFFFFF; white-space: nowrap; text-shadow: 0 1px 3px rgba(40,20,10,0.65), 0 0 14px rgba(40,20,10,0.45); transform: translate(-50%, -100%); }
-.slide[hidden], .over[hidden], .cubeFloat[hidden] { display: none !important; }
+.slide[hidden], .over[hidden], .cubeFloat[hidden], .note[hidden] { display: none !important; }
+/* A note written straight on the wood, like the slide hint: what happened while you were away, or a question. */
+.note { position: absolute; z-index: 4; transform: translate(-50%, -50%); text-align: center; pointer-events: none; color: #FFFFFF; font-size: 15px; font-weight: 700; line-height: 1.35;
+  text-shadow: 0 1px 3px rgba(40,20,10,0.7), 0 0 14px rgba(40,20,10,0.5); opacity: 0; transition: opacity .35s ease; }
+.note.on { opacity: 1; }
+.note::before { content: ""; position: absolute; inset: -18px -26px; z-index: -1; border-radius: 50%; background: radial-gradient(closest-side, rgba(45,24,10,0.42), rgba(45,24,10,0.18) 60%, transparent); filter: blur(6px); }
+.note small { display: block; margin-top: 5px; font-size: 12.5px; font-weight: 600; opacity: .92; }
+.note .ask { display: flex; gap: 12px; justify-content: center; margin-top: 11px; }
+.note .ask button { pointer-events: auto; min-width: 74px; padding: 7px 18px; border-radius: 999px; border: 1.5px solid rgba(255,255,255,0.92); background: rgba(40,20,10,0.22); color: #FFFFFF; font: inherit; font-size: 15px; text-shadow: inherit; cursor: pointer; }
+.note .ask button:active { background: rgba(255,255,255,0.25); }
 .cubeFloat { position: absolute; left: 0; top: 0; width: 50px; height: 50px; z-index: 5; pointer-events: none; perspective: 400px; }
 .cubeFloat.home { transition: left .35s cubic-bezier(.2,.8,.2,1), top .35s cubic-bezier(.2,.8,.2,1); }
 .cf-in { position: absolute; inset: 0; transform-style: preserve-3d; }
@@ -178,7 +187,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
       <div class="sky"></div>
       <div class="cubeFloat" id="cubeFloat" hidden><div class="cf-in" id="cfIn"><div class="cf front" id="cfFront">×1</div><div class="cf back" id="cfBack">×2</div></div></div>
       <div class="game" id="game">
-        <div class="boardWrap" id="wrap"><canvas id="board" aria-label="Backgammon board"></canvas><div class="slide" id="slide" hidden>Slide to end your turn →</div><div class="over" id="over" hidden></div></div>
+        <div class="boardWrap" id="wrap"><canvas id="board" aria-label="Backgammon board"></canvas><div class="slide" id="slide" hidden>Slide to end your turn →</div><div class="note" id="note" hidden></div><div class="over" id="over" hidden></div></div>
         <aside class="rail" id="rail">
           <div>
             <div class="score"><b id="scMe">3</b><span>–</span><b id="scThem">2</b><small id="scTo">to 5</small></div>
@@ -218,7 +227,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
         <li>When Luca doubles you, the sky turns to your side and a big ×2 sits where your dice go. Tap it to take, or hold and slide to give up the game.</li>
         <li>End your turn and watch the sky: the three sunset colours swing half a turn around the screen, slow, fast, slow. They swing on again when it comes back to you.</li>
       </ul>
-      <p>Standard rules for now, until you give me yours. It does not yet force you to use both dice when you could.</p>
+      <p>Standard rules for now, until you give me yours.</p>
     </div>
   </div>
 </div>
@@ -233,7 +242,8 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   var other = function (s) { return s === ME ? TH : ME; };
   var absOf = function (side, rel) { return side === ME ? rel : 25 - rel; };
-  var rnd6 = function () { return 1 + Math.floor(Math.random() * 6); };
+  /* Fair dice: the browser's cryptographic generator, rejecting the top 4 of 256 values so each face is exactly 1 in 6. */
+  var rnd6 = function () { try { var a = new Uint8Array(1); do { crypto.getRandomValues(a); } while (a[0] >= 252); return 1 + a[0] % 6; } catch (e) { return 1 + Math.floor(Math.random() * 6); } };
 
   /* ---------- fit the landscape phone into the page ---------- */
   function fit() {
@@ -441,7 +451,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
       var seen = {};
       rem.forEach(function (d, i) {
         if (seen[d]) return; seen[d] = 1;
-        var t = target(S, side, pos, d); if (t === null) return;
+        var t = legal(S, side, pos, d, rem); if (t === null) return;
         var p2 = path.concat([{ from: pos, to: t, d: d }]);
         if (!(t in out) || out[t].length > p2.length) out[t] = p2;
         if (t > 0) { var r2 = rem.slice(); r2.splice(i, 1); go(applyS(S, side, pos, t), t, r2, p2); }
@@ -451,7 +461,88 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   }
   function anyMove(side) {
     var S = state(), vals = remaining().map(function (d) { return d.v; });
-    return sources(S, side).some(function (r) { return vals.some(function (v) { return target(S, side, r, v) !== null; }); });
+    return sources(S, side).some(function (r) { return vals.some(function (v) { return legal(S, side, r, v, vals) !== null; }); });
+  }
+  /* ---------- The full rules ----------
+     Use as many dice as the position allows: both, or all four on a double. If only one die can be used and either
+     could be, it must be the higher one. So a step is legal only if the rest of the turn can still use as many dice as
+     the whole turn could have from here. */
+  function skey(S) { return S.pts.join(',') + '|' + S.bar.me + ',' + S.bar.them + '|' + S.off.me + ',' + S.off.them; }
+  var MU = new Map();
+  function maxUse(S, side, vals) {
+    if (!vals.length) return 0;
+    var k = side + skey(S) + '#' + vals.join('');
+    if (MU.has(k)) return MU.get(k);
+    var best = 0, seen = {}, src = sources(S, side);
+    for (var i = 0; i < vals.length && best < vals.length; i++) {
+      var d = vals[i]; if (seen[d]) continue; seen[d] = 1;
+      var r = vals.slice(); r.splice(i, 1);
+      for (var j = 0; j < src.length && best < vals.length; j++) {
+        var t = target(S, side, src[j], d); if (t === null) continue;
+        var u = 1 + maxUse(applyS(S, side, src[j], t), side, r); if (u > best) best = u;
+      }
+    }
+    if (MU.size > 40000) MU.clear();
+    MU.set(k, best); return best;
+  }
+  function canUse(S, side, d) { return sources(S, side).some(function (r) { return target(S, side, r, d) !== null; }); }
+  function legal(S, side, from, d, vals) {
+    var t = target(S, side, from, d); if (t === null) return null;
+    var i = vals.indexOf(d); if (i < 0) return null;
+    var r = vals.slice(); r.splice(i, 1);
+    var m = maxUse(S, side, vals);
+    if (1 + maxUse(applyS(S, side, from, t), side, r) < m) return null;
+    if (m === 1 && vals.length === 2 && vals[0] !== vals[1]) { var hi = Math.max(vals[0], vals[1]); if (d !== hi && canUse(S, side, hi)) return null; }
+    return t;
+  }
+  /* Every different way to play a roll to the end, by where the checkers finish (stops once `limit` are found). */
+  function plays(S, side, vals, limit) {
+    var out = [], keys = {}, seen = {};
+    (function go(S, vals, path) {
+      if (out.length >= limit) return;
+      var vk = skey(S) + '#' + vals.slice().sort().join(''); if (seen[vk]) return; seen[vk] = 1;
+      var any = false, dv = {}, src = sources(S, side);
+      for (var i = 0; i < vals.length; i++) {
+        var d = vals[i]; if (dv[d]) continue; dv[d] = 1;
+        var r = vals.slice(); r.splice(i, 1);
+        for (var j = 0; j < src.length; j++) {
+          var t = legal(S, side, src[j], d, vals); if (t === null) continue;
+          any = true; go(applyS(S, side, src[j], t), r, path.concat([{ from: src[j], to: t, d: d }]));
+          if (out.length >= limit) return;
+        }
+      }
+      if (!any) { var k = skey(S); if (!keys[k]) { keys[k] = 1; out.push({ S: S, path: path }); } }
+    })(S, vals, []);
+    return out;
+  }
+  /* On the bar with no way in at all: every entry point is held by two or more. */
+  function closedOut(S, side) { if (!S.bar[side]) return false; for (var d = 1; d <= 6; d++) if (target(S, side, 25, d) !== null) return false; return true; }
+  /* A pure race: no checker of yours is behind any of the opponent's, and nobody is on the bar. */
+  function isRace(S) {
+    if (S.bar.me || S.bar.them) return false;
+    var hiMe = 0, loTh = 25;
+    for (var a = 1; a <= 24; a++) { if (own(S, ME, a)) hiMe = Math.max(hiMe, a); if (own(S, TH, a)) loTh = Math.min(loTh, a); }
+    return hiMe < loTh;
+  }
+  /* The textbook race move, in order of importance: bear off as many as you can; bring as many checkers home as you
+     can; then cross as few quarters and come as close to home as possible; then spread the checkers at home over as
+     many points as you can, with as few as possible deep on the 1 and 2 points; then waste as few pips as possible. */
+  function raceKey(S, side) {
+    var outN = 0, cross = 0, dist = 0, spread = 0, low = 0, pip = 0;
+    for (var r = 1; r <= 24; r++) {
+      var n = own(S, side, absOf(side, r)); if (!n) continue; pip += n * r;
+      if (r > 6) { outN += n; cross += n * Math.ceil((r - 6) / 6); dist += n * (r - 6); } else { spread++; if (r <= 2) low += n; }
+    }
+    return [-S.off[side], outN, cross, dist, -spread, low, pip];
+  }
+  function racePlay(S, side, vals) {
+    var best = null, bk = null;
+    plays(S, side, vals, Infinity).forEach(function (p) {
+      var k = raceKey(p.S, side);
+      if (!bk) { best = p; bk = k; return; }
+      for (var i = 0; i < k.length; i++) { if (k[i] < bk[i]) { best = p; bk = k; return; } if (k[i] > bk[i]) return; }
+    });
+    return best ? best.path : [];
   }
   function moveOne(side, from, to, d) {
     var fk = from === 25 ? 'bar-' + side : absOf(side, from), id = stacks[fk].pop();
@@ -670,7 +761,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
       ons.sort(function (a, b) { return stacks[a.loc].indexOf(a.id) - stacks[b.loc].indexOf(b.id); }).forEach(function (c) { if (!c.fly) drawChecker(c, c.x, c.y); });
       ons.forEach(function (c) { if (c.fly) drawChecker(c, c.x, c.y, true); });
       D.forEach(function (d) { if (d.live) drawDie(d, now, false); });
-      ghosts().forEach(function (g) { drawDie(g, now, true); });
+      if (!NOTE.on) ghosts().forEach(function (g) { drawDie(g, now, true); });
       if (draggedId >= 0) drawChecker(ck[draggedId], drag.x, drag.y, true);
       drawOffer(now);
       holdTick(now);
@@ -701,6 +792,9 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     hold = null; drag = null; flick = null;
     BH = (x >= L.barX - 4 && x <= L.barX + L.bw + 4) ? { x: x, y: y, cx: e.clientX, t0: performance.now(), on: false } : null;
     try { cv.setPointerCapture(e.pointerId); } catch (er) {}
+    if (G.phase === 'rollout') { if (G.skipRoll) G.skipRoll(); return; }
+    if (G.auto || G.asking || G.phase === 'auto') return;
+    if (NOTE.on) hideNote();
     if (G.turn === ME && (G.phase === 'roll' || G.phase === 'opening') && !G.rolling) {
       flick = { hist: [{ x: x, y: y, t: performance.now() }], x0: x, y0: y }; return;
     }
@@ -806,7 +900,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   function tapMove(from) {
     var S = state(), rem = remaining();
     for (var i = 0; i < rem.length; i++) {
-      var t = target(S, ME, from, rem[i].v);
+      var t = legal(S, ME, from, rem[i].v, rem.map(function (q) { return q.v; }));
       if (t !== null) { stepMove(from, t, rem[i].v); afterMyMove(); return; }
     }
     say('That checker cannot move with these dice.');
@@ -833,7 +927,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     base.used.forEach(function (p) { p[0].used = p[1]; });
     later.forEach(function (s) {
       var S = state(), die = remaining().filter(function (x) { return x.v === s.d; })[0];
-      if (die && target(S, ME, s.from, s.d) === s.to) stepMove(s.from, s.to, s.d);
+      if (die && legal(S, ME, s.from, s.d, remaining().map(function (q) { return q.v; })) === s.to) stepMove(s.from, s.to, s.d);
     });
     pips(); afterMyMove();
   }
@@ -867,7 +961,8 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     var mp = !canDouble() && G.score && (G.score.me === MATCH - 1 || G.score.them === MATCH - 1);
     var lab = live ? 'Drag onto the board to double to ' + G.cube.v * 2 : mp ? 'No doubling at match point' : G.cube.owner === TH ? NAME.them + ' holds the cube at ' + G.cube.v : G.cube.owner === ME ? 'You hold the cube at ' + G.cube.v : 'No double yet';
     $('cubeLabel').textContent = ''; c.setAttribute('aria-label', lab); c.title = lab;
-    c.classList.toggle('fresh', !G.cube.owner); c.classList.toggle('off', !!mp);
+    c.classList.toggle('fresh', !G.cube.owner); c.classList.toggle('off', !!mp || G.phase === 'rollout');
+    turnHooks();
     /* the cube moves to whoever holds it; glide it there instead of jumping */
     var rm = c.parentNode, own = G.cube.owner === TH ? 'th' : G.cube.owner === ME ? 'me' : '';
     if ((rm.dataset.own || '') !== own) {
@@ -877,10 +972,145 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
       if (r0.height && Math.abs(dy) > 1 && c.animate) c.animate([{ transform: 'translateY(' + dy + 'px)' }, { transform: 'none' }], { duration: 650, easing: 'cubic-bezier(.3,.7,.2,1)' });
     }
   }
+  /* ---------- Turns that play themselves ----------
+     A roll with only one possible outcome (or none) plays by itself: the checkers glide after a moment and the turn
+     passes. On the bar against a closed board there is nothing to decide at all, so the dice are thrown for you too:
+     against a friend, their device throws for you as soon as they finish, so the game never waits on you for that. */
+  function dtx(d) { return Math.max(d[0], d[1]) + '\u2060–\u2060' + Math.min(d[0], d[1]); }
+  function autoPlay(path) {
+    G.auto = true;
+    var dt = dtx(G.turnStart.d);
+    say(path.length ? 'Only one way to play ' + dt + '.' : state().bar.me ? 'No way in with ' + dt + '.' : 'No moves with ' + dt + '.');
+    var i = 0;
+    setTimeout(function step() {
+      if (G.phase !== 'move' || !G.auto) return;
+      if (i < path.length) { var m = path[i++]; stepMove(m.from, m.to, m.d); if (DUO && G.phase === 'move') save({ phase: 'move', turn: DUO.seat }); setTimeout(step, 480); return; }
+      setTimeout(function () { if (G.phase === 'move' && G.auto) finishTurn(); }, 1000);
+    }, 900);
+  }
+  function liveVals(side) { return D.filter(function (d) { return d.live && d.side === side; }).slice(0, 2).map(function (d) { return d.v; }); }
+  function danceMe() {
+    G.phase = 'auto'; hideNote();
+    throwDice(ME, 2, null, function () {
+      var v = liveVals(ME);
+      if (DUO) pushLog({ s: DUO.seat, d: v, h: 0, z: true });
+      say('You couldn’t come in with ' + dtx(v) + '.');
+      setTimeout(function () {
+        if (G.phase !== 'auto') return;
+        clearDice();
+        if (DUO) { G.phase = 'remote'; setTurn(TH); say(NAME.them + '’s turn.'); save({ phase: 'roll', turn: DUO.other, dice: null }); }
+        else { G.phase = 'ai'; setTurn(TH); say(NAME.them + ' is playing.'); setTimeout(aiRoll, 900); }
+      }, 1600);
+    });
+  }
+  function danceThem() {
+    G.phase = 'auto'; setTurn(TH); say('');
+    setTimeout(function () {
+      if (G.phase !== 'auto') return;
+      throwDice(TH, 2, null, function () {
+        var v = liveVals(TH);
+        pushLog({ s: DUO.other, d: v, h: 0, z: true, x: 1 });
+        say(NAME.them + ' couldn’t come in with ' + dtx(v) + '.');
+        setTimeout(function () {
+          if (G.phase !== 'auto') return;
+          clearDice(); G.phase = 'roll'; setTurn(ME); say(NAME.them + ' couldn’t come in with ' + dtx(v) + '. Your turn.');
+          save({ phase: 'roll', turn: DUO.seat, dice: null });
+        }, 1600);
+      });
+    }, 600);
+  }
+  /* What happened in a turn, kept in the shared game (the last 8 turns) so the other player can catch up. */
+  function turnEntry() {
+    var ts = G.turnStart, d = ts ? ts.d : liveVals(ME);
+    return { s: DUO ? DUO.seat : 'A', d: d, h: ts ? Math.max(0, state().bar.them - ts.bar) : 0, z: !(G.hist && G.hist.length), pre: ts && ts.pre ? ts.pre : null };
+  }
+  function pushLog(e) {
+    var l = (DUO.log || []).concat([e]).slice(-8);
+    DUO.log = l.map(function (x, i) { if (i < l.length - 1 && x.pre) { var y = {}; for (var k in x) if (k !== 'pre') y[k] = x[k]; return y; } return x; });
+  }
+  /* The note when you open a game: everything since your own last turn, in at most two short sentences. */
+  function noteFor(log) {
+    var mine = [], theirs = [];
+    for (var i = log.length - 1; i >= 0; i--) { var e = log[i]; if (e.s === DUO.seat && !e.x) break; (e.s === DUO.seat ? mine : theirs).unshift(e); }
+    if (!mine.length && !theirs.length) return '';
+    var out = [], nm = NAME.them, h = theirs.reduce(function (a, e) { return a + (e.h || 0); }, 0), words = ['', 'one', 'two', 'three', 'four', 'five'];
+    if (mine.length) out.push('You couldn’t come in with ' + mine.map(function (e) { return dtx(e.d); }).join(', then ') + '.');
+    var one = !mine.length && theirs.length === 1 ? ' rolled ' + dtx(theirs[0].d) + ' and' : '';
+    if (h) out.push(nm + one + ' hit ' + (h === 1 ? (mine.length ? 'another' : 'you') : (words[h] || h) + (mine.length ? ' more' : ' of yours')) + '.');
+    else if (!mine.length && theirs.length) { var la = theirs[theirs.length - 1]; out.push(nm + (la.z ? ' couldn’t move with ' : ' played ') + dtx(la.d) + '.'); }
+    var S = state(); if (closedOut(S, ME)) out.push('Their board is closed, so your dice are thrown for you.');
+    return out.slice(0, 2).join(' ');
+  }
+  var NOTE = { on: false, tm: null };
+  function showNote(html) {
+    var n = $('note'), R = region(ME);
+    clearTimeout(NOTE.tm); n.innerHTML = html; n.hidden = false; NOTE.on = true;
+    n.style.left = ((R.x0 + R.x1) / 2) + 'px'; n.style.top = L.mid + 'px'; n.style.width = Math.round((R.x1 - R.x0) - 24) + 'px';
+    requestAnimationFrame(function () { n.classList.add('on'); });
+  }
+  function hideNote() {
+    var n = $('note'); if (!NOTE.on) return; NOTE.on = false; n.classList.remove('on');
+    clearTimeout(NOTE.tm); NOTE.tm = setTimeout(function () { n.hidden = true; }, 360);
+  }
+  function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function info(t) { if (t && !G.asking) showNote(esc(t)); }
+
+  /* ---------- The pure race ----------
+     Once nobody can hit any more, each player is asked once, on their own turn before they throw: roll it out to the
+     end? Only if both say yes (against the Computer, just you) does the app throw for both and play the textbook move
+     each time, about a second a turn; a tap jumps to the end. One no and the question never comes back. */
+  function race() { if (!G.race) G.race = { me: null, them: DUO ? null : true }; return G.race; }
+  function raceOpen() { var r = race(); return r.me == null && r.them !== false && isRace(state()); }
+  function askRace() {
+    G.asking = true; var r = race();
+    var sub = !DUO ? 'Each move plays itself, by the book.' : r.them === true ? NAME.them + ' already said yes. Each move plays itself, by the book.' : 'Each move plays itself, by the book. ' + NAME.them + ' gets the same question.';
+    showNote('It’s a pure race now.<br>Roll it out to the end?<small>' + esc(sub) + '</small><div class="ask"><button data-a="1">Yes</button><button data-a="0">No</button></div>');
+  }
+  $('note').addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('button[data-a]'); if (!b || !G.asking) return;
+    var yes = b.getAttribute('data-a') === '1', r = race();
+    G.asking = false; hideNote(); r.me = yes;
+    if (yes && (!DUO || r.them === true)) { rollout(ME); return; }
+    say(yes ? NAME.them + ' will be asked on their turn. Throw your dice.' : 'Throw your dice.');
+    if (DUO) save({ phase: 'roll', turn: DUO.seat, dice: null });
+  });
+  function rollout(side) {
+    G.phase = 'rollout'; hideNote(); clearDice(); cubeUI(); say('Rolling out the race. Tap to skip.');
+    var fast = false; G.skipRoll = function () { fast = true; G.skipRoll = null; say('Rolling out the race…'); };
+    function later(fn, ms) { if (fast) fn(); else setTimeout(fn, ms); }
+    (function turn(side) {
+      if (G.phase !== 'rollout') return;
+      clearDice(); setTurn(side);
+      var a = rnd6(), b = rnd6(), vals = a === b ? [a, a, a, a] : [Math.max(a, b), Math.min(a, b)];
+      vals.forEach(function (v) { placeDie(side, v); });
+      var path = racePlay(state(), side, vals), i = 0;
+      if (DUO) save({ phase: 'rollout', turn: seatOf(side) });
+      later(function step() {
+        if (G.phase !== 'rollout') return;
+        if (i < path.length) { var m = path[i++]; moveOne(side, m.from, m.to, m.d); if (DUO && G.phase === 'rollout') save({ phase: 'rollout', turn: seatOf(side) }); later(step, 230); return; }
+        later(function () { turn(other(side)); }, 600);
+      }, 380);
+    })(side);
+  }
+  /* Run after every change of turn or phase: the closed-out throw and the race question. */
+  function turnHooks() {
+    if (!G || !stacks || G.phase === 'demo') return;
+    var mine = G.turn === ME && G.phase === 'roll' && !G.rolling;
+    if (mine && !G.danceT) {
+      var S = state();
+      if (closedOut(S, ME) && !closedOut(S, TH)) G.danceT = setTimeout(function () { G.danceT = null; if (G.turn === ME && G.phase === 'roll' && !G.rolling && closedOut(state(), ME)) danceMe(); }, 1400);
+    }
+    var ask = mine && raceOpen();
+    if (ask && !G.asking) askRace(); else if (!ask && G.asking) { G.asking = false; hideNote(); }
+  }
   function finishTurn() {
     if (G.turn !== ME || G.phase !== 'move') return;
-    G.hist = [];
+    G.auto = false;
+    var entry = turnEntry();
+    G.hist = []; G.turnStart = null;
     D.forEach(function (d) { d.live = false; });
+    if (DUO) pushLog(entry);
+    if (DUO && closedOut(state(), TH) && !closedOut(state(), ME)) { D = []; danceThem(); return; }
     if (DUO) { D = []; G.phase = 'remote'; setTurn(TH); say(NAME.them + '’s turn.'); save({ phase: 'roll', turn: DUO.other, dice: null }); return; }
     D = []; G.phase = 'ai'; setTurn(TH); say('Luca is playing.');
     setTimeout(aiRoll, 1400);
@@ -1102,6 +1332,8 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     })();
   }
   window.__demoDouble = demoDouble;
+  /* for checking positions in the preview */
+  window.__bg = { setup: function (p) { setup(p); pips(); cubeUI(); }, G: function () { return G; }, plays: function (side, vals) { return plays(state(), side === 'them' ? TH : ME, vals, Infinity).map(function (x) { return x.path; }); }, race: function (side, vals) { return racePlay(state(), side === 'them' ? TH : ME, vals); }, isRace: function () { return isRace(state()); }, closed: function (side) { return closedOut(state(), side === 'them' ? TH : ME); }, hooks: function () { turnHooks(); } };
   window.__demoOver = function () {
     var cases = [[ME, 1, false, false, false, [1, 0]], [ME, 2, false, true, false, [3, 0]], [ME, 3, false, true, true, [4, 2]], [TH, 1, false, false, false, [1, 1]], [TH, 2, false, true, false, [1, 3]], [ME, 2, true, false, false, [2, 0]], [ME, 1, false, false, false, [5, 3]], [TH, 1, false, false, false, [3, 5]]], i = 0;
     G.phase = 'demo';
@@ -1171,8 +1403,10 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     D.sort(function (a, b) { return b.v - a.v; }); /* a tap always uses the higher die first */
     if (side === ME) {
       G.phase = 'move'; G.hist = [];
-      if (!anyMove(ME)) say('No moves. Hold, then slide to end your turn.');
-      else afterMyMove();
+      var S0 = state(), vals = remaining().map(function (d) { return d.v; });
+      G.turnStart = { bar: S0.bar.them, pre: DUO ? boardToShared() : null, d: [ds[0].v, ds[1].v] };
+      var ps = plays(S0, ME, vals, 2);
+      if (ps.length === 1) autoPlay(ps[0].path); else afterMyMove();
     } else if (DUO) { if (DUO.lastDoc && DUO.lastDoc.phase === 'move') applyDice(DUO.lastDoc.dice, false); }
     else setTimeout(aiStep, 700);
   }
@@ -1203,7 +1437,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
       var seen = {};
       rem.forEach(function (d) {
         if (seen[d.v]) return; seen[d.v] = 1;
-        var t = target(S, TH, fr, d.v); if (t === null) return;
+        var t = legal(S, TH, fr, d.v, rem.map(function (q) { return q.v; })); if (t === null) return;
         var sc = Math.random() * 1.2, a = t ? absOf(TH, t) : 0;
         if (t === 0) sc += 4; else { if (opp(S, TH, a) === 1) sc += 3; if (own(S, TH, a) >= 1) sc += 2; else sc -= 0.5; }
         if (fr !== 25 && own(S, TH, absOf(TH, fr)) === 2) sc -= 1;
@@ -1220,7 +1454,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     G.phase = 'roll'; setTurn(ME); say('Your turn. Throw your dice.');
   }
   function gameOver(winner, dropped) {
-    G.phase = 'over'; dayFlip();
+    G.phase = 'over'; dayFlip(); G.asking = false; hideNote(); say('');
     /* Single 1, gammon 2 (loser bore off nothing), backgammon 3 (also still on the bar or in the winner's home board). */
     var loser = other(winner), gam = !dropped && stacks['off-' + loser].length === 0, bg = false;
     if (gam) { bg = stacks['bar-' + loser].length > 0; for (var r = 1; r <= 6 && !bg; r++) bg = stacks[absOf(winner, r)].some(function (id) { return ck[id].side === loser; }); }
@@ -1378,7 +1612,11 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     var sc = {}, ld = DUO.lastDoc || {}; sc[DUO.seat] = G.score.me; sc[DUO.other] = G.score.them;
     return { v: ++DUO.V, by: DUO.seat, game: DUO.game, round: ld.round || 0, phase: o.phase, turn: o.turn || null, open: { A: null, B: null },
       board: boardToShared(), dice: o.dice !== undefined ? o.dice : diceToShared(), cube: { v: G.cube.v, owner: G.cube.owner ? seatOf(G.cube.owner) : null },
-      offerBy: o.offerBy || null, score: sc, result: o.result || null, to: MATCH };
+      offerBy: o.offerBy || null, score: sc, result: o.result || null, to: MATCH, log: DUO.log || [], race: raceToShared() };
+  }
+  function raceToShared() {
+    if (!G.race) return null; var o = { A: null, B: null };
+    o[DUO.seat] = G.race.me == null ? null : G.race.me; o[DUO.other] = G.race.them == null ? null : G.race.them; return o;
   }
   /* A new match at 0–0, to however many points you pick. */
   function newMatch(n) {
@@ -1396,12 +1634,12 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     if (!fresh) { sc[DUO.seat] = G.score.me; sc[DUO.other] = G.score.them; }
     var doc = { v: DUO.V + 1, by: DUO.seat, game: Math.max(DUO.game || 0, (DUO.lastDoc && DUO.lastDoc.game) || 0) + 1, round: 0, phase: 'opening', turn: null,
       open: { A: null, B: fresh ? { v: rnd6(), n: nonce(), t: null } : null }, board: startBoard(), dice: null, cube: { v: 1, owner: null },
-      offerBy: null, score: sc, result: null, to: MATCH };
+      offerBy: null, score: sc, result: null, to: MATCH, log: [], race: null };
     DUO.V = doc.v; DUO.pend = null; applyShared(doc, true);
     enqueue(function () { return DUO.ref.set(doc); });
   }
   function resetLocal(d) {
-    $('over').hidden = true; $('cubeFloat').hidden = true; $('cube').classList.remove('dragging');
+    $('over').hidden = true; hideNote(); DUO.log = []; $('cubeFloat').hidden = true; $('cube').classList.remove('dragging');
     DUO.game = d.game; DUO.openN = {}; DUO.resolved = null; DUO.diceN = null; DUO.diceT = null; DUO.myOpen = null; DUO.overShown = false;
     if (!spin) { skyA = Math.round(skyA / (2 * Math.PI)) * 2 * Math.PI; paintSky(skyA); }
     G = { turn: ME, phase: 'sync', hist: [], cube: { v: 1, owner: null }, score: { me: 0, them: 0 }, rolling: false };
@@ -1452,8 +1690,22 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     $('scMe').textContent = G.score.me; $('scThem').textContent = G.score.them;
     if (d.to) MATCH = d.to; $('scTo').textContent = 'match to ' + MATCH;
     G.cube = { v: d.cube.v, owner: d.cube.owner ? sideOf(d.cube.owner) : null };
-    applyBoard(d.board);
+    var lg = d.log || [], lastE = lg[lg.length - 1], lkey = JSON.stringify(lastE || null), newLog = lkey !== DUO.lkey;
+    DUO.log = lg; DUO.lkey = lkey;
+    G.race = { me: d.race && d.race[DUO.seat] != null ? d.race[DUO.seat] : null, them: d.race && d.race[DUO.other] != null ? d.race[DUO.other] : null };
+    /* Opening a game on your turn: their last turn replays (their dice appear, their checkers glide), then the note. */
+    var replay = fresh && d.phase === 'roll' && d.turn === DUO.seat && lastE && lastE.s === DUO.other && !lastE.x && lastE.pre;
+    applyBoard(replay ? lastE.pre : d.board);
     var prev = G.phase;
+    if (d.phase === 'rollout') { G.asking = false; hideNote(); setTurn(sideOf(d.turn)); G.phase = 'rollout'; applyDice(d.dice, false); say('Rolling out the race…'); cubeUI(); return; }
+    if (fresh && (d.phase === 'roll' || d.phase === 'move')) {
+      setTimeout(function () {
+        if (DUO.lastDoc !== d) return;
+        if (replay) { if (G.phase === 'roll') lastE.d.forEach(function (v) { placeDie(TH, v); }); setTimeout(function () { if (DUO.lastDoc !== d) return; applyBoard(d.board); info(noteFor(lg)); cubeUI(); }, 450); }
+        else info(noteFor(lg));
+      }, 900);
+    }
+    if (!fresh && newLog && lastE && lastE.x && lastE.s === DUO.seat) setTimeout(function () { info('You couldn’t come in with ' + dtx(lastE.d) + '.'); }, 300);
     if (d.phase === 'opening') { applyOpening(d, fresh); cubeUI(); return; }
     if (d.phase === 'over') {
       G.phase = 'over'; cubeUI();
@@ -1537,7 +1789,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
       [dm, dh].forEach(function (x) { x.side = starter; x.tidy = true; x.popT = 0; });
       D.sort(function (a, b) { return b.v - a.v; });
       setTurn(starter);
-      if (starter === ME) { G.phase = 'move'; G.hist = []; DUO.diceN = nonce(); DUO.diceT = null; afterMyMove(); }
+      if (starter === ME) { G.phase = 'move'; G.hist = []; DUO.diceN = nonce(); DUO.diceT = null; G.turnStart = { bar: state().bar.them, pre: boardToShared(), d: [dm.v, dh.v] }; afterMyMove(); }
       else { G.phase = 'remote'; say(NAME.them + ' is playing.'); }
     }, 1300);
   }
@@ -1608,7 +1860,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
 
   /* ---------- start ---------- */
   function start() {
-    $('over').hidden = true;
+    $('over').hidden = true; hideNote();
     var keep = G ? G.score : { me: 3, them: 2 }; $('scTo').textContent = 'match to ' + MATCH;
     G = { turn: ME, phase: 'opening', hist: [], cube: { v: 1, owner: null }, score: keep, rolling: false };
     $('scMe').textContent = keep.me; $('scThem').textContent = keep.them;
