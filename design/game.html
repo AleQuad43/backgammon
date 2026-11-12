@@ -1028,25 +1028,27 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
           placeFloat(from[0] + (to[0] - from[0]) * e, from[1] + (to[1] - from[1]) * e); if (u < 1) requestAnimationFrame(f); else res(); })(t0);
       });
     }
+    var hr = Math.floor(new Date().getHours()), shift = window.skyShift || function () {}, fmt = function (h) { return (h < 10 ? '0' : '') + h + ':00'; };
     (async function loop() {
       clearDice(); G.cube = { v: 1, owner: null }; G.phase = 'demo'; setTurn(ME); cubeUI();
-      say('Your turn. You double.'); await wait(1400);
+      if (window.skyHour) window.skyHour(hr);
+      say(fmt(hr) + ' · Your turn. You double.'); await wait(1400);
       var cr = cube.getBoundingClientRect(), from = [cr.left + cr.width / 2, cr.top + 27], R = region(ME), to = cvClient((R.x0 + R.x1) / 2 + 30, L.mid - 20);
       cdrag = { k: 0, vx: 0, lx: null }; $('floatDie').style.transform = oriStr(dori(G.cube.v));
       var fl = $('cubeFloat'); fl.classList.remove('home'); fl.hidden = false; cube.classList.add('dragging');
       await glide(from, to, 1100); var vx = cdrag.vx; cdrag = null;
       await new Promise(function (r) { rollDown(vx || -4, r); });
-      spinSky(); setTurn(TH); say(NAME.them + ' is thinking about your double…'); await wait(3000);
-      G.cube.v = 2; G.cube.owner = TH; spinSky();
+      spinSky(); shift(12); setTurn(TH); say(NAME.them + ' is thinking about your double…'); await wait(3000);
+      G.cube.v = 2; G.cube.owner = TH; spinSky(); shift(0);
       floatHome($('whoThem'), function () { cube.classList.remove('dragging'); cubeUI(); });
       say(NAME.them + ' took it. Playing for 2.'); await wait(2600);
       setTurn(TH); say(NAME.them + '’s turn…'); await wait(1200);
-      G.phase = 'offered'; spinSky(); setTurn(TH); arriveOffer(); cubeUI();
+      G.phase = 'offered'; spinSky(); shift(12); setTurn(TH); arriveOffer(); cubeUI();
       say(NAME.them + ' doubles to ×4. Tap it to take, or hold and slide to give up.'); await wait(3000);
-      G.cube.v = 4; G.cube.owner = ME; G.phase = 'demo'; spinSky(); setTurn(ME);
+      G.cube.v = 4; G.cube.owner = ME; G.phase = 'demo'; spinSky(); shift(0); setTurn(ME);
       offerGone(); $('cfIn').style.transform = ''; floatHome($('whoMe'), function () { cube.classList.remove('dragging'); cubeUI(); });
       say('You took it. Playing for 4.'); await wait(3000);
-      loop();
+      hr = (hr + 1) % 24; loop();
     })();
   }
   window.__demoDouble = demoDouble;

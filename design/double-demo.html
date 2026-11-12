@@ -659,7 +659,11 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   var LIGHTV = { '--ink': '#1F2D2E', '--muted': '#4A5859', '--line': 'rgba(31,45,46,0.14)', '--glass': 'rgba(250,252,251,0.52)', '--glass-strong': 'rgba(250,252,251,0.82)', '--accent': '#2F5D62', '--on-accent': '#FFFFFF', '--sheet': '#F4F6F5', '--page': '#E6ECEA', '--warm-ink': 'oklch(0.38 0.08 50)' };
   var pinH = (Q.match(/[?&]hour=([\d.]+)/) || [])[1], fast = /[?&]fastday/.test(Q), lastDark = null, root = document.documentElement;
   function hueMix(a, b, t) { var d = ((b - a + 540) % 360) - 180; return (a + d * t + 360) % 360; }
-  function hourNow() {
+  /* HOFF: hours added on top of the clock (a double turns the day 12 hours over); HOUR: a pinned hour for demos. */
+  var HOFF = 0, HOUR = null;
+  function hourNow() { return ((clockHour() + HOFF) % 24 + 24) % 24; }
+  function clockHour() {
+    if (HOUR != null) return HOUR;
     if (pinH != null) return +pinH % 24;
     if (fast) return (performance.now() / 60000 * 24 + 6) % 24;
     var d = new Date(); return d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600;
@@ -679,6 +683,14 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     if (dark !== lastDark) { lastDark = dark; var V = dark ? DARKV : LIGHTV; for (var v in V) root.style.setProperty(v, V[v]); root.style.colorScheme = dark ? 'dark' : 'light'; }
   }
   dayTick(); setInterval(dayTick, fast ? 100 : 5000);
+  /* Turn the day: glide the offset to `to` hours (through every hour in between), slow at both ends. */
+  var shiftAnim = 0;
+  window.skyShift = function (to, ms) {
+    var from = HOFF, t0 = performance.now(), id = ++shiftAnim; ms = ms || 1800;
+    (function f(now) { if (id !== shiftAnim) return; var u = Math.min(1, (now - t0) / ms), e = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
+      HOFF = from + (to - from) * e; dayTick(); if (u < 1) requestAnimationFrame(f); })(t0);
+  };
+  window.skyHour = function (h) { HOUR = h; dayTick(); };
 
   /* ---------- friends (sample data until the real accounts exist) ---------- */
   /* With Firebase (the deployed app) everyone is a real account; without it (inside Claude) the two sample players stay. */
@@ -2157,25 +2169,27 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
           placeFloat(from[0] + (to[0] - from[0]) * e, from[1] + (to[1] - from[1]) * e); if (u < 1) requestAnimationFrame(f); else res(); })(t0);
       });
     }
+    var hr = Math.floor(new Date().getHours()), shift = window.skyShift || function () {}, fmt = function (h) { return (h < 10 ? '0' : '') + h + ':00'; };
     (async function loop() {
       clearDice(); G.cube = { v: 1, owner: null }; G.phase = 'demo'; setTurn(ME); cubeUI();
-      say('Your turn. You double.'); await wait(1400);
+      if (window.skyHour) window.skyHour(hr);
+      say(fmt(hr) + ' · Your turn. You double.'); await wait(1400);
       var cr = cube.getBoundingClientRect(), from = [cr.left + cr.width / 2, cr.top + 27], R = region(ME), to = cvClient((R.x0 + R.x1) / 2 + 30, L.mid - 20);
       cdrag = { k: 0, vx: 0, lx: null }; $('floatDie').style.transform = oriStr(dori(G.cube.v));
       var fl = $('cubeFloat'); fl.classList.remove('home'); fl.hidden = false; cube.classList.add('dragging');
       await glide(from, to, 1100); var vx = cdrag.vx; cdrag = null;
       await new Promise(function (r) { rollDown(vx || -4, r); });
-      spinSky(); setTurn(TH); say(NAME.them + ' is thinking about your double…'); await wait(3000);
-      G.cube.v = 2; G.cube.owner = TH; spinSky();
+      spinSky(); shift(12); setTurn(TH); say(NAME.them + ' is thinking about your double…'); await wait(3000);
+      G.cube.v = 2; G.cube.owner = TH; spinSky(); shift(0);
       floatHome($('whoThem'), function () { cube.classList.remove('dragging'); cubeUI(); });
       say(NAME.them + ' took it. Playing for 2.'); await wait(2600);
       setTurn(TH); say(NAME.them + '’s turn…'); await wait(1200);
-      G.phase = 'offered'; spinSky(); setTurn(TH); arriveOffer(); cubeUI();
+      G.phase = 'offered'; spinSky(); shift(12); setTurn(TH); arriveOffer(); cubeUI();
       say(NAME.them + ' doubles to ×4. Tap it to take, or hold and slide to give up.'); await wait(3000);
-      G.cube.v = 4; G.cube.owner = ME; G.phase = 'demo'; spinSky(); setTurn(ME);
+      G.cube.v = 4; G.cube.owner = ME; G.phase = 'demo'; spinSky(); shift(0); setTurn(ME);
       offerGone(); $('cfIn').style.transform = ''; floatHome($('whoMe'), function () { cube.classList.remove('dragging'); cubeUI(); });
       say('You took it. Playing for 4.'); await wait(3000);
-      loop();
+      hr = (hr + 1) % 24; loop();
     })();
   }
   window.__demoDouble = demoDouble;
