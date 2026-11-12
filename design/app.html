@@ -361,6 +361,10 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   /* thickness ÷ diameter, from real sets: tournament acrylic 12 / 44 mm, vintage bakelite 9.7 / 49 mm,
      extra-thick wood 10 mm; marble and bone kept a touch slimmer */
   var THICK = { wood: 0.27, marble: 0.22, bone: 0.2, bakelite: 0.22, classic: 0.22 };
+  /* edge profile, as a fraction of the radius: moulded bakelite is soft and pillowy, turned wood rounded on the lathe,
+     classic acrylic gently eased, bone sliced thin and barely eased, marble cut flat with a small polished chamfer */
+  var EDGE = { wood: { k: 'round', e: 0.1 }, marble: { k: 'chamfer', e: 0.06 }, bone: { k: 'round', e: 0.035 }, bakelite: { k: 'round', e: 0.17 }, classic: { k: 'round', e: 0.08 } };
+  function rimIn(m) { var E = EDGE[m] || { e: 0.12 }; return 1 - Math.max(0.05, Math.min(0.24, E.e * 1.35)); }
   var FACES = [['flat', 'Flat'], ['dish', 'Dished'], ['rings', 'Turned rings'], ['star', 'Eight-point star'], ['rosette', 'Rosette']];
   var INLAYS = [['none', 'None'], ['pearl', 'Mother-of-pearl'], ['brass', 'Brass']];
   var S = { m: 'wood', t: 3, f: 'rings', i: 'none', a: 0, s: 1 + (Math.random() * 99999 | 0) };
@@ -556,13 +560,14 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     g.save(); g.rotate((o.t * 0.9 + o.m.length) % 6); g.drawImage(texture(o.m, o.t), -R * 1.05, -R * 1.05, R * 2.1, R * 2.1); g.restore();
     wearBody(g, o, R);
     /* rounded edge: bright where it faces the light, dark where it turns away */
-    var rg = g.createRadialGradient(0, 0, R * 0.8, 0, 0, R);
+    var ri = rimIn(o.m), chamf = (EDGE[o.m] || {}).k === 'chamfer';
+    var rg = g.createRadialGradient(0, 0, R * (ri - 0.04), 0, 0, R);
     rg.addColorStop(0, 'rgba(0,0,0,0)'); rg.addColorStop(0.7, 'rgba(0,0,0,0.12)'); rg.addColorStop(1, 'rgba(0,0,0,0.45)');
     g.fillStyle = rg; g.fillRect(-R, -R, 2 * R, 2 * R);
-    g.beginPath(); g.arc(0, 0, R, 0, Math.PI * 2); g.arc(0, 0, R * 0.84, 0, Math.PI * 2, true);
-    g.fillStyle = lin(g, R, 'rgba(255,250,240,0.38)', 'rgba(0,0,0,0.35)'); g.fill();
+    g.beginPath(); g.arc(0, 0, R, 0, Math.PI * 2); g.arc(0, 0, R * ri, 0, Math.PI * 2, true);
+    g.fillStyle = lin(g, R, chamf ? 'rgba(255,250,240,0.5)' : 'rgba(255,250,240,0.38)', chamf ? 'rgba(0,0,0,0.42)' : 'rgba(0,0,0,0.35)'); g.fill();
     /* the crisp edge where the flat face meets the rounding */
-    circle(g, R * 0.84); g.lineWidth = Math.max(0.8, R * 0.018); g.strokeStyle = lin(g, R, 'rgba(255,250,240,0.55)', 'rgba(0,0,0,0.25)'); g.stroke();
+    circle(g, R * ri); g.lineWidth = Math.max(0.8, R * 0.018); g.strokeStyle = lin(g, R, 'rgba(255,250,240,0.55)', 'rgba(0,0,0,0.25)'); g.stroke();
 
     /* face carving */
     var lw = Math.max(1, R * 0.035);
@@ -650,7 +655,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   var AGES = [[0, 'New'], [0.15, 'Gently used'], [0.35, 'Well played'], [0.55, 'Seasoned'], [0.75, 'Worn'], [0.9, 'Heirloom']];
   function ageName(a) { var n = AGES[0][1]; AGES.forEach(function (x) { if (a >= x[0]) n = x[1]; }); return n; }
   function randomChecker() { var ks = Object.keys(MAT); return { m: ks[Math.random() * ks.length | 0], t: Math.random() * 5 | 0, f: FACES[Math.random() * 5 | 0][0], i: Math.random() < 0.7 ? 'none' : INLAYS[1 + (Math.random() * 2 | 0)][0], a: Math.round(Math.pow(Math.random(), 1.4) * 100) / 100, s: 1 + (Math.random() * 99999 | 0) }; }
-  window.Checker = { MAT: MAT, FACES: FACES, INLAYS: INLAYS, AGES: AGES, ageName: ageName, random: randomChecker, top: drawTop, tilt: drawTilt, texture: texture, chips: chipsFor, frac: fracColour, THICK: THICK };
+  window.Checker = { MAT: MAT, FACES: FACES, INLAYS: INLAYS, AGES: AGES, ageName: ageName, random: randomChecker, EDGE: EDGE, top: drawTop, tilt: drawTilt, texture: texture, chips: chipsFor, frac: fracColour, THICK: THICK };
 })();
 </script>
 
@@ -1055,7 +1060,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       set.face = fc;
       /* colours around the rim, sampled from the material, so the wall keeps the grain */
       var tx = C.texture(ck.m, ck.t), td = tx.getContext('2d').getImageData(0, 0, tx.width, tx.height).data, rim = [];
-      var pat = { wood: [122, 78, 36], marble: [205, 185, 142], bone: [181, 131, 47], bakelite: [185, 132, 34] }[ck.m], a0 = ck.a || 0;
+      var pat = { wood: [122, 78, 36], marble: [205, 185, 142], bone: [181, 131, 47], bakelite: [185, 132, 34], classic: [168, 138, 92] }[ck.m], a0 = ck.a || 0;
       for (var q = 0; q < 96; q++) {
         var ph = q / 96 * Math.PI * 2, px = Math.round(tx.width / 2 + Math.cos(ph) * tx.width * 0.46), py = Math.round(tx.height / 2 + Math.sin(ph) * tx.height * 0.46), k = (py * tx.width + px) * 4;
         var col = [td[k], td[k + 1], td[k + 2]];
@@ -1071,42 +1076,59 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     function P(x, y, z) { var x1 = x * ct + z * st, z1 = -x * st + z * ct + lift, s = D / (D - z1); return [n / 2 + x1 * s, n / 2 + y * s, z1]; }
     var L = [-0.42, -0.5, 0.76];                                   /* light from the top left, in front */
     function lightOf(nx, ny, nz) { return nx * L[0] + ny * L[1] + nz * L[2]; }
-    /* the wall: thin quads around the rim, only those facing you */
+    /* the wall follows the material's edge profile: a ring of bands from the bottom face round to the top one,
+       each lit by its own normal; only bands facing you are drawn */
+    var E = (C.EDGE && C.EDGE[ck.m]) || { k: 'round', e: 0.08 }, ee = Math.min(E.e * R, H * 0.92), RG = [];
+    if (E.k === 'chamfer') RG = [[R - ee, -H, 0.7, -0.7], [R, -H + ee, 1, 0], [R, H - ee, 1, 0], [R - ee, H, 0.7, 0.7]];
+    else {
+      for (var q2 = 0; q2 <= 4; q2++) { var f2 = -Math.PI / 2 + q2 / 4 * Math.PI / 2; RG.push([R - ee + ee * Math.cos(f2), -H + ee + ee * Math.sin(f2), Math.cos(f2), Math.sin(f2)]); }
+      for (q2 = 0; q2 <= 4; q2++) { var f3 = q2 / 4 * Math.PI / 2; RG.push([R - ee + ee * Math.cos(f3), H - ee + ee * Math.sin(f3), Math.cos(f3), Math.sin(f3)]); }
+    }
     var SEG = 120, dph = Math.PI * 2 / SEG;
     for (var j = 0; j < SEG; j++) {
-      var p0 = j * dph, p1 = p0 + dph * 1.25, pm = p0 + dph / 2;
-      var nx = Math.cos(pm) * ct, ny = Math.sin(pm), nz = -Math.cos(pm) * st;
-      if (nz <= 0.002) continue;
+      var p0 = j * dph, p1 = p0 + dph * 1.25, pm = p0 + dph / 2, cm = Math.cos(pm), sm = Math.sin(pm);
       /* chips take a bite out of the front half of the wall */
       var top = H, scar = 0;
       set.chips.forEach(function (ch) {
         var d = Math.abs(((pm - ch.th + Math.PI * 3) % (Math.PI * 2)) - Math.PI), half = ch.s / R * 0.9;
         if (d < half) { var cut = T * 0.6 * (1 - (d / half) * (d / half)); if (H - cut < top) { top = H - cut; scar = cut; } }
       });
-      var col = set.rim[Math.floor(pm / (Math.PI * 2) * 96) % 96], lit = 0.5 + 0.62 * Math.max(0, lightOf(nx, ny, nz));
-      var a = P(Math.cos(p0) * R, Math.sin(p0) * R, -H), b = P(Math.cos(p1) * R, Math.sin(p1) * R, -H), e = P(Math.cos(p1) * R, Math.sin(p1) * R, top), f = P(Math.cos(p0) * R, Math.sin(p0) * R, top);
-      g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(e[0], e[1]); g.lineTo(f[0], f[1]); g.closePath();
-      g.fillStyle = 'rgb(' + col.map(function (v) { return Math.min(255, Math.round(v * lit)); }).join(',') + ')'; g.fill();
-      if (scar > 0) {                                            /* the fresh break: lighter, set back from the rim */
-        var rr = R - scar * 0.9, u = P(Math.cos(p0) * rr, Math.sin(p0) * rr, top), v = P(Math.cos(p1) * rr, Math.sin(p1) * rr, top), w = P(Math.cos(p1) * rr, Math.sin(p1) * rr, H), x = P(Math.cos(p0) * rr, Math.sin(p0) * rr, H);
-        g.beginPath(); g.moveTo(f[0], f[1]); g.lineTo(e[0], e[1]); g.lineTo(v[0], v[1]); g.lineTo(w[0], w[1]); g.lineTo(x[0], x[1]); g.lineTo(u[0], u[1]); g.closePath();
-        g.fillStyle = set.frac; g.globalAlpha = 0.55 + 0.4 * Math.max(0, lightOf(nx, ny, nz)); g.fill(); g.globalAlpha = 1;
+      var col = set.rim[Math.floor(pm / (Math.PI * 2) * 96) % 96], edgeTop = null;
+      for (var m = 0; m < RG.length - 1; m++) {
+        var A = RG[m], B = RG[m + 1]; if (A[1] >= top - 0.01) break;
+        var zb = Math.min(B[1], top), rb = B[1] > top ? A[0] + (B[0] - A[0]) * (top - A[1]) / Math.max(0.001, B[1] - A[1]) : B[0];
+        var nr = (A[2] + B[2]) / 2, nzl = (A[3] + B[3]) / 2, nl = Math.hypot(nr, nzl); nr /= nl; nzl /= nl;
+        var nx = cm * nr * ct + nzl * st, ny = sm * nr, nz = -cm * nr * st + nzl * ct;
+        if (nz > 0.002) {
+          var lit = 0.5 + 0.62 * Math.max(0, lightOf(nx, ny, nz));
+          var a = P(Math.cos(p0) * A[0], Math.sin(p0) * A[0], A[1]), b = P(Math.cos(p1) * A[0], Math.sin(p1) * A[0], A[1]), e = P(Math.cos(p1) * rb, Math.sin(p1) * rb, zb), f = P(Math.cos(p0) * rb, Math.sin(p0) * rb, zb);
+          g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(e[0], e[1]); g.lineTo(f[0], f[1]); g.closePath();
+          g.fillStyle = 'rgb(' + col.map(function (v) { return Math.min(255, Math.round(v * lit)); }).join(',') + ')'; g.fill();
+          g.strokeStyle = g.fillStyle; g.lineWidth = 0.6; g.stroke();
+        }
+        if (B[1] >= top) { edgeTop = [rb, zb, nx, ny, nz]; break; }
+      }
+      if (scar > 0 && edgeTop && edgeTop[4] > 0.002) {             /* the fresh break: lighter, set back from the rim */
+        var r0 = edgeTop[0], rr = R - scar * 0.9 - ee, f0 = P(Math.cos(p0) * r0, Math.sin(p0) * r0, top), e0 = P(Math.cos(p1) * r0, Math.sin(p1) * r0, top);
+        var u = P(Math.cos(p0) * rr, Math.sin(p0) * rr, top), v = P(Math.cos(p1) * rr, Math.sin(p1) * rr, top), w = P(Math.cos(p1) * rr, Math.sin(p1) * rr, H), x = P(Math.cos(p0) * rr, Math.sin(p0) * rr, H);
+        g.beginPath(); g.moveTo(f0[0], f0[1]); g.lineTo(e0[0], e0[1]); g.lineTo(v[0], v[1]); g.lineTo(w[0], w[1]); g.lineTo(x[0], x[1]); g.lineTo(u[0], u[1]); g.closePath();
+        g.fillStyle = set.frac; g.globalAlpha = 0.55 + 0.4 * Math.max(0, lightOf(edgeTop[2], edgeTop[3], edgeTop[4])); g.fill(); g.globalAlpha = 1;
       }
     }
     /* the face you can see (front, or the back once it has turned over), mapped in small triangles so perspective holds */
-    var front = ct > 0, zf = front ? H : -H, sx = front ? 1 : -1, G = 12, step = 2 * R / G;
+    var front = ct > 0, zf = front ? H : -H, sx = front ? 1 : -1, G = 12, step = 2 * R / G, kf = (R - ee * 0.18) / R;
     for (var gy = 0; gy < G; gy++) for (var gx = 0; gx < G; gx++) {
       var x0 = -R + gx * step, y0 = -R + gy * step;
       var qx = Math.max(x0, Math.min(0, x0 + step)), qy = Math.max(y0, Math.min(0, y0 + step)); if (Math.hypot(qx, qy) > R + 1) continue;
       [[[x0, y0], [x0 + step, y0], [x0, y0 + step]], [[x0 + step, y0], [x0 + step, y0 + step], [x0, y0 + step]]].forEach(function (tri) {
-        var d = tri.map(function (p) { return P(p[0] * sx, p[1], zf); }), s0 = tri.map(function (p) { return [p[0] + n / 2, p[1] + n / 2]; });
+        var d = tri.map(function (p) { return P(p[0] * sx * kf, p[1] * kf, zf); }), s0 = tri.map(function (p) { return [p[0] + n / 2, p[1] + n / 2]; });
         tex(g, set.face, s0, d);
       });
     }
     /* shade the face as it turns away from the light, catch a glint as it faces it */
     var fl = front ? lightOf(st, 0, ct) : lightOf(-st, 0, -ct), dim = Math.max(0, 0.76 - fl) * 0.62;
     g.save(); g.globalCompositeOperation = 'source-atop';
-    g.beginPath(); for (var k2 = 0; k2 <= 48; k2++) { var an = k2 / 48 * Math.PI * 2, pp = P(Math.cos(an) * R * sx, Math.sin(an) * R, zf); if (k2) g.lineTo(pp[0], pp[1]); else g.moveTo(pp[0], pp[1]); }
+    g.beginPath(); for (var k2 = 0; k2 <= 48; k2++) { var an = k2 / 48 * Math.PI * 2, pp = P(Math.cos(an) * R * kf * sx, Math.sin(an) * R * kf, zf); if (k2) g.lineTo(pp[0], pp[1]); else g.moveTo(pp[0], pp[1]); }
     g.fillStyle = 'rgba(12,7,3,' + dim.toFixed(3) + ')'; g.fill();
     if (fl > 0.8) { g.fillStyle = 'rgba(255,252,245,' + ((fl - 0.8) * 1.2 * C.MAT[ck.m].gloss).toFixed(3) + ')'; g.fill(); }
     g.restore();

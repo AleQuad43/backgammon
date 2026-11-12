@@ -89,6 +89,10 @@ h2 { font-size: 18px; margin: 30px 0 4px; }
   /* thickness ÷ diameter, from real sets: tournament acrylic 12 / 44 mm, vintage bakelite 9.7 / 49 mm,
      extra-thick wood 10 mm; marble and bone kept a touch slimmer */
   var THICK = { wood: 0.27, marble: 0.22, bone: 0.2, bakelite: 0.22, classic: 0.22 };
+  /* edge profile, as a fraction of the radius: moulded bakelite is soft and pillowy, turned wood rounded on the lathe,
+     classic acrylic gently eased, bone sliced thin and barely eased, marble cut flat with a small polished chamfer */
+  var EDGE = { wood: { k: 'round', e: 0.1 }, marble: { k: 'chamfer', e: 0.06 }, bone: { k: 'round', e: 0.035 }, bakelite: { k: 'round', e: 0.17 }, classic: { k: 'round', e: 0.08 } };
+  function rimIn(m) { var E = EDGE[m] || { e: 0.12 }; return 1 - Math.max(0.05, Math.min(0.24, E.e * 1.35)); }
   var FACES = [['flat', 'Flat'], ['dish', 'Dished'], ['rings', 'Turned rings'], ['star', 'Eight-point star'], ['rosette', 'Rosette']];
   var INLAYS = [['none', 'None'], ['pearl', 'Mother-of-pearl'], ['brass', 'Brass']];
   var S = { m: 'wood', t: 3, f: 'rings', i: 'none', a: 0, s: 1 + (Math.random() * 99999 | 0) };
@@ -284,13 +288,14 @@ h2 { font-size: 18px; margin: 30px 0 4px; }
     g.save(); g.rotate((o.t * 0.9 + o.m.length) % 6); g.drawImage(texture(o.m, o.t), -R * 1.05, -R * 1.05, R * 2.1, R * 2.1); g.restore();
     wearBody(g, o, R);
     /* rounded edge: bright where it faces the light, dark where it turns away */
-    var rg = g.createRadialGradient(0, 0, R * 0.8, 0, 0, R);
+    var ri = rimIn(o.m), chamf = (EDGE[o.m] || {}).k === 'chamfer';
+    var rg = g.createRadialGradient(0, 0, R * (ri - 0.04), 0, 0, R);
     rg.addColorStop(0, 'rgba(0,0,0,0)'); rg.addColorStop(0.7, 'rgba(0,0,0,0.12)'); rg.addColorStop(1, 'rgba(0,0,0,0.45)');
     g.fillStyle = rg; g.fillRect(-R, -R, 2 * R, 2 * R);
-    g.beginPath(); g.arc(0, 0, R, 0, Math.PI * 2); g.arc(0, 0, R * 0.84, 0, Math.PI * 2, true);
-    g.fillStyle = lin(g, R, 'rgba(255,250,240,0.38)', 'rgba(0,0,0,0.35)'); g.fill();
+    g.beginPath(); g.arc(0, 0, R, 0, Math.PI * 2); g.arc(0, 0, R * ri, 0, Math.PI * 2, true);
+    g.fillStyle = lin(g, R, chamf ? 'rgba(255,250,240,0.5)' : 'rgba(255,250,240,0.38)', chamf ? 'rgba(0,0,0,0.42)' : 'rgba(0,0,0,0.35)'); g.fill();
     /* the crisp edge where the flat face meets the rounding */
-    circle(g, R * 0.84); g.lineWidth = Math.max(0.8, R * 0.018); g.strokeStyle = lin(g, R, 'rgba(255,250,240,0.55)', 'rgba(0,0,0,0.25)'); g.stroke();
+    circle(g, R * ri); g.lineWidth = Math.max(0.8, R * 0.018); g.strokeStyle = lin(g, R, 'rgba(255,250,240,0.55)', 'rgba(0,0,0,0.25)'); g.stroke();
 
     /* face carving */
     var lw = Math.max(1, R * 0.035);
