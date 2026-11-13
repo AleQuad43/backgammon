@@ -1487,7 +1487,10 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     D.forEach(function (d) { d.live = false; }); D = [];
     G.phase = 'roll'; setTurn(ME); say('Your turn. Throw your dice.');
   }
+  /* House rule: the first game of a match starts with the opening roll; after that the last game's winner starts. */
+  var LASTW = null;
   function gameOver(winner, dropped) {
+    LASTW = winner;
     G.phase = 'over'; dayFlip(); G.asking = false; hideNote(); say('');
     /* Single 1, gammon 2 (loser bore off nothing), backgammon 3 (also still on the bar or in the winner's home board). */
     var loser = other(winner), gam = !dropped && stacks['off-' + loser].length === 0, bg = false;
@@ -1654,7 +1657,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   }
   /* A new match at 0–0, to however many points you pick. */
   function newMatch(n) {
-    MATCH = n; $('scTo').textContent = 'match to ' + MATCH;
+    MATCH = n; $('scTo').textContent = 'match to ' + MATCH; LASTW = null;
     if (DUO) { DUO.recorded = false; newGame(true); } else { G.score = { me: 0, them: 0 }; start(); }
   }
   function startBoard() {
@@ -1666,7 +1669,8 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   function newGame(fresh) {
     var sc = { A: 0, B: 0 };
     if (!fresh) { sc[DUO.seat] = G.score.me; sc[DUO.other] = G.score.them; }
-    var doc = { v: DUO.V + 1, by: DUO.seat, game: Math.max(DUO.game || 0, (DUO.lastDoc && DUO.lastDoc.game) || 0) + 1, round: 0, phase: 'opening', turn: null,
+    var ws = !fresh && DUO.lastDoc && DUO.lastDoc.result ? DUO.lastDoc.result.winner : null;
+    var doc = { v: DUO.V + 1, by: DUO.seat, game: Math.max(DUO.game || 0, (DUO.lastDoc && DUO.lastDoc.game) || 0) + 1, round: 0, phase: ws ? 'roll' : 'opening', turn: ws,
       open: { A: null, B: fresh ? { v: rnd6(), n: nonce(), t: null } : null }, board: startBoard(), dice: null, cube: { v: 1, owner: null },
       offerBy: null, score: sc, result: null, to: MATCH, log: [], race: null, ro: null };
     DUO.V = doc.v; DUO.pend = null; applyShared(doc, true);
@@ -1767,11 +1771,11 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
         if (prev === 'wait' && G.cube.owner === TH) {
           spinSky(); floatHome($('whoThem'), function () { $('cube').classList.remove('dragging'); cubeUI(); });
           say(NAME.them + ' took it. Playing for ' + G.cube.v + '. Throw your dice.');
-        } else say('Your turn. Throw your dice.');
+        } else say(fresh && !lg.length ? 'You won the last game, so you start. Throw your dice.' : 'Your turn. Throw your dice.');
       } else { setTurn(ME); applyDice(d.dice, false); G.phase = 'move'; G.hist = []; afterMyMove(true); }
     } else {
       setTurn(TH); G.phase = 'remote';
-      if (d.phase === 'roll') { clearDice(); say(NAME.them + '’s turn to throw.'); }
+      if (d.phase === 'roll') { clearDice(); say(fresh && !lg.length ? NAME.them + ' won the last game, so they start.' : NAME.them + '’s turn to throw.'); }
       else { applyDice(d.dice, !fresh); say(NAME.them + ' is playing.'); }
     }
     cubeUI();
@@ -1898,10 +1902,13 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   function start() {
     $('over').hidden = true; hideNote();
     if (!spin) { skyA = Math.round(skyA / (2 * Math.PI)) * 2 * Math.PI; paintSky(skyA); }
+    var lw = G && G.phase === 'over' ? LASTW : null;
     var keep = G ? G.score : { me: 3, them: 2 }; $('scTo').textContent = 'match to ' + MATCH;
     G = { turn: ME, phase: 'opening', hist: [], cube: { v: 1, owner: null }, score: keep, rolling: false };
     $('scMe').textContent = keep.me; $('scThem').textContent = keep.them;
     setup(); D = []; pips(); setTurn(ME);
+    if (lw === ME) { G.phase = 'roll'; cubeUI(); say('You won the last game, so you start. Throw your dice.'); return; }
+    if (lw === TH) { G.phase = 'ai'; setTurn(TH); say(NAME.them + ' won the last game, so they start.'); setTimeout(aiRoll, 2400); return; }
     var v = rnd6(), R = region(TH), d = newDie(TH, v, (R.x0 + R.x1) / 2, L.mid, 0, 0);
     d.settled = true; d.face = v; d.tidy = true; d.a = 0; D.push(d);
     say('Luca rolled ' + v + ' when he challenged you. Throw yours.');

@@ -663,9 +663,17 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     g.save(); g.filter = 'blur(' + (R * 0.1) + 'px)'; g.fillStyle = 'rgba(20,10,4,0.5)';
     g.beginPath(); g.ellipse(R * 0.12, T + R * 0.1, R * 1.02, R * k * 1.02, 0, 0, Math.PI * 2); g.fill(); g.restore();
     var outer = g, Ly = layer(R * 1.2); g = Ly.g;
-    /* side wall */
+    /* side wall, shaped by the material's edge profile (rounded or chamfered top and bottom edges): the outline is
+       every ring of the profile together, and each band of the rounding is lit by which way it faces */
+    var E = EDGE[o.m] || { k: 'round', e: 0.08 }, ee = Math.min(E.e * R, T / 0.75 * 0.45), ev = ee * 0.75, RG = [];
+    if (E.k === 'chamfer') RG = [[R - ee, 0, 0.7], [R, ev, 0], [R, T - ev, 0], [R - ee, T, -0.7]];
+    else {
+      for (var q = 0; q <= 5; q++) { var aq = q / 5 * Math.PI / 2; RG.push([R - ee + ee * Math.sin(aq), ev * (1 - Math.cos(aq)), Math.cos(aq)]); }
+      for (q = 1; q <= 5; q++) { var bq = Math.PI / 2 + q / 5 * Math.PI / 2; RG.push([R - ee + ee * Math.sin(bq), T - ev * (1 + Math.cos(bq)), Math.cos(bq)]); }
+    }
     g.save();
-    g.beginPath(); g.moveTo(-R, 0); g.lineTo(-R, T); g.ellipse(0, T, R, R * k, 0, Math.PI, 0, true); g.lineTo(R, 0); g.ellipse(0, 0, R, R * k, 0, 0, Math.PI, false); g.closePath(); g.clip();
+    g.beginPath(); RG.forEach(function (p) { g.moveTo(p[0], p[1]); g.ellipse(0, p[1], p[0], p[0] * k, 0, 0, Math.PI * 2); });
+    g.moveTo(R, ev); g.rect(-R, ev, 2 * R, Math.max(0, T - 2 * ev)); g.clip('nonzero');
     g.drawImage(texture(o.m, o.t), -R, -R * k, 2 * R, T + 2 * R * k);
     if (a > 0.01) {
       g.save(); g.globalCompositeOperation = 'multiply'; g.globalAlpha = a * A.patina[1]; g.fillStyle = A.patina[0]; g.fillRect(-R, -R, 2 * R, T + 2 * R); g.restore();
@@ -678,9 +686,16 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     g.fillStyle = vg; g.fillRect(-R, -R, 2 * R, T + 2 * R);
     if (MAT[o.m].gloss > 0.6) { var sg = g.createLinearGradient(-R * 0.75, 0, -R * 0.45, 0); sg.addColorStop(0, 'rgba(255,255,255,0)'); sg.addColorStop(0.5, 'rgba(255,255,255,0.16)'); sg.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = sg; g.fillRect(-R * 0.75, 0, R * 0.3, T + R * k); }
     if (o.m === 'wood') for (var l = 1; l < 3; l++) { g.beginPath(); g.ellipse(0, T * l / 3, R, R * k, 0, 0, Math.PI); g.strokeStyle = 'rgba(0,0,0,0.12)'; g.lineWidth = 1; g.stroke(); }
+    /* the rounded bands: lighter where they turn up toward the light, darker where they turn under */
+    for (var m = 0; m < RG.length - 1; m++) {
+      var A2 = RG[m], B2 = RG[m + 1], nz = (A2[2] + B2[2]) / 2; if (Math.abs(nz) < 0.05) continue;
+      g.beginPath(); g.ellipse(0, A2[1], A2[0], A2[0] * k, 0, 0, Math.PI, false); g.ellipse(0, B2[1], B2[0], B2[0] * k, 0, Math.PI, 0, true); g.closePath();
+      g.fillStyle = nz > 0 ? 'rgba(255,250,238,' + (0.22 * nz * (0.6 + MAT[o.m].gloss * 0.5)).toFixed(3) + ')' : 'rgba(10,5,2,' + (0.32 * -nz).toFixed(3) + ')'; g.fill();
+    }
     g.restore();
-    /* top face */
-    g.save(); g.scale(1, k); drawTop(g, o, R, { noShadow: true, noChips: true }); g.restore();
+    /* top face: the flat top, a touch inside the rim so the rounding shows round its edge */
+    var kf = (R - ee * 0.18) / R;
+    g.save(); g.scale(kf, k * kf); drawTop(g, o, R, { noShadow: true, noChips: true }); g.restore();
     breakChips(g, o, chipsFor(o, R), k, T);
     outer.drawImage(Ly.cv, -Ly.h, -Ly.h);
   }
@@ -2681,7 +2696,10 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     D.forEach(function (d) { d.live = false; }); D = [];
     G.phase = 'roll'; setTurn(ME); say('Your turn. Throw your dice.');
   }
+  /* House rule: the first game of a match starts with the opening roll; after that the last game's winner starts. */
+  var LASTW = null;
   function gameOver(winner, dropped) {
+    LASTW = winner;
     G.phase = 'over'; dayFlip(); G.asking = false; hideNote(); say('');
     /* Single 1, gammon 2 (loser bore off nothing), backgammon 3 (also still on the bar or in the winner's home board). */
     var loser = other(winner), gam = !dropped && stacks['off-' + loser].length === 0, bg = false;
@@ -2845,7 +2863,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   }
   /* A new match at 0–0, to however many points you pick. */
   function newMatch(n) {
-    MATCH = n; $('scTo').textContent = 'match to ' + MATCH;
+    MATCH = n; $('scTo').textContent = 'match to ' + MATCH; LASTW = null;
     if (DUO) { DUO.recorded = false; newGame(true); } else { G.score = { me: 0, them: 0 }; start(); }
   }
   function startBoard() {
@@ -2857,7 +2875,8 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   function newGame(fresh) {
     var sc = { A: 0, B: 0 };
     if (!fresh) { sc[DUO.seat] = G.score.me; sc[DUO.other] = G.score.them; }
-    var doc = { v: DUO.V + 1, by: DUO.seat, game: Math.max(DUO.game || 0, (DUO.lastDoc && DUO.lastDoc.game) || 0) + 1, round: 0, phase: 'opening', turn: null,
+    var ws = !fresh && DUO.lastDoc && DUO.lastDoc.result ? DUO.lastDoc.result.winner : null;
+    var doc = { v: DUO.V + 1, by: DUO.seat, game: Math.max(DUO.game || 0, (DUO.lastDoc && DUO.lastDoc.game) || 0) + 1, round: 0, phase: ws ? 'roll' : 'opening', turn: ws,
       open: { A: null, B: fresh ? { v: rnd6(), n: nonce(), t: null } : null }, board: startBoard(), dice: null, cube: { v: 1, owner: null },
       offerBy: null, score: sc, result: null, to: MATCH, log: [], race: null, ro: null };
     DUO.V = doc.v; DUO.pend = null; applyShared(doc, true);
@@ -2958,11 +2977,11 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
         if (prev === 'wait' && G.cube.owner === TH) {
           spinSky(); floatHome($('whoThem'), function () { $('cube').classList.remove('dragging'); cubeUI(); });
           say(NAME.them + ' took it. Playing for ' + G.cube.v + '. Throw your dice.');
-        } else say('Your turn. Throw your dice.');
+        } else say(fresh && !lg.length ? 'You won the last game, so you start. Throw your dice.' : 'Your turn. Throw your dice.');
       } else { setTurn(ME); applyDice(d.dice, false); G.phase = 'move'; G.hist = []; afterMyMove(true); }
     } else {
       setTurn(TH); G.phase = 'remote';
-      if (d.phase === 'roll') { clearDice(); say(NAME.them + '’s turn to throw.'); }
+      if (d.phase === 'roll') { clearDice(); say(fresh && !lg.length ? NAME.them + ' won the last game, so they start.' : NAME.them + '’s turn to throw.'); }
       else { applyDice(d.dice, !fresh); say(NAME.them + ' is playing.'); }
     }
     cubeUI();
@@ -3120,10 +3139,13 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   function start() {
     $('over').hidden = true; hideNote();
     if (!spin) { skyA = Math.round(skyA / (2 * Math.PI)) * 2 * Math.PI; paintSky(skyA); }
+    var lw = G && G.phase === 'over' ? LASTW : null;
     var keep = G ? G.score : (OPP.score || { me: 0, them: 0 }); $('scTo').textContent = 'match to ' + MATCH;
     G = { turn: ME, phase: 'opening', hist: [], cube: { v: 1, owner: null }, score: keep, rolling: false };
     $('scMe').textContent = keep.me; $('scThem').textContent = keep.them;
     setup(); D = []; pips(); setTurn(ME);
+    if (lw === ME) { G.phase = 'roll'; cubeUI(); say('You won the last game, so you start. Throw your dice.'); return; }
+    if (lw === TH) { G.phase = 'ai'; setTurn(TH); say(NAME.them + ' won the last game, so they start.'); setTimeout(aiRoll, 2400); return; }
     var v = rnd6(), R = region(TH), d = newDie(TH, v, (R.x0 + R.x1) / 2, L.mid, 0, 0);
     d.settled = true; d.face = v; d.tidy = true; d.a = 0; D.push(d);
     say(NAME.them + ' rolled ' + v + ' when they challenged you. Throw yours.');

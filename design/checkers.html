@@ -358,9 +358,17 @@ h2 { font-size: 18px; margin: 30px 0 4px; }
     g.save(); g.filter = 'blur(' + (R * 0.1) + 'px)'; g.fillStyle = 'rgba(20,10,4,0.5)';
     g.beginPath(); g.ellipse(R * 0.12, T + R * 0.1, R * 1.02, R * k * 1.02, 0, 0, Math.PI * 2); g.fill(); g.restore();
     var outer = g, Ly = layer(R * 1.2); g = Ly.g;
-    /* side wall */
+    /* side wall, shaped by the material's edge profile (rounded or chamfered top and bottom edges): the outline is
+       every ring of the profile together, and each band of the rounding is lit by which way it faces */
+    var E = EDGE[o.m] || { k: 'round', e: 0.08 }, ee = Math.min(E.e * R, T / 0.75 * 0.45), ev = ee * 0.75, RG = [];
+    if (E.k === 'chamfer') RG = [[R - ee, 0, 0.7], [R, ev, 0], [R, T - ev, 0], [R - ee, T, -0.7]];
+    else {
+      for (var q = 0; q <= 5; q++) { var aq = q / 5 * Math.PI / 2; RG.push([R - ee + ee * Math.sin(aq), ev * (1 - Math.cos(aq)), Math.cos(aq)]); }
+      for (q = 1; q <= 5; q++) { var bq = Math.PI / 2 + q / 5 * Math.PI / 2; RG.push([R - ee + ee * Math.sin(bq), T - ev * (1 + Math.cos(bq)), Math.cos(bq)]); }
+    }
     g.save();
-    g.beginPath(); g.moveTo(-R, 0); g.lineTo(-R, T); g.ellipse(0, T, R, R * k, 0, Math.PI, 0, true); g.lineTo(R, 0); g.ellipse(0, 0, R, R * k, 0, 0, Math.PI, false); g.closePath(); g.clip();
+    g.beginPath(); RG.forEach(function (p) { g.moveTo(p[0], p[1]); g.ellipse(0, p[1], p[0], p[0] * k, 0, 0, Math.PI * 2); });
+    g.moveTo(R, ev); g.rect(-R, ev, 2 * R, Math.max(0, T - 2 * ev)); g.clip('nonzero');
     g.drawImage(texture(o.m, o.t), -R, -R * k, 2 * R, T + 2 * R * k);
     if (a > 0.01) {
       g.save(); g.globalCompositeOperation = 'multiply'; g.globalAlpha = a * A.patina[1]; g.fillStyle = A.patina[0]; g.fillRect(-R, -R, 2 * R, T + 2 * R); g.restore();
@@ -373,9 +381,16 @@ h2 { font-size: 18px; margin: 30px 0 4px; }
     g.fillStyle = vg; g.fillRect(-R, -R, 2 * R, T + 2 * R);
     if (MAT[o.m].gloss > 0.6) { var sg = g.createLinearGradient(-R * 0.75, 0, -R * 0.45, 0); sg.addColorStop(0, 'rgba(255,255,255,0)'); sg.addColorStop(0.5, 'rgba(255,255,255,0.16)'); sg.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = sg; g.fillRect(-R * 0.75, 0, R * 0.3, T + R * k); }
     if (o.m === 'wood') for (var l = 1; l < 3; l++) { g.beginPath(); g.ellipse(0, T * l / 3, R, R * k, 0, 0, Math.PI); g.strokeStyle = 'rgba(0,0,0,0.12)'; g.lineWidth = 1; g.stroke(); }
+    /* the rounded bands: lighter where they turn up toward the light, darker where they turn under */
+    for (var m = 0; m < RG.length - 1; m++) {
+      var A2 = RG[m], B2 = RG[m + 1], nz = (A2[2] + B2[2]) / 2; if (Math.abs(nz) < 0.05) continue;
+      g.beginPath(); g.ellipse(0, A2[1], A2[0], A2[0] * k, 0, 0, Math.PI, false); g.ellipse(0, B2[1], B2[0], B2[0] * k, 0, Math.PI, 0, true); g.closePath();
+      g.fillStyle = nz > 0 ? 'rgba(255,250,238,' + (0.22 * nz * (0.6 + MAT[o.m].gloss * 0.5)).toFixed(3) + ')' : 'rgba(10,5,2,' + (0.32 * -nz).toFixed(3) + ')'; g.fill();
+    }
     g.restore();
-    /* top face */
-    g.save(); g.scale(1, k); drawTop(g, o, R, { noShadow: true, noChips: true }); g.restore();
+    /* top face: the flat top, a touch inside the rim so the rounding shows round its edge */
+    var kf = (R - ee * 0.18) / R;
+    g.save(); g.scale(kf, k * kf); drawTop(g, o, R, { noShadow: true, noChips: true }); g.restore();
     breakChips(g, o, chipsFor(o, R), k, T);
     outer.drawImage(Ly.cv, -Ly.h, -Ly.h);
   }
