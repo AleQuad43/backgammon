@@ -934,13 +934,15 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   function afterMyMove(quiet) {
     if (G.phase === 'over') return;
     var can = remaining().length && anyMove(ME);
-    say(can ? 'Your move.' : (remaining().length ? 'No more moves. ' : '') + 'Hold, then slide to end your turn.');
+    var undo = G.hist && G.hist.length && !G.auto;
+    say(can ? (undo ? 'Double-tap a checker to undo.' : 'Your move.') : (remaining().length ? 'No more moves. ' : '') + 'Hold, then slide to end your turn.' + (undo ? ' Double-tap to undo.' : ''));
     if (DUO && !quiet && G.phase === 'move') save({ phase: 'move', turn: DUO.seat });
   }
   function say(t) { $('status').textContent = t; }
   function setTurn(side) {
     G.turn = side;
-    if (G.skySide !== side) { if (G.skySide || (DUO && side === TH)) spinSky(); G.skySide = side; }
+    /* The sky turns half over when the turn changes, so the opponent's whole turn is in swapped colours. */
+    if (G.skySide !== side) { if (G.skySide || side === TH) spinSky(); G.skySide = side; }
     $('whoMe').classList.toggle('turn', side === ME); $('whoThem').classList.toggle('turn', side === TH);
     cubeUI();
   }
@@ -1895,6 +1897,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   /* ---------- start ---------- */
   function start() {
     $('over').hidden = true; hideNote();
+    if (!spin) { skyA = Math.round(skyA / (2 * Math.PI)) * 2 * Math.PI; paintSky(skyA); }
     var keep = G ? G.score : { me: 3, them: 2 }; $('scTo').textContent = 'match to ' + MATCH;
     G = { turn: ME, phase: 'opening', hist: [], cube: { v: 1, owner: null }, score: keep, rolling: false };
     $('scMe').textContent = keep.me; $('scThem').textContent = keep.them;

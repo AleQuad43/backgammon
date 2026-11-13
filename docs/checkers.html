@@ -402,9 +402,9 @@ h2 { font-size: 18px; margin: 30px 0 4px; }
     el.innerHTML = '';
     list.forEach(function (it) {
       var b = document.createElement('button'); if (S[key] === it[0]) b.className = 'on';
-      var o = Object.assign({}, S); o[key] = it[0]; if (sample) b.appendChild(mini(o, 26));
+      var o = Object.assign({}, S); o[key] = it[0]; if (key === 'm') o.t = Math.min(S.t, MAT[it[0]].tones.length - 1); if (sample) b.appendChild(mini(o, 26));
       b.appendChild(document.createTextNode(it[1]));
-      b.onclick = function () { S[key] = it[0]; render(); }; el.appendChild(b);
+      b.onclick = function () { S[key] = it[0]; if (key === 'm') S.t = o.t; render(); }; el.appendChild(b);
     });
   }
   function buttons() {
@@ -423,7 +423,7 @@ h2 { font-size: 18px; margin: 30px 0 4px; }
       (function (o, c) { requestAnimationFrame(function () { var p = prep(c); p.g.translate(p.w / 2, p.h * 0.4); drawTilt(p.g, o, p.w * 0.3); }); it.onclick = function () { S = Object.assign({}, o); render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }; })(o, c);
     }
   }
-  function randomChecker() { var ks = Object.keys(MAT); return { m: ks[Math.random() * ks.length | 0], t: Math.random() * 5 | 0, f: FACES[Math.random() * 5 | 0][0], i: Math.random() < 0.7 ? 'none' : INLAYS[1 + (Math.random() * 2 | 0)][0], a: Math.round(Math.pow(Math.random(), 1.4) * 100) / 100, s: 1 + (Math.random() * 99999 | 0) }; }
+  function randomChecker() { var ks = Object.keys(MAT).filter(function (k) { return k !== 'classic'; }), m = ks[Math.random() * ks.length | 0]; return { m: m, t: Math.random() * MAT[m].tones.length | 0, f: FACES[Math.random() * 5 | 0][0], i: Math.random() < 0.7 ? 'none' : INLAYS[1 + (Math.random() * 2 | 0)][0], a: Math.round(Math.pow(Math.random(), 1.4) * 100) / 100, s: 1 + (Math.random() * 99999 | 0) }; }
   $('age').addEventListener('input', function (e) { S.a = +e.target.value; stage(); });
   $('age').addEventListener('change', buttons);
   $('rewear').onclick = function () { S.s = 1 + (Math.random() * 99999 | 0); stage(); buttons(); };

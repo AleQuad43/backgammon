@@ -687,7 +687,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
 
   var AGES = [[0, 'New'], [0.15, 'Gently used'], [0.35, 'Well played'], [0.55, 'Seasoned'], [0.75, 'Worn'], [0.9, 'Heirloom']];
   function ageName(a) { var n = AGES[0][1]; AGES.forEach(function (x) { if (a >= x[0]) n = x[1]; }); return n; }
-  function randomChecker() { var ks = Object.keys(MAT); return { m: ks[Math.random() * ks.length | 0], t: Math.random() * 5 | 0, f: FACES[Math.random() * 5 | 0][0], i: Math.random() < 0.7 ? 'none' : INLAYS[1 + (Math.random() * 2 | 0)][0], a: Math.round(Math.pow(Math.random(), 1.4) * 100) / 100, s: 1 + (Math.random() * 99999 | 0) }; }
+  function randomChecker() { var ks = Object.keys(MAT).filter(function (k) { return k !== 'classic'; }), m = ks[Math.random() * ks.length | 0]; return { m: m, t: Math.random() * MAT[m].tones.length | 0, f: FACES[Math.random() * 5 | 0][0], i: Math.random() < 0.7 ? 'none' : INLAYS[1 + (Math.random() * 2 | 0)][0], a: Math.round(Math.pow(Math.random(), 1.4) * 100) / 100, s: 1 + (Math.random() * 99999 | 0) }; }
   window.Checker = { MAT: MAT, FACES: FACES, INLAYS: INLAYS, AGES: AGES, ageName: ageName, random: randomChecker, EDGE: EDGE, top: drawTop, tilt: drawTilt, texture: texture, chips: chipsFor, frac: fracColour, THICK: THICK };
 })();
 </script>
@@ -917,6 +917,8 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   var FIRST = null;
   function openEditor(first) {
     closeAll(); FIRST = first || null; DR = first ? window.Checker.random() : Object.assign({}, ME.ck);
+    if (!window.Checker.MAT[DR.m] || DR.m === 'classic') DR.m = 'wood';
+    DR.t = Math.max(0, Math.min(DR.t | 0, window.Checker.MAT[DR.m].tones.length - 1));
     var e = $('edit'); e.hidden = false; $('eName').textContent = first ? first.name : ME.n;
     e.querySelector('[data-e="cancel"]').style.visibility = first ? 'hidden' : 'visible';
     e.querySelector('.ehead b').textContent = first ? 'Choose your checker' : 'Your checker';
@@ -943,15 +945,16 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       var el = $(id); el.innerHTML = '';
       list.forEach(function (v) {
         var b = document.createElement('button'), o = Object.assign({}, DR); o[key] = v[0];
-        if (key === 'm') o.t = Math.min(DR.t, 4);
+        if (key === 'm') o.t = Math.min(DR.t, C.MAT[v[0]].tones.length - 1);
         b.setAttribute('aria-pressed', DR[key] === v[0]); b.setAttribute('aria-label', v[1]);
         var c = document.createElement('canvas'); c.width = c.height = 40 * d; var g = c.getContext('2d'); g.translate(20 * d, 20 * d);
         C.top(g, o, 17 * d, { noShadow: true }); b.appendChild(c);
-        b.onclick = function () { DR[key] = v[0]; edDraw(); edSwatches(); };
+        b.onclick = function () { DR[key] = v[0]; if (key === 'm') DR.t = o.t; edDraw(); edSwatches(); };
         el.appendChild(b);
       });
     }
-    row('sm', Object.keys(C.MAT).map(function (k) { return [k, C.MAT[k].n]; }), 'm');
+    /* Classic is the board's own white and black set, not a checker to pick for yourself */
+    row('sm', Object.keys(C.MAT).filter(function (k) { return k !== 'classic'; }).map(function (k) { return [k, C.MAT[k].n]; }), 'm');
     row('st', C.MAT[DR.m].tones.map(function (t, i) { return [i, t[0]]; }), 't');
     row('sf', C.FACES, 'f');
     row('si', C.INLAYS, 'i');
@@ -2128,13 +2131,15 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   function afterMyMove(quiet) {
     if (G.phase === 'over') return;
     var can = remaining().length && anyMove(ME);
-    say(can ? 'Your move.' : (remaining().length ? 'No more moves. ' : '') + 'Hold, then slide to end your turn.');
+    var undo = G.hist && G.hist.length && !G.auto;
+    say(can ? (undo ? 'Double-tap a checker to undo.' : 'Your move.') : (remaining().length ? 'No more moves. ' : '') + 'Hold, then slide to end your turn.' + (undo ? ' Double-tap to undo.' : ''));
     if (DUO && !quiet && G.phase === 'move') save({ phase: 'move', turn: DUO.seat });
   }
   function say(t) { $('status').textContent = t; }
   function setTurn(side) {
     G.turn = side;
-    if (G.skySide !== side) { if (G.skySide || (DUO && side === TH)) spinSky(); G.skySide = side; }
+    /* The sky turns half over when the turn changes, so the opponent's whole turn is in swapped colours. */
+    if (G.skySide !== side) { if (G.skySide || side === TH) spinSky(); G.skySide = side; }
     $('whoMe').classList.toggle('turn', side === ME); $('whoThem').classList.toggle('turn', side === TH);
     cubeUI();
   }
@@ -3114,6 +3119,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   /* ---------- start ---------- */
   function start() {
     $('over').hidden = true; hideNote();
+    if (!spin) { skyA = Math.round(skyA / (2 * Math.PI)) * 2 * Math.PI; paintSky(skyA); }
     var keep = G ? G.score : (OPP.score || { me: 0, them: 0 }); $('scTo').textContent = 'match to ' + MATCH;
     G = { turn: ME, phase: 'opening', hist: [], cube: { v: 1, owner: null }, score: keep, rolling: false };
     $('scMe').textContent = keep.me; $('scThem').textContent = keep.them;
