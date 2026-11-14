@@ -422,7 +422,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   function posOf(loc, i, n) {
     var r = L.r;
     if (typeof loc === 'number') {
-      var co = colOf(loc), cx = colX(co[0]) + L.pw / 2, maxLen = L.fh / 2 - 8;
+      var co = colOf(loc), cx = colX(co[0]) + L.pw / 2, maxLen = L.fh / 2 - L.ds / 2 - 6; /* tall stacks stop short of the dice strip down the middle */
       var sp = n <= 1 ? 0 : Math.min(2 * r, (maxLen - 2 * r) / (n - 1));
       return [cx, co[1] ? L.y0 + r + i * sp : L.y0 + L.fh - r - i * sp];
     }
@@ -646,6 +646,9 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     }
     if (G.rolling && !moving) {
       G.rolling = false;
+      /* thrown dice never rest where they stopped (on a checker, say): they slide to their place in the middle strip */
+      D.forEach(function (d) { if (d.live && d.settled) d.tidy = true; });
+      D.sort(function (a, b) { return b.v - a.v; });
       var cb = G.throwCb; G.throwCb = null;
       setTimeout(function () { if (cb) cb(); }, reduce ? 50 : 520);
     }
@@ -670,7 +673,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     ctx.restore();
   }
   function ghosts() {
-    if (G.turn !== ME || (G.phase !== 'roll' && G.phase !== 'opening') || G.rolling) return [];
+    if (!canThrow()) return [];
     var n = G.phase === 'opening' ? 1 : 2, R = region(ME), sp = L.ds + 8, out = [];
     var gu = GIN && n === 2 ? (performance.now() - GIN.t0) / 750 : 1, ge = ease(Math.min(1, Math.max(0, gu)));
     if (gu >= 1) GIN = null;
@@ -926,7 +929,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     if (G.phase === 'rollout') { if (G.skipRoll) G.skipRoll(); return; }
     if (G.auto || G.asking || G.phase === 'auto') return;
     if (NOTE.on) hideNote();
-    if (G.turn === ME && (G.phase === 'roll' || G.phase === 'opening') && !G.rolling) {
+    if (canThrow()) {
       flick = { hist: [{ x: x, y: y, t: performance.now() }], x0: x, y0: y }; return;
     }
     if (G.phase === 'offered') {
@@ -1714,8 +1717,15 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     setTimeout(function () { if (G.phase === 'ai') throwDice(TH, 2, null, function () { rolled(TH); }); }, 900);
   }
   $('aiDbl').addEventListener('click', function () { if (G) { G.forceAiDouble = true; $('aiDbl').textContent = 'Luca will double on his next turn'; } });
+  /* You can throw only on your own turn, before a throw of yours is out: never a second die in the opening. */
+  function canThrow() {
+    if (!G || G.turn !== ME || G.rolling) return false;
+    if (G.phase === 'roll') return true;
+    return G.phase === 'opening' && !D.some(function (d) { return d.live && d.side === ME; });
+  }
   function myThrow(from) {
-    if (G.phase === 'opening') { say(''); if (DUO) { duoOpenThrow(from); return; } throwDice(ME, 1, from, openingResult); return; }
+    if (!canThrow()) return;
+    if (G.phase === 'opening') { say(''); if (DUO) { duoOpenThrow(from); return; } throwDice(ME, 1, from, openingResult); G.phase = 'openWait'; return; }
     D = []; G.phase = 'rolling'; cubeUI(); say('');
     throwDice(ME, 2, from, function () { rolled(ME); });
     if (DUO) {
@@ -1742,15 +1752,16 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     else setTimeout(aiStep, 700);
   }
   function openingResult() {
-    var mine = D.filter(function (d) { return d.side === ME; })[0], his = D.filter(function (d) { return d.side === TH; })[0];
+    var g = G, mine = D.filter(function (d) { return d.side === ME; })[0], his = D.filter(function (d) { return d.side === TH; })[0];
     if (mine.v === his.v) {
       say('Both ' + mine.v + '. Rolling again.');
-      setTimeout(function () { D = []; throwDice(TH, 1, null, function () { G.phase = 'opening'; say('Luca rolled ' + D[0].v + '. Throw yours.'); }); G.phase = 'reroll'; }, 1100);
+      setTimeout(function () { if (G !== g || G.phase !== 'openWait') return; D = []; throwDice(TH, 1, null, function () { if (G !== g) return; G.phase = 'opening'; say('Luca rolled ' + D[0].v + '. Throw yours.'); }); G.phase = 'reroll'; }, 1100);
       return;
     }
     var starter = mine.v > his.v ? ME : TH;
     say((starter === ME ? 'You start' : 'Luca starts') + ' with ' + Math.max(mine.v, his.v) + ' and ' + Math.min(mine.v, his.v) + '.');
     setTimeout(function () {
+      if (G !== g || G.phase !== 'openWait') return;
       [mine, his].forEach(function (d) { d.side = starter; d.tidy = true; d.popT = 0; });
       D.sort(function (a, b) { return b.v - a.v; });
       setTurn(starter);
