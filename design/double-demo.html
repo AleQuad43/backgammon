@@ -1848,6 +1848,8 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
         if (sp > 70 && now - d.lastFace > 45 + 9000 / sp) { var f = rnd6(); d.face = f === d.face ? (f % 6) + 1 : f; d.lastFace = now; }
         if (sp < 16) { d.settled = true; d.vx = d.vy = 0; d.face = d.v; d.popT = now; }
       } else {
+        /* a die at rest never stays where it stopped once the throw is over, whatever path brought it here */
+        if (!d.tidy && !d.held && !G.rolling && !pass) d.tidy = true;
         var tgt = d.tidy ? tidyPos(d) : [d.x, d.y], k = 1 - Math.exp(-dt * 7);
         if (d.tidy && READY && d.side === ME && !reduce) tgt[0] -= nudge(now);
         d.x += (tgt[0] - d.x) * k; d.y += (tgt[1] - d.y) * k;
@@ -2584,9 +2586,10 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   /* ---------- Giving up: close the board ----------
      Two fingers at the two ends of the board, brought together: the right half folds over the left like closing a
      backgammon case, following the fingers. Let go before it's shut and it falls open again. Once it's shut, the closed
-     case asks: give up this game? "Play on", or a tap anywhere else, opens it again. Nothing is asked while you fold,
-     so the gesture stays a gesture. Only on your own turn (or when they've doubled you, where it means passing on the
-     double), so the other player is never writing to the shared game at the same moment. */
+     case asks: give up the match? Giving up is for the whole match, never just this game: the other player is given
+     the points they still need. "Play on", or a tap anywhere else, opens it again. Nothing is asked while you fold,
+     so the gesture stays a gesture. Only on your own turn (or when they've doubled you), so the other player is never
+     writing to the shared game at the same moment. Passing on a double alone stays the hold-and-slide on the ×2. */
   var FOLD = null;
   function canForfeit() {
     if (!G || !stacks || CASE.a || !$('over').hidden || G.asking || G.rolling || G.auto) return false;
@@ -2595,7 +2598,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   }
   function startFold(pc) {
     if (!canForfeit()) {
-      if (G && G.turn !== ME && (G.phase === 'remote' || G.phase === 'ai' || G.phase === 'wait')) say('You can give up the game on your own turn.');
+      if (G && G.turn !== ME && (G.phase === 'remote' || G.phase === 'ai' || G.phase === 'wait')) say('You can give up the match on your own turn.');
       return;
     }
     if (pass) dropDice(true);
@@ -2662,7 +2665,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     if (!canForfeit()) { foldTo(0, 420, easeOut, function () { foldEnd(); turnHooks(); }); return; }
     if (navigator.vibrate) try { navigator.vibrate(12); } catch (e) {}
     var c = forfeitCost(), n = F.note;
-    n.innerHTML = (c.drop ? 'Give up on the double?' : 'Give up this game?') + '<small>' + esc(costText(c)) + '</small><div class="ask"><button data-g="1">Give up</button><button data-g="0" class="keep">Play on</button></div>';
+    n.innerHTML = 'Give up the match?<small>' + esc(costText(c)) + '</small><div class="ask"><button data-g="1">Give up</button><button data-g="0" class="keep">Play on</button></div>';
     n.style.left = (F.hinge / 2) + 'px'; n.style.top = (H / 2) + 'px'; n.style.width = Math.round(F.hinge - 40) + 'px';
     n.hidden = false; requestAnimationFrame(function () { n.classList.add('on'); });
     F.askT = performance.now();
@@ -2683,26 +2686,20 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     if (F.cube) $('cubeFloat').style.visibility = '';
     var o = $('over'); if (o.style.visibility) { o.style.visibility = ''; if (o.animate && !o.hidden) o.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 450, easing: 'ease-out' }); }
   }
-  /* What giving up costs, counted on the board as it was at the start of this turn (moves you haven't finished don't
-     count): the cube's value, twice that as a gammon if you've borne off nothing while they have started bearing off,
-     three times as a backgammon if on top of that you still have a checker on the bar or in their home board. When
-     they've doubled you, it is passing on the double: the cube's value. */
+  /* Single game scoring: the cube's value, twice as a gammon, three times as a backgammon. (Giving up doesn't use it:
+     it ends the whole match, see matchPts.) */
   function scoreOf(winner, dropped, resign, st) {
     st = st || stacks;
     var loser = other(winner), gam = !dropped && st['off-' + loser].length === 0 && (!resign || st['off-' + winner].length > 0), bg = false;
     if (gam) { bg = st['bar-' + loser].length > 0; for (var r = 1; r <= 6 && !bg; r++) bg = st[absOf(winner, r)].some(function (id) { return ck[id].side === loser; }); }
     return { gam: gam, bg: bg, pts: G.cube.v * (bg ? 3 : gam ? 2 : 1) };
   }
-  function forfeitCost() {
-    if (G.phase === 'offered') return { drop: true, pts: G.cube.v, gam: false, bg: false };
-    return scoreOf(TH, false, true, G.hist && G.hist.length ? JSON.parse(G.hist[0].st) : stacks);
-  }
-  function costText(c) {
-    var p = c.pts, w = p === 1 ? 'one point' : p === 2 ? 'two points' : p + ' points';
-    return NAME.them + ' gets ' + w + (c.bg ? ', a backgammon' : c.gam ? ', a gammon' : '') + (G.score.them + p >= MATCH ? ', and the match.' : '.');
-  }
+  /* Giving up ends the match: the winner gets exactly the points still missing to reach the match length. */
+  function matchPts(winner) { return Math.max(1, MATCH - G.score[winner]); }
+  function forfeitCost() { return { them: MATCH, me: G.score.me }; }
+  function costText(c) { return NAME.them + ' wins the match, ' + c.them + '–' + c.me + '. Not just this game: the whole match.'; }
   function forfeit() {
-    if (G.phase === 'offered') { dropDouble(); return; }
+    if (G.phase === 'offered') { offerGone(); $('cubeFloat').hidden = true; $('cube').classList.remove('dragging'); spinSky(); clearDice(); gameOver(TH, false, true); return; }
     if (lastTap) { clearTimeout(lastTap.tm); lastTap = null; }
     if (G.danceT) { clearTimeout(G.danceT); G.danceT = null; }
     /* moves made in this unfinished turn don't count */
@@ -3016,8 +3013,8 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     LASTW = winner;
     G.phase = 'over'; dayFlip(); G.asking = false; hideNote(); say('');
     /* Single 1, gammon 2 (loser bore off nothing), backgammon 3 (also still on the bar or in the winner's home board).
-       Giving up counts a gammon only once the winner has started bearing off (see scoreOf). */
-    var sc = scoreOf(winner, dropped, resign), gam = sc.gam, bg = sc.bg, pts = sc.pts;
+       Giving up ends the whole match: the winner is given whatever they still needed. */
+    var sc = resign ? { gam: false, bg: false, pts: matchPts(winner) } : scoreOf(winner, dropped, resign), gam = sc.gam, bg = sc.bg, pts = sc.pts;
     G.score[winner] += pts; $('scMe').textContent = G.score.me; $('scThem').textContent = G.score.them;
     if (dropped) spinSky();
     if (DUO) { DUO.overShown = true; save({ phase: 'over', result: { winner: seatOf(winner), pts: pts, dropped: !!dropped, gammon: gam, bg: bg, forfeit: !!resign } }); }
@@ -3038,7 +3035,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     var head = me ? ((gam || bg) && !match ? c.gam : c.win) : c.lose;
     var what = match ? (me ? 'The match is yours' + (forfeit ? ': ' + n + ' gave up' : '') : n + ' takes the match' + (forfeit ? ': you gave up' : ''))
       : dropped ? (me ? n + ' passed on the double' : 'You gave up on the double')
-      : forfeit ? (me ? n + ' gave up · ' : 'You gave up · ') + (bg ? 'a backgammon, three points' : gam ? 'a gammon, two points' : 'one point')
+      : forfeit ? (me ? n + ' gave up the match' : 'You gave up the match')
       : (me ? 'You win ' : n + ' wins ') + (bg ? 'a backgammon · three points' : gam ? 'a gammon · two points' : 'one point');
     return { c: c, head: head, what: what };
   }
@@ -3109,7 +3106,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     o.innerHTML = '<div><b>' + (winner === ME ? 'You win' : NAME.them + ' wins') + ' ' + pts + ' point' + (pts > 1 ? 's' : '') + '</b><span>' + (dropped ? (winner === ME ? NAME.them + ' passed on the double. ' : 'You gave up on the double. ') : forfeit ? (winner === ME ? NAME.them + ' gave up. ' : 'You gave up. ') : '') + (dropped ? '' : bg ? 'Backgammon. ' : gam ? 'Gammon. ' : '') + G.score.me + ' – ' + G.score.them + ', match to ' + MATCH + '</span><button id="again">Next game</button></div>';
     if (G.score[winner] >= MATCH) {
       recordMatch(winner);
-      o.innerHTML = '<div><b>' + (winner === ME ? 'You win the match' : NAME.them + ' wins the match') + '</b><span>' + G.score.me + ' – ' + G.score.them + (bg ? ' · backgammon' : gam ? ' · gammon' : '') + '</span>' +
+      o.innerHTML = '<div><b>' + (winner === ME ? 'You win the match' : NAME.them + ' wins the match') + '</b><span>' + G.score.me + ' – ' + G.score.them + (forfeit ? (winner === ME ? ' · ' + NAME.them + ' gave up' : ' · you gave up') : bg ? ' · backgammon' : gam ? ' · gammon' : '') + '</span>' +
         '<span>New match to</span><div class="lens">' + [1, 3, 5, 7, 9, 11, 15].map(function (n) { return '<button data-to="' + n + '"' + (n === MATCH ? ' class="on"' : '') + '>' + n + '</button>'; }).join('') + '</div></div>';
       Array.prototype.forEach.call(o.querySelectorAll('[data-to]'), function (b) { b.addEventListener('click', function () { newMatch(+b.getAttribute('data-to')); }); });
       return;
@@ -3302,7 +3299,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       G.phase = 'over'; cubeUI(); say('');
       if (!DUO.overShown && d.result) {
         DUO.overShown = true; $('cubeFloat').hidden = true; $('cube').classList.remove('dragging');
-        if (d.result.dropped && prev === 'wait') spinSky();
+        if ((d.result.dropped || d.result.forfeit) && prev === 'wait') spinSky();
         showOver(sideOf(d.result.winner), d.result.pts, d.result.dropped, d.result.gammon, d.result.bg, d.result.forfeit);
         if (d.result.forfeit && !fresh && !reduce && W && !CASE.a) {
           var ov = $('over'); ov.style.visibility = 'hidden'; CASE.fresh = false; caseFold(); CASE.until = 0;
