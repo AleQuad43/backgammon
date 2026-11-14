@@ -172,6 +172,13 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
 .case .bk .shade { border-radius: 14px 0 0 14px; }
 /* Closing the board with two fingers to give up: same case, above everything on the board, asking once it is shut. */
 .case.fold { z-index: 6; touch-action: none; }
+/* here both halves are leaves, each on the hinge at the bar, each lifted by its own finger */
+.case .lleaf { position: absolute; top: 0; bottom: 0; left: 0; transform-origin: 100% 50%; transform-style: preserve-3d; }
+.case .lleaf > .lh, .case .lleaf > .shade { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.case .lleaf > .shade { border-radius: 14px 0 0 14px; }
+.case .bk.bl { border-radius: 0 14px 14px 0; }
+.case .bk.bl b { left: auto; right: -6px; }
+.case .bk.bl .shade { border-radius: 0 14px 14px 0; }
 .case.fold .note { z-index: 7; }
 .note .ask button.keep { background: rgba(255,250,240,0.92); color: #3A2414; text-shadow: none; border-color: rgba(255,250,240,0.92); }
 #scTo.saving::after { content: " · saving…"; }
@@ -236,7 +243,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
         <li>Changed your mind? Drag a moved checker back to where it started: its point lights in the second sky colour, and the move is undone. If it used both dice, you can also drop it on the point where it stopped in between: only the second die is undone. Or double tap it to send it straight back.</li>
         <li>Try a bear-off position: all your checkers are home and it's your throw, with Luca still bringing his last ones in.</li>
         <li>When you have no dice left to play, pick up your dice and flick them across toward Luca (left or up): they slide over to his side and the turn passes. A tap, a slow drag or a flick the other way puts them back.</li>
-        <li>To give up the match, put two fingers at the two ends of the board and bring them together: the board folds shut like a case. Once it is shut it asks whether you really want to give up the whole match; Play on opens it again. Giving up hands Luca the match, whatever the score.</li>
+        <li>To give up the match, put two fingers at the two ends of the board and bring them together: each half lifts with its own finger and the board closes like a case. Once it is shut it asks whether you really want to give up the whole match; Play on opens it again. Giving up hands Luca the match, whatever the score.</li>
         <li>Drag a checker: a point lights up only when you can land there, with one die or both. Points just next to a good one get a dull warning; dropping there pulls the checker back onto the good point.</li>
         <li>To double: before you roll, drag the red cube from the rail onto the board. It turns over as it goes in; once it is fully inside the playing area it shows ×2, and letting go offers the double.</li>
         <li>When Luca doubles you, the sky turns to your side and a big ×2 sits where your dice go. Tap it to take, or hold and slide to give up the game.</li>
@@ -1366,8 +1373,8 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   try { if (localStorage.getItem('railSide') === 'left') $('game').classList.add('flip'); } catch (e) {}
 
   /* ---------- Giving up: close the board ----------
-     Two fingers at the two ends of the board, brought together: the right half folds over the left like closing a
-     backgammon case, following the fingers. Let go before it's shut and it falls open again. Once it's shut, the closed
+     Two fingers at the two ends of the board, brought together: both halves lift on the hinge at the bar, each
+     following its own finger, like closing a backgammon case with both hands. Let go before it's shut and it falls open again. Once it's shut, the closed
      case asks: give up the match? Giving up is for the whole match, never just this game: the other player is given
      the points they still need. "Play on", or a tap anywhere else, opens it again. Nothing is asked while you fold,
      so the gesture stays a gesture. Only on your own turn (or when they've doubled you), so the other player is never
@@ -1390,11 +1397,14 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     if (G.danceT) { clearTimeout(G.danceT); G.danceT = null; } /* no throw-for-you under a closed board; set again on Play on */
     var hinge = L.barX + L.bw / 2, el = document.createElement('div');
     el.className = 'case fold';
-    el.innerHTML = '<canvas class="lh"></canvas><div class="leaf"><canvas class="fr"></canvas><i class="shade"></i><div class="bk"><b></b><i class="shade"></i></div></div><div class="note" hidden></div>';
+    el.innerHTML = '<div class="lleaf"><canvas class="lh"></canvas><i class="shade"></i><div class="bk bl"><b></b><i class="shade"></i></div></div>' +
+      '<div class="leaf"><canvas class="fr"></canvas><i class="shade"></i><div class="bk"><b></b><i class="shade"></i></div></div><div class="note" hidden></div>';
     $('wrap').appendChild(el);
-    var F = FOLD = { el: el, lh: el.querySelector('.lh'), leaf: el.querySelector('.leaf'), fr: el.querySelector('.fr'), sh: el.querySelectorAll('.shade'), note: el.querySelector('.note'),
-      hinge: hinge, l: pc.l, r: pc.r, d0: Math.max(60, PTS[pc.r].x0 - PTS[pc.l].x0), a: 0, want: 0, live: true, tw: null, snapped: false, down: false };
-    F.lh.style.width = hinge + 'px'; F.leaf.style.left = hinge + 'px'; F.leaf.style.width = (W - hinge) + 'px';
+    var F = FOLD = { el: el, lh: el.querySelector('.lh'), lleaf: el.querySelector('.lleaf'), leaf: el.querySelector('.leaf'), fr: el.querySelector('.fr'),
+      lsh: el.querySelectorAll('.lleaf .shade'), sh: el.querySelectorAll('.leaf .shade'), note: el.querySelector('.note'),
+      hinge: hinge, l: pc.l, r: pc.r, rl: Math.max(40, hinge - PTS[pc.l].x0), rr: Math.max(40, PTS[pc.r].x0 - hinge),
+      al: 0, ar: 0, wl: 0, wr: 0, side: 'l', live: true, tw: null, snapped: false, down: false };
+    F.lh.style.width = hinge + 'px'; F.lleaf.style.width = hinge + 'px'; F.leaf.style.left = hinge + 'px'; F.leaf.style.width = (W - hinge) + 'px';
     var cf = $('cubeFloat'); if (!cf.hidden) { F.cube = true; cf.style.visibility = 'hidden'; }
     /* once it's shut and asking: buttons answer, a tap anywhere else opens it again */
     el.addEventListener('pointerdown', function () { F.down = true; });
@@ -1412,13 +1422,17 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
       if (!F.snapped || F.resnap) { foldSnap(F); if (!F.snapped) { F.snapped = true; cv.style.opacity = '0'; } }
       if (F.tw) {
         var u = Math.min(1, (now - F.tw.t0) / F.tw.dur), e = F.tw.ease(u);
-        F.a = F.tw.from + (F.tw.to - F.tw.from) * e;
+        F.al = F.tw.l0 + (F.tw.l1 - F.tw.l0) * e; F.ar = F.tw.r0 + (F.tw.r1 - F.tw.r0) * e;
         if (u >= 1) { var done = F.tw.done; F.tw = null; if (done) done(); }
-      } else if (F.live) F.a += (F.want - F.a) * 0.4;
+      } else if (F.live) { F.al += (F.wl - F.al) * 0.4; F.ar += (F.wr - F.ar) * 0.4; }
       if (FOLD !== F) return;
-      var k = Math.sin(F.a * Math.PI / 180);
-      F.leaf.style.transform = 'rotateY(' + (-F.a).toFixed(2) + 'deg)';
-      F.sh[0].style.opacity = (F.a < 90 ? 0.45 * k : 0).toFixed(3); F.sh[1].style.opacity = (F.a >= 90 ? 0.35 * k : 0).toFixed(3);
+      var kl = Math.sin(F.al * Math.PI / 180), kr = Math.sin(F.ar * Math.PI / 180);
+      F.lleaf.style.transform = 'rotateY(' + F.al.toFixed(2) + 'deg)';
+      F.leaf.style.transform = 'rotateY(' + (-F.ar).toFixed(2) + 'deg)';
+      /* the half lifted further is the one that comes over the other */
+      F.lleaf.style.zIndex = F.al > F.ar ? 2 : 1; F.leaf.style.zIndex = F.al > F.ar ? 1 : 2;
+      F.lsh[0].style.opacity = (F.al < 90 ? 0.45 * kl : 0).toFixed(3); F.lsh[1].style.opacity = (F.al >= 90 ? 0.35 * kl : 0).toFixed(3);
+      F.sh[0].style.opacity = (F.ar < 90 ? 0.45 * kr : 0).toFixed(3); F.sh[1].style.opacity = (F.ar >= 90 ? 0.35 * kr : 0).toFixed(3);
       requestAnimationFrame(tick);
     })(performance.now());
   }
@@ -1428,39 +1442,49 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     F.lh.getContext('2d').drawImage(cv, 0, 0, hp, cv.height, 0, 0, hp, cv.height);
     F.fr.getContext('2d').drawImage(cv, hp, 0, cv.width - hp, cv.height, 0, 0, cv.width - hp, cv.height);
   }
-  /* The leaf follows the fingers: fingers as far apart as they started = open; at a fifth of that = shut. */
+  /* Each half follows its own finger: the spot of the board under the finger stays under it as the half lifts on the
+     hinge at the bar (a finger at the hinge has its half standing straight up). Only the finger on that side moves
+     that half, so one hand bringing both together closes it evenly, and a lazy finger leaves its half lower. */
   function foldFollow() {
     var F = FOLD, a = PTS[F.l], b = PTS[F.r]; if (!a || !b) return;
-    var c = Math.max(-1, Math.min(1, ((b.x - a.x) / F.d0 - 0.2) / 0.8 * 2 - 1));
-    F.want = Math.acos(c) * 180 / Math.PI;
+    var cl = Math.max(-1, Math.min(1, (F.hinge - a.x) / F.rl)), cr = Math.max(-1, Math.min(1, (b.x - F.hinge) / F.rr));
+    var wl = Math.acos(cl) * 180 / Math.PI, wr = Math.acos(cr) * 180 / Math.PI, sum = wl + wr;
+    if (sum > 180) { wl *= 180 / sum; wr *= 180 / sum; } /* the two halves meet; neither goes through the other */
+    F.wl = wl; F.wr = wr;
   }
-  function foldTo(to, dur, ez, done) { var F = FOLD; if (!F) return; F.tw = { from: F.a, to: to, t0: performance.now(), dur: reduce ? 1 : dur, ease: ez, done: done }; }
-  var easeIn = function (u) { return u * u * u; }, easeOut = function (u) { return 1 - Math.pow(1 - u, 3); };
+  function foldTo(l, r, dur, ez, done) { var F = FOLD; if (!F) return; F.tw = { l0: F.al, r0: F.ar, l1: l, r1: r, t0: performance.now(), dur: reduce ? 1 : dur, ease: ez, done: done }; }
+  function foldOpen(dur, done) { foldTo(0, 0, dur, easeOut, done); }
+  var easeIn = function (u) { return u * u * u; }, easeOut = function (u) { return 1 - Math.pow(1 - u, 3); }, easeInOut = function (u) { return u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2; };
   function foldLetGo() {
     var F = FOLD; F.live = false;
-    /* nearly shut: it falls shut; otherwise it falls open again */
-    if (F.want >= 135) foldTo(180, 90 + 3 * (180 - F.a), easeIn, foldAsk);
-    else foldTo(0, 380, easeOut, function () { foldEnd(); turnHooks(); });
+    /* nearly shut: the halves close and the case lies down on the side of the half that moved less (the one the
+       other came over to); otherwise both fall open again */
+    if (F.wl + F.wr >= 135) {
+      F.side = F.wr >= F.wl ? 'l' : 'r';
+      var l1 = F.side === 'l' ? 0 : 180, r1 = 180 - l1, far = Math.max(Math.abs(l1 - F.al), Math.abs(r1 - F.ar));
+      foldTo(l1, r1, Math.min(560, 200 + 2.4 * far), easeInOut, foldAsk);
+    } else foldOpen(380, function () { foldEnd(); turnHooks(); });
   }
   function foldAsk() {
     var F = FOLD; if (!F) return;
-    if (!canForfeit()) { foldTo(0, 420, easeOut, function () { foldEnd(); turnHooks(); }); return; }
+    if (!canForfeit()) { foldOpen(420, function () { foldEnd(); turnHooks(); }); return; }
     if (navigator.vibrate) try { navigator.vibrate(12); } catch (e) {}
     var c = forfeitCost(), n = F.note;
     n.innerHTML = 'Give up the match?<small>' + esc(costText(c)) + '</small><div class="ask"><button data-g="1">Give up</button><button data-g="0" class="keep">Play on</button></div>';
-    n.style.left = (F.hinge / 2) + 'px'; n.style.top = (H / 2) + 'px'; n.style.width = Math.round(F.hinge - 40) + 'px';
+    var lx = F.side === 'l' ? 0 : F.hinge, lw = F.side === 'l' ? F.hinge : W - F.hinge;
+    n.style.left = (lx + lw / 2) + 'px'; n.style.top = (H / 2) + 'px'; n.style.width = Math.round(lw - 64) + 'px';
     n.hidden = false; requestAnimationFrame(function () { n.classList.add('on'); });
     F.askT = performance.now();
   }
-  function playOn() { var F = FOLD; F.note.classList.remove('on'); foldTo(0, 460, easeOut, function () { foldEnd(); turnHooks(); }); }
+  function playOn() { var F = FOLD; F.note.classList.remove('on'); foldOpen(460, function () { foldEnd(); turnHooks(); }); }
   function giveUp() {
     var F = FOLD; F.note.classList.remove('on');
-    if (!canForfeit()) { foldTo(0, 460, easeOut, foldEnd); return; }
+    if (!canForfeit()) { foldOpen(460, foldEnd); return; }
     F.cube = false;
     forfeit();
     /* the end card waits until the board is open again */
     $('over').style.visibility = 'hidden'; F.resnap = true;
-    setTimeout(function () { if (FOLD === F) foldTo(0, 700, easeOut, foldEnd); }, 300);
+    setTimeout(function () { if (FOLD === F) foldOpen(700, foldEnd); }, 300);
   }
   function foldEnd() {
     var F = FOLD; FOLD = null; if (!F) return;
