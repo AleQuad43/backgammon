@@ -957,10 +957,12 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       });
     };
     var stopAll = function () { if (unsubP) unsubP(); unsubP = null; for (var k in GL) GL[k](); GL = {}; GAMES = []; };
-    /* Every finished match is kept (players, winner, length, score) so the Elo can weigh longer matches more. */
+    /* Every finished match is kept once (players, winner, length, score) so the Elo can weigh longer matches more. */
     window.onMatchEnd = function (m) {
       if (!UID) return;
-      FS.collection('matches').add({ players: [m.winner, m.loser].sort(), winner: m.winner, loser: m.loser, to: m.to, score: m.score, t: Date.now() }).catch(function () {});
+      /* filed under the game's id and number, so the second device's copy is refused (the rules only allow creating) */
+      var rec = { players: [m.winner, m.loser].sort(), winner: m.winner, loser: m.loser, to: m.to, score: m.score, t: Date.now() };
+      (m.id ? FS.collection('matches').doc(m.id).set(rec) : FS.collection('matches').add(rec)).catch(function () {});
     };
     var loadEmails = function () {
       FS.collection('emails').get().then(function (qs) {

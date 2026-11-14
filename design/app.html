@@ -255,6 +255,15 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
 #gv .fc.f3 { transform: rotateY(90deg) translateZ(var(--h)); }
 #gv .fc.f4 { transform: rotateY(-90deg) translateZ(var(--h)); }
 #gv .fc.f5 { transform: rotateY(180deg) translateZ(var(--h)); }
+/* A solid core just inside the faces: their rounded corners leave a hole at every corner of the die, and the core fills
+   it, so the corners read as worn ivory instead of showing the board through. */
+#gv .fi { position: absolute; inset: 2.2px; background: linear-gradient(135deg, #D9C8A6, #BFA87F); backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+#gv .fi.f0 { transform: translateZ(calc(var(--h) - 2.2px)); }
+#gv .fi.f1 { transform: rotateX(90deg) translateZ(calc(var(--h) - 2.2px)); }
+#gv .fi.f2 { transform: rotateX(-90deg) translateZ(calc(var(--h) - 2.2px)); }
+#gv .fi.f3 { transform: rotateY(90deg) translateZ(calc(var(--h) - 2.2px)); }
+#gv .fi.f4 { transform: rotateY(-90deg) translateZ(calc(var(--h) - 2.2px)); }
+#gv .fi.f5 { transform: rotateY(180deg) translateZ(calc(var(--h) - 2.2px)); }
 #gv .fc::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: radial-gradient(3px 2px at 22% 78%, rgba(70,45,20,0.35), transparent), radial-gradient(2px 2px at 81% 30%, rgba(70,45,20,0.3), transparent), radial-gradient(10px 4px at 70% 88%, rgba(255,250,235,0.5), transparent); }
 #gv .dzs { position: absolute; left: 6px; right: 6px; bottom: -7px; height: 10px; border-radius: 50%; background: rgba(40,20,8,0.28); filter: blur(4px); }
 #gv .cfs { position: absolute; left: 4px; right: 4px; bottom: -4px; height: 12px; border-radius: 50%; background: rgba(40,20,8,0.35); filter: blur(5px); transform-origin: 50% 50%; }
@@ -303,6 +312,11 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   box-shadow: 0 14px 30px rgba(30,18,8,0.35), inset 0 0 0 3px rgba(40,22,10,0.45), inset 0 0 0 9px rgba(255,225,180,0.06); }
 #gv .case .bk b { position: absolute; left: -6px; top: 50%; width: 14px; height: 46px; margin-top: -23px; border-radius: 5px; background: linear-gradient(90deg, #C9A45C, #E8CF8E 50%, #A9843E); box-shadow: 0 2px 5px rgba(0,0,0,0.35); }
 #gv .case .bk .shade { border-radius: 14px 0 0 14px; }
+/* Closing the board with two fingers to give up: same case, above everything on the board, asking once it is shut. */
+#gv .case.fold { z-index: 6; touch-action: none; }
+#gv .case.fold .note { z-index: 7; }
+#gv .note .ask button.keep { background: rgba(255,250,240,0.92); color: #3A2414; text-shadow: none; border-color: rgba(255,250,240,0.92); }
+#gv #scTo.saving::after { content: " · saving…"; }
 
 /* The rail: opponent at the top, you at the bottom, each with their score beside their checker; the match length,
    the messages and the cube in between. */
@@ -1413,10 +1427,12 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       });
     };
     var stopAll = function () { if (unsubP) unsubP(); unsubP = null; for (var k in GL) GL[k](); GL = {}; GAMES = []; };
-    /* Every finished match is kept (players, winner, length, score) so the Elo can weigh longer matches more. */
+    /* Every finished match is kept once (players, winner, length, score) so the Elo can weigh longer matches more. */
     window.onMatchEnd = function (m) {
       if (!UID) return;
-      FS.collection('matches').add({ players: [m.winner, m.loser].sort(), winner: m.winner, loser: m.loser, to: m.to, score: m.score, t: Date.now() }).catch(function () {});
+      /* filed under the game's id and number, so the second device's copy is refused (the rules only allow creating) */
+      var rec = { players: [m.winner, m.loser].sort(), winner: m.winner, loser: m.loser, to: m.to, score: m.score, t: Date.now() };
+      (m.id ? FS.collection('matches').doc(m.id).set(rec) : FS.collection('matches').add(rec)).catch(function () {});
     };
     var loadEmails = function () {
       FS.collection('emails').get().then(function (qs) {
@@ -1468,6 +1484,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   /* ---------- geometry ---------- */
   function layout() {
     var wrap = $('wrap');
+    if (FOLD) foldEnd();
     W = wrap.clientWidth; H = wrap.clientHeight; DPR = window.devicePixelRatio || 1;
     cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
     bg.width = cv.width; bg.height = cv.height;
@@ -1577,6 +1594,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     })(t0);
   }
   function setup(pos) {
+    if (FOLD) foldEnd(); pass = null; PASSD = []; GIN = null;
     caseFold();
     pos = pos || START;
     stacks = { 'bar-me': [], 'bar-them': [], 'off-me': [], 'off-them': [] };
@@ -1826,6 +1844,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
         if (sp < 16) { d.settled = true; d.vx = d.vy = 0; d.face = d.v; d.popT = now; }
       } else {
         var tgt = d.tidy ? tidyPos(d) : [d.x, d.y], k = 1 - Math.exp(-dt * 7);
+        if (d.tidy && READY && d.side === ME && !reduce) tgt[0] -= nudge(now);
         d.x += (tgt[0] - d.x) * k; d.y += (tgt[1] - d.y) * k;
         var aim = Math.round(d.a / (Math.PI / 2)) * (Math.PI / 2); d.a += (aim - d.a) * (1 - Math.exp(-dt * 9));
       }
@@ -1850,9 +1869,11 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     if (d.popT) { var t = (now - d.popT) / 520; if (t < 1) sc = 1 + 0.42 * Math.sin(Math.PI * t) * (1 - t * 0.3); }
     if (d.over) { var th = (now - d.over) / 260; if (th < 1) sc *= 1 + 0.22 * Math.sin(Math.PI * th); }
     if (!ghost && d.settled && d.tidy && !d.used && remaining()[0] === d && G.phase === 'move' && G.turn === ME) sc *= 1.08;
+    if (d.held) sc *= 1.14;
+    var low = d.settled && !d.held;
     ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(d.a); ctx.scale(sc, sc);
-    ctx.globalAlpha = ghost ? 0.62 : d.used ? 0.32 : 1;
-    ctx.shadowColor = 'rgba(30,15,5,0.35)'; ctx.shadowBlur = d.settled ? 4 : 10; ctx.shadowOffsetY = d.settled ? 2 : 6;
+    ctx.globalAlpha = ghost ? 0.62 : d.fade != null ? Math.max(0, d.fade) : d.held ? 1 : d.used ? (READY && d.side === ME ? 0.6 : 0.32) : 1;
+    ctx.shadowColor = 'rgba(30,15,5,0.35)'; ctx.shadowBlur = low ? 4 : 10; ctx.shadowOffsetY = low ? 2 : 6;
     var ivory = d.side === ME;
     rrect(ctx, -s / 2, -s / 2, s, s, s * 0.22); ctx.fillStyle = ivory ? '#F6F0E4' : '#2D3940'; ctx.fill();
     ctx.shadowColor = 'transparent';
@@ -1864,8 +1885,99 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   function ghosts() {
     if (G.turn !== ME || (G.phase !== 'roll' && G.phase !== 'opening') || G.rolling) return [];
     var n = G.phase === 'opening' ? 1 : 2, R = region(ME), sp = L.ds + 8, out = [];
-    for (var i = 0; i < n; i++) out.push({ side: ME, x: (R.x0 + R.x1) / 2 + (i - (n - 1) / 2) * sp, y: L.mid + Math.sin(ghostT * 2 + i) * 2.5, a: Math.sin(ghostT * 1.3 + i * 2) * 0.08, settled: true });
+    var gu = GIN && n === 2 ? (performance.now() - GIN.t0) / 750 : 1, ge = ease(Math.min(1, Math.max(0, gu)));
+    if (gu >= 1) GIN = null;
+    for (var i = 0; i < n; i++) {
+      var g = { side: ME, x: (R.x0 + R.x1) / 2 + (i - (n - 1) / 2) * sp, y: L.mid + Math.sin(ghostT * 2 + i) * 2.5, a: Math.sin(ghostT * 1.3 + i * 2) * 0.08, settled: true };
+      /* the dice just handed over by the opponent slide across from their side and wait here for your throw */
+      if (gu < 1) { var f = GIN.from[i]; g.x = f[0] + (g.x - f[0]) * ge; g.y = f[1] + (g.y - f[1]) * ge; g.a += (1 - ge) * GIN.spin; g.settled = ge > 0.85; }
+      out.push(g);
+    }
     return out;
+  }
+
+  /* ---------- Handing over the dice ----------
+     When your moves are done, pick up your dice and flick them across, toward the other player: that ends your turn.
+     It only counts as a real flick that starts on the dice and goes their way (left or up), or as carrying the dice
+     over to their half. A tap, a slow drag, or a flick any other way puts the dice back, so it can't happen by accident.
+     The dice slide over to the other side and fade; on the other device they arrive on that player's side. */
+  var pass = null, PASSD = [], GIN = null, READY = false;
+  function canPass() { return !!G && !!stacks && G.turn === ME && G.phase === 'move' && !G.auto && !G.rolling && !(remaining().length && anyMove(ME)); }
+  function passHint() { return 'Flick your dice across to end your turn.'; }
+  /* every few seconds the waiting dice lean toward the other side, as if offering themselves */
+  function nudge(now) { var ph = (now % 3200) / 3200; return ph < 0.24 ? 8 * Math.sin(ph / 0.24 * Math.PI) : 0; }
+  /* How near (x, y) is to the closest live die, in die widths, measured square like the die. */
+  function diceDist(x, y) { var m = Infinity; D.forEach(function (d) { if (d.live && d.settled) m = Math.min(m, Math.max(Math.abs(d.x - x), Math.abs(d.y - y)) / L.ds); }); return m; }
+  function grabDice(x, y) {
+    var ds = D.filter(function (d) { return d.live; });
+    pass = { hist: [{ x: x, y: y, t: performance.now() }], x0: x, y0: y, moved: false, ds: ds.map(function (d) { return { d: d, ox: d.x - x, oy: d.y - y }; }) };
+    ds.forEach(function (d) { d.held = true; });
+    if (navigator.vibrate) try { navigator.vibrate(6); } catch (e) {}
+  }
+  function moveDice(x, y) {
+    pass.hist.push({ x: x, y: y, t: performance.now() }); if (pass.hist.length > 10) pass.hist.shift();
+    if (Math.hypot(x - pass.x0, y - pass.y0) > 6) pass.moved = true;
+    /* the dice gather a little in the hand */
+    pass.ds.forEach(function (q) { q.d.tidy = false; q.d.x = x + q.ox * 0.75; q.d.y = y + q.oy * 0.75; });
+  }
+  function dropDice(cancel) {
+    var ps = pass; pass = null; if (!ps) return;
+    ps.ds.forEach(function (q) { q.d.held = false; });
+    if (!cancel && canPass()) {
+      var h = ps.hist, b = h[h.length - 1], i = h.length - 1, now = performance.now();
+      while (i > 0 && b.t - h[i - 1].t < 100) i--;
+      if (i === h.length - 1 && i > 0) i--;
+      var a = h[i], dt = Math.max(0.012, (b.t - a.t) / 1000), vx = (b.x - a.x) / dt, vy = (b.y - a.y) / dt, sp = Math.hypot(vx, vy);
+      if (now - b.t > 110) { vx = 0; vy = 0; sp = 0; } /* the finger had stopped before letting go */
+      /* 0° = straight toward their half (left), 90° = straight up toward them across the table */
+      var ang = Math.atan2(-vy, -vx) * 180 / Math.PI, dist = Math.hypot(b.x - ps.x0, b.y - ps.y0);
+      var flung = sp > 380 && dist > 18 && ang > -45 && ang < 105, carried = b.x < L.barX;
+      if (flung || carried) { if (navigator.vibrate) try { navigator.vibrate(8); } catch (e) {} handOver([vx, vy]); return; }
+    }
+    ps.ds.forEach(function (q) { q.d.tidy = true; });
+    if (!ps.moved && G.phase === 'move') { var t = performance.now(); ps.ds.forEach(function (q) { q.d.popT = t; }); say(passHint()); }
+  }
+  function handOver(v) { if (G.turn !== ME || G.phase !== 'move') return; spawnPass(v); finishTurn(); }
+  /* Copies of the dice glide from where they were let go to the other player's dice place: they leave with the speed of
+     the flick and come to rest there (a smooth curve, hopping over the bar), then fade. */
+  function spawnPass(v) {
+    var ds = D.filter(function (d) { return d.live; }), n = ds.length, R = region(TH), sp = L.ds + 8, now = performance.now();
+    if (reduce || !n || !W) return;
+    var vx = v ? v[0] : -520, vy = v ? v[1] : -40, m = Math.hypot(vx, vy);
+    if (m > 1300) { vx *= 1300 / m; vy *= 1300 / m; }
+    ds.forEach(function (d, i) {
+      var k = (i - (n - 1) / 2);
+      PASSD.push({ side: d.side, v: d.v, face: d.v, x: d.x, y: d.y, a: d.a, a0: d.a, settled: false, tidy: false, used: false, live: true, popT: 0, fade: 1,
+        p0: [d.x, d.y], v0: [vx * (1 + k * 0.06), vy + k * 30], p1: [(R.x0 + R.x1) / 2 + k * sp, L.mid + k * 4], t0: now, T: 0.66, spin: (vx < 0 ? 1 : -1) * (1.6 + Math.random() * 1.4) });
+    });
+  }
+  function passTick(now) {
+    if (!PASSD.length) return;
+    var bc = L.barX + L.bw / 2, x0 = L.lx + L.ds / 2, x1 = L.rx + 6 * L.pw - L.ds / 2, y0 = L.y0 + L.ds / 2, y1 = L.y0 + L.fh - L.ds / 2;
+    PASSD = PASSD.filter(function (p) {
+      var u = (now - p.t0) / 1000 / p.T;
+      if (u < 1) {
+        var u2 = u * u, u3 = u2 * u, h00 = 2 * u3 - 3 * u2 + 1, h10 = u3 - 2 * u2 + u, h01 = -2 * u3 + 3 * u2;
+        p.x = Math.max(x0, Math.min(x1, h00 * p.p0[0] + h10 * p.T * p.v0[0] + h01 * p.p1[0]));
+        p.y = Math.max(y0, Math.min(y1, h00 * p.p0[1] + h10 * p.T * p.v0[1] + h01 * p.p1[1]));
+        p.a = p.a0 + p.spin * (2 * u - u2);
+        if (!p.over && Math.abs(p.x - bc) < L.bw / 2 + 6) p.over = now;
+      } else {
+        p.x = p.p1[0]; p.y = p.p1[1]; p.settled = true;
+        var aim = Math.round(p.a / (Math.PI / 2)) * (Math.PI / 2); p.a += (aim - p.a) * 0.25;
+        p.fade = 1 - Math.max(0, (now - p.t0 - p.T * 1000 - 220) / 320);
+      }
+      if (p.fade <= 0) return false;
+      drawDie(p, now, false);
+      return true;
+    });
+  }
+  /* The other player's dice come over to you: they slide from their side and become your dice waiting to be thrown. */
+  function handIn() {
+    var th = D.filter(function (d) { return d.live && d.side === TH; }), R = region(TH), sp = L.ds + 8, from = [];
+    for (var i = 0; i < 2; i++) { var d = th[i]; from.push(d ? [d.x, d.y] : [(R.x0 + R.x1) / 2 + (i - 0.5) * sp, L.mid]); }
+    clearDice();
+    if (!reduce && W) GIN = { t0: performance.now(), from: from, spin: -2.4 };
   }
 
   /* ---------- drawing ---------- */
@@ -1946,7 +2058,13 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   var last = performance.now();
   function frame(now) {
     var last0 = last, dt = Math.min(0.033, (now - last) / 1000); last = now; ghostT += dt; nowT = now / 1000;
-    if (W) {
+    /* one bad frame must never stop the board from being drawn */
+    try { if (W && G && stacks) drawFrame(now, last0, dt); } catch (e) { console.error(e); }
+    requestAnimationFrame(frame);
+  }
+  function drawFrame(now, last0, dt) {
+    READY = !pass && canPass();
+    {
       var big = Math.min(0.5, (now - last0) / 1000), nsub = Math.max(1, Math.ceil(big / 0.016)); for (var si = 0; si < nsub; si++) physics(big / nsub, now);
       ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); ctx.drawImage(bg, 0, 0);
       ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -1973,13 +2091,13 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       ons.sort(function (a, b) { return stacks[a.loc].indexOf(a.id) - stacks[b.loc].indexOf(b.id); }).forEach(function (c) { if (!c.fly) drawChecker(c, c.x, c.y); });
       ons.forEach(function (c) { if (c.fly) drawChecker(c, c.x, c.y, true); });
       D.forEach(function (d) { if (d.live) drawDie(d, now, false); });
+      passTick(now);
       if (!NOTE.on) ghosts().forEach(function (g) { drawDie(g, now, true); });
       if (draggedId >= 0) drawChecker(ck[draggedId], drag.x, drag.y, true);
       drawOffer(now);
       holdTick(now);
       barTick(now);
     }
-    requestAnimationFrame(frame);
   }
 
   /* ---------- input ---------- */
@@ -1999,11 +2117,25 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     return h;
   }
   function hitDie(x, y) { return D.filter(function (d) { return d.live && d.settled && Math.hypot(d.x - x, d.y - y) < L.ds * 0.8; })[0]; }
+  /* Fingers. Only one finger plays at a time (the last one put down); a second finger at the far end of the board from
+     the first is also watched as a possible pinch to close the board (see the fold below). */
+  var PTS = {}, PRIM = null, PINCH = null;
+  function npts() { return Object.keys(PTS).length; }
   cv.addEventListener('pointerdown', function (e) {
-    var p = pt(e), x = p[0], y = p[1];
-    hold = null; drag = null; flick = null;
-    BH = (x >= L.barX - 4 && x <= L.barX + L.bw + 4) ? { x: x, y: y, cx: e.clientX, t0: performance.now(), on: false } : null;
+    var p = pt(e), x = p[0], y = p[1], id = String(e.pointerId);
     try { cv.setPointerCapture(e.pointerId); } catch (er) {}
+    if (e.isPrimary) PTS = {}; /* the first finger of a new touch: forget any finger whose lifting we never heard about */
+    PTS[id] = { x: x, y: y, x0: x, y0: y };
+    if (FOLD || !G || !stacks || npts() > 2) return;
+    PINCH = null;
+    if (npts() === 2) {
+      var oid = Object.keys(PTS).filter(function (k) { return k !== id; })[0], o = PTS[oid];
+      if (Math.min(o.x, x) < W * 0.3 && Math.max(o.x, x) > W * 0.7) { PINCH = o.x < x ? { l: oid, r: id } : { l: id, r: oid }; o.x0 = o.x; o.y0 = o.y; }
+    }
+    PRIM = id;
+    if (pass) dropDice(true);
+    hold = null; drag = null; flick = null; hover = null; $('slide').hidden = true;
+    BH = (x >= L.barX - 4 && x <= L.barX + L.bw + 4) ? { x: x, y: y, cx: e.clientX, t0: performance.now(), on: false } : null;
     if (G.phase === 'rollout') { if (G.skipRoll) G.skipRoll(); return; }
     if (G.auto || G.asking || G.phase === 'auto') return;
     if (NOTE.on) hideNote();
@@ -2015,6 +2147,10 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       hold = { x: x, y: y, t0: performance.now(), slide: false, k: 0 }; return;
     }
     if (G.turn !== ME || G.phase !== 'move') return;
+    /* All moves made: the dice can be picked up and handed over. Right on a die always picks them up; close to one,
+       only if there's no checker of yours under the finger. */
+    var dd = canPass() ? diceDist(x, y) : Infinity;
+    if (dd < 0.75) { grabDice(x, y); return; }
     var d = hitDie(x, y);
     if (d && !d.used) { swapDice(); return; }
     var S = state(), from = -1, a = relAt(x, y);
@@ -2026,13 +2162,22 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       for (var q = offs.length - 1; q >= 0; q--) if (stepsOf(offs[q]).length) { oid = offs[q]; break; }
       if (oid != null) { drag = { id: oid, from: 0, x: x, y: y, sx: x, sy: y, moved: false, R: {}, backs: backsOf(oid) }; return; }
     }
-    if (from < 0) { if (!(remaining().length && anyMove(ME))) hold = { x: x, y: y, t0: performance.now(), slide: false, k: 0 }; return; }
+    if (from < 0) { if (dd < 1.3) grabDice(x, y); else if (canPass()) say(passHint()); return; }
     var key = from === 25 ? 'bar-me' : from, st = stacks[key], id = st[st.length - 1];
     var RR = (S.bar.me && from !== 25) ? {} : reach(S, ME, from, remaining().map(function (q) { return q.v; }));
     drag = { id: id, from: from, x: x, y: y, sx: x, sy: y, moved: false, R: RR, backs: backsOf(id) };
   });
   cv.addEventListener('pointermove', function (e) {
-    var p = pt(e);
+    var p = pt(e), id = String(e.pointerId), q = PTS[id];
+    if (q) { q.x = p[0]; q.y = p[1]; }
+    if (FOLD) { if (FOLD.live && (id === FOLD.l || id === FOLD.r)) foldFollow(); return; }
+    /* both fingers moving in toward each other, at least a little each: that's a pinch, not a resting thumb */
+    if (PINCH && PTS[PINCH.l] && PTS[PINCH.r]) {
+      var pl = PTS[PINCH.l], pr = PTS[PINCH.r];
+      if (pl.x - pl.x0 > 12 && pr.x0 - pr.x > 12) { var pc = PINCH; PINCH = null; startFold(pc); return; }
+    }
+    if (id !== PRIM) return;
+    if (pass) { moveDice(p[0], p[1]); return; }
     if (BH) {
       if (BH.on) { sideDrag(e.clientX); return; }
       if (Math.hypot(p[0] - BH.x, p[1] - BH.y) > 10) BH = null;
@@ -2055,6 +2200,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   });
   function endPointer(e) {
     if (BH) { var bh = BH; BH = null; if (bh.on) { sideDrop(bh); return; } }
+    if (pass) { dropDice(false); return; }
     if (flick) {
       var f = flick, h = f.hist; flick = null;
       var a = h[0], b = h[h.length - 1], dt = Math.max(0.016, (b.t - a.t) / 1000), vx = (b.x - a.x) / dt, vy = (b.y - a.y) / dt, sp = Math.hypot(vx, vy);
@@ -2070,7 +2216,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     }
     if (hold) {
       var hd = hold; hold = null; $('slide').hidden = true;
-      if (hd.slide && hd.k > 0.97) { paintSky(skyA); if (G.phase === 'offered') { offerGone(); $('cubeFloat').hidden = true; $('cube').classList.remove('dragging'); gameOver(TH, true); } else finishTurn(); }
+      if (hd.slide && hd.k > 0.97) { paintSky(skyA); if (G.phase === 'offered') dropDouble(); }
       else if (hd.slide) skyBack(2 * Math.PI * ease(hd.k));
       return;
     }
@@ -2102,8 +2248,25 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     afterMyMove();
   }
   function colCenter(rel) { if (rel === 0) return L.trayX + L.tw / 2; return colX(colOf(rel)[0]) + L.pw / 2; }
-  cv.addEventListener('pointerup', endPointer);
-  cv.addEventListener('pointercancel', function () { drag = null; flick = null; hover = null; });
+  function liftFinger(e, cancelled) {
+    var id = String(e.pointerId); if (!(id in PTS)) return;
+    delete PTS[id];
+    if (FOLD) { if (FOLD.live && (id === FOLD.l || id === FOLD.r)) foldLetGo(); return; }
+    if (PINCH && (id === PINCH.l || id === PINCH.r)) PINCH = null;
+    if (id !== PRIM) return;
+    PRIM = null;
+    if (!G || !stacks) return;
+    if (!cancelled) { endPointer(e); return; }
+    if (pass) dropDice(true);
+    if (BH && BH.on) { var bh = BH; BH = null; sideDrop(bh); }
+    BH = null; drag = null; flick = null; hover = null;
+    if (hold) { var hd = hold; hold = null; $('slide').hidden = true; if (hd.slide) skyBack(2 * Math.PI * ease(hd.k)); }
+  }
+  cv.addEventListener('pointerup', function (e) { liftFinger(e, false); });
+  cv.addEventListener('pointercancel', function (e) { liftFinger(e, true); });
+  cv.addEventListener('lostpointercapture', function (e) { liftFinger(e, true); });
+  /* iOS: keep a two-finger pinch on the board from zooming the page */
+  document.addEventListener('gesturestart', function (e) { if (!$('wrap').hidden && e.target && $('wrap').contains(e.target)) e.preventDefault(); });
 
   function swapDice() {
     var rem = remaining(); if (rem.length !== 2 || rem[0].v === rem[1].v) return;
@@ -2147,7 +2310,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     if (G.phase === 'over') return;
     var can = remaining().length && anyMove(ME);
     var undo = G.hist && G.hist.length && !G.auto;
-    say(can ? (undo ? 'Double-tap a checker to undo.' : 'Your move.') : (remaining().length ? 'No more moves. ' : '') + 'Hold, then slide to end your turn.' + (undo ? ' Double-tap to undo.' : ''));
+    say(can ? (undo ? 'Double-tap a checker to undo.' : 'Your move.') : (remaining().length ? 'No more moves. ' : '') + passHint() + (undo ? ' Double-tap to undo.' : ''));
     if (DUO && !quiet && G.phase === 'move') save({ phase: 'move', turn: DUO.seat });
   }
   function say(t) { $('status').textContent = t; }
@@ -2199,7 +2362,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     setTimeout(function step() {
       if (G.phase !== 'move' || !G.auto) return;
       if (i < path.length) { var m = path[i++]; stepMove(m.from, m.to, m.d); if (DUO && G.phase === 'move') save({ phase: 'move', turn: DUO.seat }); setTimeout(step, 480); return; }
-      setTimeout(function () { if (G.phase === 'move' && G.auto) finishTurn(); }, 1000);
+      setTimeout(function () { if (G.phase === 'move' && G.auto) handOver(null); }, 1000);
     }, 900);
   }
   function liveVals(side) { return D.filter(function (d) { return d.live && d.side === side; }).slice(0, 2).map(function (d) { return d.v; }); }
@@ -2211,7 +2374,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       say('You couldn’t come in with ' + dtx(v) + '.');
       setTimeout(function () {
         if (G.phase !== 'auto') return;
-        clearDice();
+        spawnPass(null); clearDice();
         if (DUO) { G.phase = 'remote'; setTurn(TH); say(NAME.them + '’s turn.'); save({ phase: 'roll', turn: DUO.other, dice: null }); }
         else { G.phase = 'ai'; setTurn(TH); say(NAME.them + ' is playing.'); setTimeout(aiRoll, 900); }
       }, 1600);
@@ -2227,7 +2390,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
         say(NAME.them + ' couldn’t come in with ' + dtx(v) + '.');
         setTimeout(function () {
           if (G.phase !== 'auto') return;
-          clearDice(); G.phase = 'roll'; setTurn(ME); say(NAME.them + ' couldn’t come in with ' + dtx(v) + '. Your turn.');
+          handIn(); G.phase = 'roll'; setTurn(ME); say(NAME.them + ' couldn’t come in with ' + dtx(v) + '. Your turn.');
           save({ phase: 'roll', turn: DUO.seat, dice: null });
         }, 1600);
       });
@@ -2410,6 +2573,140 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   }
   try { if (localStorage.getItem('railSide') === 'left') $('game').classList.add('flip'); } catch (e) {}
 
+  /* ---------- Giving up: close the board ----------
+     Two fingers at the two ends of the board, brought together: the right half folds over the left like closing a
+     backgammon case, following the fingers. Let go before it's shut and it falls open again. Once it's shut, the closed
+     case asks: give up this game? "Play on", or a tap anywhere else, opens it again. Nothing is asked while you fold,
+     so the gesture stays a gesture. Only on your own turn (or when they've doubled you, where it means passing on the
+     double), so the other player is never writing to the shared game at the same moment. */
+  var FOLD = null;
+  function canForfeit() {
+    if (!G || !stacks || CASE.a || !$('over').hidden || G.asking || G.rolling || G.auto) return false;
+    if (G.phase === 'offered') return true;
+    return G.turn === ME && (G.phase === 'roll' || G.phase === 'move');
+  }
+  function startFold(pc) {
+    if (!canForfeit()) {
+      if (G && G.turn !== ME && (G.phase === 'remote' || G.phase === 'ai' || G.phase === 'wait')) say('You can give up the game on your own turn.');
+      return;
+    }
+    if (pass) dropDice(true);
+    if (hold) { var hd = hold; hold = null; if (hd.slide) skyBack(2 * Math.PI * ease(hd.k)); }
+    drag = null; hover = null; flick = null; BH = null; PRIM = null; $('slide').hidden = true;
+    if (lastTap) { clearTimeout(lastTap.tm); lastTap = null; }
+    if (G.danceT) { clearTimeout(G.danceT); G.danceT = null; } /* no throw-for-you under a closed board; set again on Play on */
+    var hinge = L.barX + L.bw / 2, el = document.createElement('div');
+    el.className = 'case fold';
+    el.innerHTML = '<canvas class="lh"></canvas><div class="leaf"><canvas class="fr"></canvas><i class="shade"></i><div class="bk"><b></b><i class="shade"></i></div></div><div class="note" hidden></div>';
+    $('wrap').appendChild(el);
+    var F = FOLD = { el: el, lh: el.querySelector('.lh'), leaf: el.querySelector('.leaf'), fr: el.querySelector('.fr'), sh: el.querySelectorAll('.shade'), note: el.querySelector('.note'),
+      hinge: hinge, l: pc.l, r: pc.r, d0: Math.max(60, PTS[pc.r].x0 - PTS[pc.l].x0), a: 0, want: 0, live: true, tw: null, snapped: false, down: false };
+    F.lh.style.width = hinge + 'px'; F.leaf.style.left = hinge + 'px'; F.leaf.style.width = (W - hinge) + 'px';
+    var cf = $('cubeFloat'); if (!cf.hidden) { F.cube = true; cf.style.visibility = 'hidden'; }
+    /* once it's shut and asking: buttons answer, a tap anywhere else opens it again */
+    el.addEventListener('pointerdown', function () { F.down = true; });
+    el.addEventListener('pointerup', function (e) {
+      var ok = F.down; F.down = false;
+      if (!ok || FOLD !== F || F.live || F.tw || !F.askT || performance.now() - F.askT < 350) return;
+      var b = e.target.closest && e.target.closest('button[data-g]');
+      if (b && b.getAttribute('data-g') === '1') giveUp(); else playOn();
+    });
+    foldFollow();
+    if (navigator.vibrate) try { navigator.vibrate(8); } catch (e) {}
+    (function tick(now) {
+      if (FOLD !== F) return;
+      /* the live board goes see-through (not hidden, so it keeps hold of the two fingers) while its picture folds */
+      if (!F.snapped || F.resnap) { foldSnap(F); if (!F.snapped) { F.snapped = true; cv.style.opacity = '0'; } }
+      if (F.tw) {
+        var u = Math.min(1, (now - F.tw.t0) / F.tw.dur), e = F.tw.ease(u);
+        F.a = F.tw.from + (F.tw.to - F.tw.from) * e;
+        if (u >= 1) { var done = F.tw.done; F.tw = null; if (done) done(); }
+      } else if (F.live) F.a += (F.want - F.a) * 0.4;
+      if (FOLD !== F) return;
+      var k = Math.sin(F.a * Math.PI / 180);
+      F.leaf.style.transform = 'rotateY(' + (-F.a).toFixed(2) + 'deg)';
+      F.sh[0].style.opacity = (F.a < 90 ? 0.45 * k : 0).toFixed(3); F.sh[1].style.opacity = (F.a >= 90 ? 0.35 * k : 0).toFixed(3);
+      requestAnimationFrame(tick);
+    })(performance.now());
+  }
+  function foldSnap(F) {
+    var hp = Math.round(F.hinge * DPR);
+    F.lh.width = hp; F.lh.height = cv.height; F.fr.width = cv.width - hp; F.fr.height = cv.height;
+    F.lh.getContext('2d').drawImage(cv, 0, 0, hp, cv.height, 0, 0, hp, cv.height);
+    F.fr.getContext('2d').drawImage(cv, hp, 0, cv.width - hp, cv.height, 0, 0, cv.width - hp, cv.height);
+  }
+  /* The leaf follows the fingers: fingers as far apart as they started = open; at a fifth of that = shut. */
+  function foldFollow() {
+    var F = FOLD, a = PTS[F.l], b = PTS[F.r]; if (!a || !b) return;
+    var c = Math.max(-1, Math.min(1, ((b.x - a.x) / F.d0 - 0.2) / 0.8 * 2 - 1));
+    F.want = Math.acos(c) * 180 / Math.PI;
+  }
+  function foldTo(to, dur, ez, done) { var F = FOLD; if (!F) return; F.tw = { from: F.a, to: to, t0: performance.now(), dur: reduce ? 1 : dur, ease: ez, done: done }; }
+  var easeIn = function (u) { return u * u * u; }, easeOut = function (u) { return 1 - Math.pow(1 - u, 3); };
+  function foldLetGo() {
+    var F = FOLD; F.live = false;
+    /* nearly shut: it falls shut; otherwise it falls open again */
+    if (F.want >= 135) foldTo(180, 90 + 3 * (180 - F.a), easeIn, foldAsk);
+    else foldTo(0, 380, easeOut, function () { foldEnd(); turnHooks(); });
+  }
+  function foldAsk() {
+    var F = FOLD; if (!F) return;
+    if (!canForfeit()) { foldTo(0, 420, easeOut, function () { foldEnd(); turnHooks(); }); return; }
+    if (navigator.vibrate) try { navigator.vibrate(12); } catch (e) {}
+    var c = forfeitCost(), n = F.note;
+    n.innerHTML = (c.drop ? 'Give up on the double?' : 'Give up this game?') + '<small>' + esc(costText(c)) + '</small><div class="ask"><button data-g="1">Give up</button><button data-g="0" class="keep">Play on</button></div>';
+    n.style.left = (F.hinge / 2) + 'px'; n.style.top = (H / 2) + 'px'; n.style.width = Math.round(F.hinge - 40) + 'px';
+    n.hidden = false; requestAnimationFrame(function () { n.classList.add('on'); });
+    F.askT = performance.now();
+  }
+  function playOn() { var F = FOLD; F.note.classList.remove('on'); foldTo(0, 460, easeOut, function () { foldEnd(); turnHooks(); }); }
+  function giveUp() {
+    var F = FOLD; F.note.classList.remove('on');
+    if (!canForfeit()) { foldTo(0, 460, easeOut, foldEnd); return; }
+    F.cube = false;
+    forfeit();
+    /* the end card waits until the board is open again */
+    $('over').style.visibility = 'hidden'; F.resnap = true;
+    setTimeout(function () { if (FOLD === F) foldTo(0, 700, easeOut, foldEnd); }, 300);
+  }
+  function foldEnd() {
+    var F = FOLD; FOLD = null; if (!F) return;
+    F.el.remove(); cv.style.opacity = '';
+    if (F.cube) $('cubeFloat').style.visibility = '';
+    var o = $('over'); if (o.style.visibility) { o.style.visibility = ''; if (o.animate && !o.hidden) o.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 450, easing: 'ease-out' }); }
+  }
+  /* What giving up costs, counted on the board as it was at the start of this turn (moves you haven't finished don't
+     count): the cube's value, twice that as a gammon if you've borne off nothing while they have started bearing off,
+     three times as a backgammon if on top of that you still have a checker on the bar or in their home board. When
+     they've doubled you, it is passing on the double: the cube's value. */
+  function scoreOf(winner, dropped, resign, st) {
+    st = st || stacks;
+    var loser = other(winner), gam = !dropped && st['off-' + loser].length === 0 && (!resign || st['off-' + winner].length > 0), bg = false;
+    if (gam) { bg = st['bar-' + loser].length > 0; for (var r = 1; r <= 6 && !bg; r++) bg = st[absOf(winner, r)].some(function (id) { return ck[id].side === loser; }); }
+    return { gam: gam, bg: bg, pts: G.cube.v * (bg ? 3 : gam ? 2 : 1) };
+  }
+  function forfeitCost() {
+    if (G.phase === 'offered') return { drop: true, pts: G.cube.v, gam: false, bg: false };
+    return scoreOf(TH, false, true, G.hist && G.hist.length ? JSON.parse(G.hist[0].st) : stacks);
+  }
+  function costText(c) {
+    var p = c.pts, w = p === 1 ? 'one point' : p === 2 ? 'two points' : p + ' points';
+    return NAME.them + ' gets ' + w + (c.bg ? ', a backgammon' : c.gam ? ', a gammon' : '') + (G.score.them + p >= MATCH ? ', and the match.' : '.');
+  }
+  function forfeit() {
+    if (G.phase === 'offered') { dropDouble(); return; }
+    if (lastTap) { clearTimeout(lastTap.tm); lastTap = null; }
+    if (G.danceT) { clearTimeout(G.danceT); G.danceT = null; }
+    /* moves made in this unfinished turn don't count */
+    if (G.hist && G.hist.length) {
+      stacks = JSON.parse(G.hist[0].st);
+      Object.keys(stacks).forEach(function (k) { stacks[k].forEach(function (cid) { ck[cid].loc = isNaN(+k) ? k : +k; }); });
+      G.hist = []; pips();
+    }
+    clearDice(); G.auto = false;
+    gameOver(TH, false, true);
+  }
+
   /* Hold an empty part of the board: a ring fills under your finger. When it closes, the words appear and sliding right
      turns the whole sky once around with your finger. Back where it started = turn ended (or game given up). */
   var hold = null, SLIDE_W = 110, HOLD = { s: 0.25 };
@@ -2418,14 +2715,14 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   function placeSlide() {
     var sl = $('slide'), x = Math.max(110, Math.min(W - 110, hold.x)), y = Math.max(60, hold.y - 34);
     sl.style.left = x + 'px'; sl.style.top = y + 'px'; sl.style.opacity = (1 - 0.6 * hold.k).toFixed(2);
-    sl.textContent = G.phase === 'offered' ? 'Slide to give up the game →' : 'Slide to end your turn →';
+    sl.textContent = 'Slide to give up the game →';
   }
   function skyBack(off) {
     var t0 = performance.now();
     (function st(now) { var u = Math.min(1, (now - t0) / 350); paintSky(skyA + off * (1 - ease(u))); if (u < 1) requestAnimationFrame(st); })(t0);
   }
   function holdTick(now) {
-    var ok = !BH && ((G.turn === ME && G.phase === 'move' && !(remaining().length && anyMove(ME))) || G.phase === 'offered');
+    var ok = !BH && G.phase === 'offered';
     if (hold && !hold.slide && ok) {
       var u = Math.min(1, (now - hold.t0) / (HOLD.s * 1000));
       ctx.save(); ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.lineCap = 'round';
@@ -2445,7 +2742,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   var DFACE = { 64: 0, 2: 1, 8: 2, 4: 3, 16: 4, 32: 5 }, DORI = [[0, 0], [-90, 0], [90, 0], [0, -90], [0, 90], [0, 180]];
   function dshow(v) { return v === 1 ? 2 : v > 64 ? 64 : v; }
   function dori(v) { return DORI[DFACE[dshow(v)]]; }
-  function dieFaces() { return [64, 2, 8, 4, 16, 32].map(function (n) { return '<div class="fc f' + DFACE[n] + (n > 9 ? ' n3' : '') + '">' + n + '</div>'; }).join(''); }
+  function dieFaces() { return [0, 1, 2, 3, 4, 5].map(function (i) { return '<div class="fi f' + i + '"></div>'; }).join('') + [64, 2, 8, 4, 16, 32].map(function (n) { return '<div class="fc f' + DFACE[n] + (n > 9 ? ' n3' : '') + '">' + n + '</div>'; }).join(''); }
   function oriStr(o, extra) { return (extra || '') + ' rotateX(' + o[0].toFixed(1) + 'deg) rotateY(' + o[1].toFixed(1) + 'deg)'; }
   (function buildDie() {
     try { if (window.Checker) { var tx = window.Checker.texture('bone', 1); document.documentElement.style.setProperty('--ivory', 'url(' + tx.toDataURL('image/jpeg', 0.85) + ')'); } } catch (e) {}
@@ -2615,6 +2912,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     return th < me - 12 && Math.random() < 0.3;
   }
   function aiOffer() { G.phase = 'offered'; spinSky(); cubeUI(); arriveOffer(); say(NAME.them + ' doubles to ×' + G.cube.v * 2 + '. Tap it to take, or hold and slide to give up.'); }
+  function dropDouble() { offerGone(); $('cubeFloat').hidden = true; $('cube').classList.remove('dragging'); gameOver(TH, true); }
   function takeDouble() {
     var toMe = function () { offerGone(); $('cfIn').style.transition = 'transform .35s ease'; $('cfIn').style.transform = ''; floatHome($('whoMe'), function () { $('cube').classList.remove('dragging'); cubeUI(); }); };
     if (DUO) {
@@ -2693,22 +2991,21 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   }
   function endAi() {
     if (G.phase !== 'ai') return;
-    D.forEach(function (d) { d.live = false; }); D = [];
+    handIn();
     G.phase = 'roll'; setTurn(ME); say('Your turn. Throw your dice.');
   }
   /* House rule: the first game of a match starts with the opening roll; after that the last game's winner starts. */
   var LASTW = null;
-  function gameOver(winner, dropped) {
+  function gameOver(winner, dropped, resign) {
     LASTW = winner;
     G.phase = 'over'; dayFlip(); G.asking = false; hideNote(); say('');
-    /* Single 1, gammon 2 (loser bore off nothing), backgammon 3 (also still on the bar or in the winner's home board). */
-    var loser = other(winner), gam = !dropped && stacks['off-' + loser].length === 0, bg = false;
-    if (gam) { bg = stacks['bar-' + loser].length > 0; for (var r = 1; r <= 6 && !bg; r++) bg = stacks[absOf(winner, r)].some(function (id) { return ck[id].side === loser; }); }
-    var pts = G.cube.v * (bg ? 3 : gam ? 2 : 1);
+    /* Single 1, gammon 2 (loser bore off nothing), backgammon 3 (also still on the bar or in the winner's home board).
+       Giving up counts a gammon only once the winner has started bearing off (see scoreOf). */
+    var sc = scoreOf(winner, dropped, resign), gam = sc.gam, bg = sc.bg, pts = sc.pts;
     G.score[winner] += pts; $('scMe').textContent = G.score.me; $('scThem').textContent = G.score.them;
     if (dropped) spinSky();
-    if (DUO) { DUO.overShown = true; save({ phase: 'over', result: { winner: seatOf(winner), pts: pts, dropped: !!dropped, gammon: gam, bg: bg } }); }
-    showOver(winner, pts, dropped, gam, bg);
+    if (DUO) { DUO.overShown = true; save({ phase: 'over', result: { winner: seatOf(winner), pts: pts, dropped: !!dropped, gammon: gam, bg: bg, forfeit: !!resign } }); }
+    showOver(winner, pts, dropped, gam, bg, !!resign);
   }
   /* Proposal: the end of a game as a note on a café table. The words come from one of five backgammon cultures, picked
      at random each time, with a small translation; both players' checkers sit on the paper and spin like coins on a
@@ -2720,17 +3017,18 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     { n: 'Greek', win: ['Opa!', 'bravo'], lose: ['Den peirazei', 'it doesn’t matter'], gam: ['Diplo!', 'a double'], again: ['Ela, allo ena', 'come on, another'] },
     { n: 'Hebrew', win: ['Kol hakavod!', 'well done'], lose: ['Pa’am haba’a', 'next time'], gam: ['Mars!', 'gammon'], again: ['Yalla, od ahat', 'come on, one more'] }
   ];
-  function overWords(winner, pts, dropped, gam, bg, match) {
+  function overWords(winner, pts, dropped, gam, bg, match, forfeit) {
     var me = winner === ME, n = NAME.them, c = CULT[Math.random() * CULT.length | 0];
     var head = me ? ((gam || bg) && !match ? c.gam : c.win) : c.lose;
-    var what = match ? (me ? 'The match is yours' : n + ' takes the match')
+    var what = match ? (me ? 'The match is yours' + (forfeit ? ': ' + n + ' gave up' : '') : n + ' takes the match' + (forfeit ? ': you gave up' : ''))
       : dropped ? (me ? n + ' passed on the double' : 'You gave up on the double')
+      : forfeit ? (me ? n + ' gave up · ' : 'You gave up · ') + (bg ? 'a backgammon, three points' : gam ? 'a gammon, two points' : 'one point')
       : (me ? 'You win ' : n + ' wins ') + (bg ? 'a backgammon · three points' : gam ? 'a gammon · two points' : 'one point');
     return { c: c, head: head, what: what };
   }
   var SPIN = [];
-  function showOver2(winner, pts, dropped, gam, bg, match) {
-    var o = $('over'), w = overWords(winner, pts, dropped, gam, bg, match), mult = G.cube.v > 1 && !match ? ' · cube ×' + G.cube.v : '';
+  function showOver2(winner, pts, dropped, gam, bg, match, forfeit) {
+    var o = $('over'), w = overWords(winner, pts, dropped, gam, bg, match, forfeit), mult = G.cube.v > 1 && !match ? ' · cube ×' + G.cube.v : '';
     o.hidden = false;
     o.innerHTML = '<div class="card3"><i class="ring"></i>' +
       '<b class="hand">' + w.head[0] + '</b><small class="tr">' + w.c.n + ' · “' + w.head[1] + '”</small>' +
@@ -2774,20 +3072,27 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       requestAnimationFrame(tick);
     })(last);
   }
-  function showOver(winner, pts, dropped, gam, bg) {
+  /* A finished match is kept once: both devices show the end, so it is filed under this game's own id and number,
+     and whichever device files it second finds it already there. */
+  function recordMatch(winner) {
+    if (!DUO || !window.onMatchEnd) return;
+    var key = (DUO.gid || window.GAMEID || 'duo') + '_' + DUO.game; if (DUO.recorded === key) return; DUO.recorded = key;
+    window.onMatchEnd({ id: key, winner: SEATS[seatOf(winner)].ini, loser: SEATS[seatOf(other(winner))].ini, to: MATCH, score: [G.score[winner], G.score[other(winner)]] });
+  }
+  function showOver(winner, pts, dropped, gam, bg, forfeit) {
     var o = $('over'); o.hidden = false;
     if (window.OVER2) {
       var isMatch = G.score[winner] >= MATCH;
-      showOver2(winner, pts, dropped, gam, bg, isMatch);
+      showOver2(winner, pts, dropped, gam, bg, isMatch, forfeit);
       if (isMatch) {
-        if (DUO && !DUO.recorded && window.onMatchEnd) { DUO.recorded = true; window.onMatchEnd({ winner: SEATS[seatOf(winner)].ini, loser: SEATS[seatOf(other(winner))].ini, to: MATCH, score: [G.score[winner], G.score[other(winner)]] }); }
+        recordMatch(winner);
         Array.prototype.forEach.call(o.querySelectorAll('[data-to]'), function (b) { b.addEventListener('click', function () { newMatch(+b.getAttribute('data-to')); }); });
       } else $('again').addEventListener('click', function () { if (DUO) newGame(false); else start(); });
       return;
     }
-    o.innerHTML = '<div><b>' + (winner === ME ? 'You win' : NAME.them + ' wins') + ' ' + pts + ' point' + (pts > 1 ? 's' : '') + '</b><span>' + (dropped ? (winner === ME ? NAME.them + ' passed on the double. ' : 'You gave up on the double. ') : bg ? 'Backgammon. ' : gam ? 'Gammon. ' : '') + G.score.me + ' – ' + G.score.them + ', match to ' + MATCH + '</span><button id="again">Next game</button></div>';
+    o.innerHTML = '<div><b>' + (winner === ME ? 'You win' : NAME.them + ' wins') + ' ' + pts + ' point' + (pts > 1 ? 's' : '') + '</b><span>' + (dropped ? (winner === ME ? NAME.them + ' passed on the double. ' : 'You gave up on the double. ') : forfeit ? (winner === ME ? NAME.them + ' gave up. ' : 'You gave up. ') : '') + (dropped ? '' : bg ? 'Backgammon. ' : gam ? 'Gammon. ' : '') + G.score.me + ' – ' + G.score.them + ', match to ' + MATCH + '</span><button id="again">Next game</button></div>';
     if (G.score[winner] >= MATCH) {
-      if (DUO && !DUO.recorded && window.onMatchEnd) { DUO.recorded = true; window.onMatchEnd({ winner: SEATS[seatOf(winner)].ini, loser: SEATS[seatOf(other(winner))].ini, to: MATCH, score: [G.score[winner], G.score[other(winner)]] }); }
+      recordMatch(winner);
       o.innerHTML = '<div><b>' + (winner === ME ? 'You win the match' : NAME.them + ' wins the match') + '</b><span>' + G.score.me + ' – ' + G.score.them + (bg ? ' · backgammon' : gam ? ' · gammon' : '') + '</span>' +
         '<span>New match to</span><div class="lens">' + [1, 3, 5, 7, 9, 11, 15].map(function (n) { return '<button data-to="' + n + '"' + (n === MATCH ? ' class="on"' : '') + '>' + n + '</button>'; }).join('') + '</div></div>';
       Array.prototype.forEach.call(o.querySelectorAll('[data-to]'), function (b) { b.addEventListener('click', function () { newMatch(+b.getAttribute('data-to')); }); });
@@ -2832,14 +3137,38 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   function nonce() { return Math.random().toString(36).slice(2, 9); }
   function seatOf(side) { return side === ME ? DUO.seat : DUO.other; }
   function sideOf(seat) { return seat === DUO.seat ? ME : TH; }
-  function enqueue(fn) {
-    DUO.chain = DUO.chain.then(fn).catch(function (e) { console.warn('save failed', e); say('Could not save that to the shared game' + (e && e.code ? ' (' + e.code + ')' : '') + '.'); });
+  /* Writing the shared game. Each write is made up the moment it is asked for and stays tied to the game it was made
+     in, even if you open another game before it has gone out. Writes leave one at a time, in order; a whole-game write
+     still waiting is replaced by a newer one (the newer one holds everything). A write that fails is tried again after
+     2, 4, 8… s (at most 30 s) until it gets through, unless a newer whole-game write has taken its place; one the
+     server refuses outright is reported and dropped. While a write has been waiting over 3 s, "saving…" shows beside
+     the match length, so nobody closes the app thinking their move has gone. */
+  function put(me, job) {
+    var q = me.q, last = q[q.length - 1];
+    if (job.doc && last && last.doc && !last.busy) q[q.length - 1] = job; else q.push(job);
+    pump(me);
   }
-  /* Saves are coalesced: the record is built from the state at the moment it is written, one write at a time. */
-  function save(o) {
-    DUO.pend = o; if (DUO.queued) return; DUO.queued = true;
-    enqueue(function () { DUO.queued = false; var o2 = DUO.pend; DUO.pend = null; if (!o2) return; return DUO.ref.set(buildDoc(o2)); });
+  function pump(me) {
+    savingMark(me);
+    if (me.busy || !me.q.length) return;
+    var job = me.q[0]; me.busy = job; job.busy = true;
+    Promise.resolve().then(function () { return job.doc ? me.ref.set(job.doc) : me.ref.update(job.up); }).then(function () {
+      me.q.shift(); me.busy = null; me.fails = 0; pump(me);
+    }, function (e) {
+      console.warn('save failed', e);
+      job.busy = false; me.busy = null;
+      var code = e && e.code ? String(e.code) : '', hard = /permission|invalid|not.found|unauthenticated/.test(code);
+      if (DUO === me) say('Couldn’t save to the shared game' + (code ? ' (' + code + ')' : '') + (hard ? '.' : '. Trying again…'));
+      if (hard || (job.doc && me.q.slice(1).some(function (j) { return j.doc; }))) { me.q.shift(); pump(me); return; }
+      me.fails = (me.fails || 0) + 1;
+      setTimeout(function () { pump(me); }, Math.min(30000, 1000 * Math.pow(2, me.fails)));
+    });
   }
+  function savingMark(me) {
+    if (!me.q.length) { clearTimeout(me.markT); me.markT = null; if (DUO === me) $('scTo').classList.remove('saving'); return; }
+    if (!me.markT) me.markT = setTimeout(function () { if (DUO === me && me.q.length) $('scTo').classList.add('saving'); }, 3000);
+  }
+  function save(o) { put(DUO, { doc: buildDoc(o) }); }
   function boardToShared() {
     var S = state(), sA = DUO.seat === 'A', pts = [], bar = {}, off = {};
     for (var i = 0; i <= 24; i++) pts.push(0);
@@ -2864,7 +3193,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   /* A new match at 0–0, to however many points you pick. */
   function newMatch(n) {
     MATCH = n; $('scTo').textContent = 'match to ' + MATCH; LASTW = null;
-    if (DUO) { DUO.recorded = false; newGame(true); } else { G.score = { me: 0, them: 0 }; start(); }
+    if (DUO) newGame(true); else { G.score = { me: 0, them: 0 }; start(); }
   }
   function startBoard() {
     var pts = []; for (var i = 0; i <= 24; i++) pts.push(0);
@@ -2879,8 +3208,8 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     var doc = { v: DUO.V + 1, by: DUO.seat, game: Math.max(DUO.game || 0, (DUO.lastDoc && DUO.lastDoc.game) || 0) + 1, round: 0, phase: ws ? 'roll' : 'opening', turn: ws,
       open: { A: null, B: fresh ? { v: rnd6(), n: nonce(), t: null } : null }, board: startBoard(), dice: null, cube: { v: 1, owner: null },
       offerBy: null, score: sc, result: null, to: MATCH, log: [], race: null, ro: null };
-    DUO.V = doc.v; DUO.pend = null; applyShared(doc, true);
-    enqueue(function () { return DUO.ref.set(doc); });
+    DUO.V = doc.v; applyShared(doc, true);
+    put(DUO, { doc: doc });
   }
   function resetLocal(d) {
     $('over').hidden = true; hideNote(); DUO.log = []; $('cubeFloat').hidden = true; $('cube').classList.remove('dragging');
@@ -2954,11 +3283,15 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     if (!fresh && newLog && lastE && lastE.x && lastE.s === DUO.seat) setTimeout(function () { info('You couldn’t come in with ' + dtx(lastE.d) + '.'); }, 300);
     if (d.phase === 'opening') { applyOpening(d, fresh); cubeUI(); return; }
     if (d.phase === 'over') {
-      G.phase = 'over'; cubeUI();
+      G.phase = 'over'; cubeUI(); say('');
       if (!DUO.overShown && d.result) {
         DUO.overShown = true; $('cubeFloat').hidden = true; $('cube').classList.remove('dragging');
         if (d.result.dropped && prev === 'wait') spinSky();
-        showOver(sideOf(d.result.winner), d.result.pts, d.result.dropped, d.result.gammon, d.result.bg);
+        showOver(sideOf(d.result.winner), d.result.pts, d.result.dropped, d.result.gammon, d.result.bg, d.result.forfeit);
+        if (d.result.forfeit && !fresh && !reduce && W && !CASE.a) {
+          var ov = $('over'); ov.style.visibility = 'hidden'; CASE.fresh = false; caseFold(); CASE.until = 0;
+          setTimeout(function () { ov.style.visibility = ''; if (ov.animate && !ov.hidden) ov.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 450, easing: 'ease-out' }); }, 1700);
+        }
       }
       return;
     }
@@ -2973,7 +3306,8 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     var t = sideOf(d.turn);
     if (t === ME) {
       if (d.phase === 'roll') {
-        clearDice(); G.phase = 'roll'; setTurn(ME);
+        if (prev === 'remote' && !fresh) handIn(); else clearDice();
+        G.phase = 'roll'; setTurn(ME);
         if (prev === 'wait' && G.cube.owner === TH) {
           spinSky(); floatHome($('whoThem'), function () { $('cube').classList.remove('dragging'); cubeUI(); });
           say(NAME.them + ' took it. Playing for ' + G.cube.v + '. Throw your dice.');
@@ -3008,7 +3342,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     DUO.myOpen = { v: dd.v, n: nonce(), t: [vecOf(dd)], round: (DUO.lastDoc && DUO.lastDoc.round) || 0 };
     up.open[DUO.seat] = { v: DUO.myOpen.v, n: DUO.myOpen.n, t: DUO.myOpen.t };
     G.phase = 'openWait';
-    enqueue(function () { return DUO.ref.update(up); });
+    put(DUO, { up: up });
   }
   function settleSync() {
     var d = DUO && DUO.lastDoc; if (!d) return;
@@ -3024,7 +3358,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       if (DUO.seat === 'A') setTimeout(function () {
         var ld = DUO.lastDoc; if (!ld || ld.phase !== 'opening' || ld.game + ':' + (ld.round || 0) !== key) return;
         var doc = JSON.parse(JSON.stringify(ld)); doc.v = DUO.V + 1; doc.by = DUO.seat; doc.round = (ld.round || 0) + 1; doc.open = { A: null, B: null };
-        DUO.V = doc.v; applyShared(doc, false); enqueue(function () { return DUO.ref.set(doc); });
+        DUO.V = doc.v; applyShared(doc, false); put(DUO, { doc: doc });
       }, 1100);
       return;
     }
@@ -3045,13 +3379,15 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   }
   function joinDuo(seat) {
     if (DUO && DUO.unsub) DUO.unsub();
-    DUO = { seat: seat, other: seat === 'A' ? 'B' : 'A', ref: DB.doc('games/' + (window.GAMEID || 'duo')), V: 0, chain: Promise.resolve(), game: null, openN: {}, first: true, lastDoc: null };
-    setNames(); resetLocal({ game: null }); say('Joining the shared game…');
+    DUO = { seat: seat, other: seat === 'A' ? 'B' : 'A', ref: DB.doc('games/' + (window.GAMEID || 'duo')), V: 0, q: [], busy: null, game: null, openN: {}, first: true, lastDoc: null };
+    setNames(); resetLocal({ game: null }); say('Joining the shared game…'); $('scTo').classList.remove('saving');
     var me = DUO, timer = setTimeout(function () { if (DUO === me) say('Can’t reach the shared game yet.'); }, 10000);
     me.unsub = me.ref.onSnapshot(function (snap) {
       if (DUO !== me) return;
       clearTimeout(timer);
-      if (!snap.exists) { if (me.first) { me.first = false; newGame(true); } return; }
+      /* "No game here" only counts when the server says so: offline, the phone just has no copy yet, and starting a new
+         game then would overwrite the real one once the connection comes back. */
+      if (!snap.exists) { if (snap.metadata && snap.metadata.fromCache) return; if (me.first) { me.first = false; newGame(true); } return; }
       var d = snap.data(), fresh = me.first; me.first = false;
       if (!d || !d.board) return;
       if (!fresh) {
