@@ -2562,12 +2562,12 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   function finishTurn() {
     if (G.turn !== ME || G.phase !== 'move') return;
     G.auto = false;
-    var entry = turnEntry();
+    var entry = turnEntry(), saved = DUO && G.deadSaved; G.deadSaved = false; /* already passed with the throw */
     G.hist = []; G.turnStart = null;
     D.forEach(function (d) { d.live = false; });
-    if (DUO) pushLog(entry);
-    if (DUO && closedOut(state(), TH) && !closedOut(state(), ME)) { D = []; danceThem(); return; }
-    if (DUO) { D = []; G.phase = 'remote'; setTurn(TH); say(NAME.them + '’s turn.'); save({ phase: 'roll', turn: DUO.other, dice: null }); return; }
+    if (DUO && !saved) pushLog(entry);
+    if (DUO && !saved && closedOut(state(), TH) && !closedOut(state(), ME)) { D = []; danceThem(); return; }
+    if (DUO) { D = []; G.phase = 'remote'; setTurn(TH); say(NAME.them + '’s turn.'); if (!saved) save({ phase: 'roll', turn: DUO.other, dice: null }); return; }
     D = []; G.phase = 'ai'; setTurn(TH); say(NAME.them + ' is playing.');
     setTimeout(aiRoll, 1400);
   }
@@ -2998,7 +2998,16 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       var nd = D.filter(function (d) { return d.live; }), vals = nd.map(function (d) { return d.v; });
       if (vals[0] === vals[1]) vals = vals.concat(vals);
       DUO.diceN = nonce(); DUO.diceT = nd.map(vecOf);
-      save({ phase: 'move', turn: DUO.seat, dice: { by: DUO.seat, n: DUO.diceN, t: DUO.diceT, list: vals.map(function (v) { return { v: v, used: false }; }) } });
+      var sd = { by: DUO.seat, n: DUO.diceN, t: DUO.diceT, list: vals.map(function (v) { return { v: v, used: false }; }) };
+      /* A throw that can't be played at all passes the turn in the same save as the throw itself, so nothing is left
+         waiting on this phone (closed, locked, offline) and the other player can go on at once. Their device replays
+         the throw, then it's their turn. (Both closed out is left to the usual way: this device throws for them.) */
+      var S0 = state(), ps = plays(S0, ME, vals, 2);
+      G.deadSaved = ps.length === 1 && !ps[0].path.length && !(closedOut(S0, TH) && !closedOut(S0, ME));
+      if (G.deadSaved) {
+        pushLog({ s: DUO.seat, d: [nd[0].v, nd[1].v], h: 0, z: true, pre: boardToShared() });
+        sd.dead = true; save({ phase: 'roll', turn: DUO.other, dice: sd });
+      } else save({ phase: 'move', turn: DUO.seat, dice: sd });
     }
   }
   function rolled(side) {
@@ -3324,6 +3333,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     D = ordered.concat(rest);
   }
   function applyShared(d, fresh) {
+    G.deadSaved = false;
     if (d.game !== DUO.game) { resetLocal(d); fresh = true; }
     DUO.lastDoc = d;
     G.score = { me: (d.score && d.score[DUO.seat]) || 0, them: (d.score && d.score[DUO.other]) || 0 };
@@ -3372,6 +3382,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     }
     var t = sideOf(d.turn);
     if (t === ME) {
+      if (d.phase === 'roll' && d.dice && d.dice.dead && prev === 'remote' && !fresh && d.dice.n !== DUO.diceN) { watchDead(d); cubeUI(); return; }
       if (d.phase === 'roll') {
         if (prev === 'remote' && !fresh) handIn(); else clearDice();
         G.phase = 'roll'; setTurn(ME);
@@ -3379,13 +3390,32 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
           spinSky(); floatHome($('whoThem'), function () { $('cube').classList.remove('dragging'); cubeUI(); });
           say(NAME.them + ' took it. Playing for ' + G.cube.v + '. Throw your dice.');
         } else say(fresh && !lg.length ? 'You won the last game, so you start. Throw your dice.' : 'Your turn. Throw your dice.');
-      } else { setTurn(ME); applyDice(d.dice, false); G.phase = 'move'; G.hist = []; afterMyMove(true); }
+      } else {
+        setTurn(ME); applyDice(d.dice, false); G.phase = 'move'; G.hist = []; afterMyMove(true);
+        var lv = d.dice && d.dice.list || [], vv = lv.map(function (x) { return x.v; }), ps0 = vv.length && !lv.some(function (x) { return x.used; }) ? plays(state(), ME, vv, 2) : null;
+        if (fresh && ps0 && ps0.length === 1 && !ps0[0].path.length) { G.turnStart = { bar: state().bar.them, pre: boardToShared(), d: [vv[0], vv[vv.length - 1]] }; autoPlay([]); }
+      }
     } else {
       setTurn(TH); G.phase = 'remote';
       if (d.phase === 'roll') { clearDice(); say(fresh && !lg.length ? NAME.them + ' won the last game, so they start.' : NAME.them + '’s turn to throw.'); }
       else { applyDice(d.dice, !fresh); say(NAME.them + ' is playing.'); }
     }
     cubeUI();
+  }
+  /* Their throw couldn't be played: it rolls on this board as they threw it, a word on what happened, then it's yours. */
+  function watchDead(d) {
+    var sd = d.dice, vals = sd.list.slice(0, (sd.t || []).length || 2).map(function (x) { return x.v; }), v2 = [sd.list[0].v, sd.list[sd.list.length - 1].v];
+    G.phase = 'watch'; setTurn(TH); clearDice(); DUO.diceN = sd.n; DUO.diceT = sd.t || null;
+    function mine() {
+      if (DUO.lastDoc !== d || G.phase !== 'watch') return;
+      handIn(); G.phase = 'roll'; setTurn(ME); say(NAME.them + ' couldn’t move with ' + dtx(v2) + '. Your turn.'); cubeUI();
+    }
+    if (sd.t && sd.t.length && !reduce) throwVec(TH, vals, sd.t, function () {
+      if (DUO.lastDoc !== d || G.phase !== 'watch') return;
+      D.forEach(function (x) { x.tidy = true; });
+      say(NAME.them + ' couldn’t move with ' + dtx(v2) + '.'); setTimeout(mine, 1300);
+    });
+    else { vals.forEach(function (v) { placeDie(TH, v); }); setTimeout(mine, 900); }
   }
   /* Opening roll: each device throws its own die and merges it in. Once both dice have landed, the higher one
      starts; that device writes the start. On a tie, your device (seat A) clears both for another throw. */
