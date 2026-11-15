@@ -1948,8 +1948,10 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
 
   /* ---------- Handing over the dice ----------
      When your moves are done, pick up your dice and flick them across, toward the other player: that ends your turn.
-     It only counts as a real flick that starts on the dice and goes their way (left or up), or as carrying the dice
-     over to their half. A tap, a slow drag, or a flick any other way puts the dice back, so it can't happen by accident.
+     It counts as a real flick that starts on the dice and goes their way (left or up), or as carrying the dice over to
+     their half and letting go there, however slowly: over the middle of the bar is enough, by the finger or by the dice
+     in it. A tap, a drag that stays on your own side, or a flick any other way puts the dice back, so it can't happen
+     by accident.
      The dice slide over to the other side and fade; on the other device they arrive on that player's side. */
   var pass = null, PASSD = [], GIN = null, READY = false;
   function canPass() { return !!G && !!stacks && G.turn === ME && G.phase === 'move' && !G.auto && !G.rolling && !(remaining().length && anyMove(ME)); }
@@ -1962,6 +1964,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     var ds = D.filter(function (d) { return d.live; });
     pass = { hist: [{ x: x, y: y, t: performance.now() }], x0: x, y0: y, moved: false, ds: ds.map(function (d) { return { d: d, ox: d.x - x, oy: d.y - y }; }) };
     ds.forEach(function (d) { d.held = true; });
+    BH = null; /* holding the dice is never a hold on the bar */
     if (navigator.vibrate) try { navigator.vibrate(6); } catch (e) {}
   }
   function moveDice(x, y) {
@@ -1970,9 +1973,14 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     /* the dice gather a little in the hand */
     pass.ds.forEach(function (q) { q.d.tidy = false; q.d.x = x + q.ox * 0.75; q.d.y = y + q.oy * 0.75; });
   }
+  /* cancel: put the dice back. 'lost': the phone took the touch away (it can, near the screen's edge); dice already
+     carried over still go across then. */
   function dropDice(cancel) {
     var ps = pass; pass = null; if (!ps) return;
     ps.ds.forEach(function (q) { q.d.held = false; });
+    var line = L.barX + L.bw / 2, lead = Math.min.apply(null, ps.ds.map(function (q) { return q.d.x; }));
+    var over = ps.hist[ps.hist.length - 1].x < line || lead < line;
+    if (cancel === 'lost' && over && canPass()) { if (navigator.vibrate) try { navigator.vibrate(8); } catch (e) {} handOver(null); return; }
     if (!cancel && canPass()) {
       var h = ps.hist, b = h[h.length - 1], i = h.length - 1, now = performance.now();
       while (i > 0 && b.t - h[i - 1].t < 100) i--;
@@ -1981,7 +1989,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       if (now - b.t > 110) { vx = 0; vy = 0; sp = 0; } /* the finger had stopped before letting go */
       /* 0° = straight toward their half (left), 90° = straight up toward them across the table */
       var ang = Math.atan2(-vy, -vx) * 180 / Math.PI, dist = Math.hypot(b.x - ps.x0, b.y - ps.y0);
-      var flung = sp > 380 && dist > 18 && ang > -45 && ang < 105, carried = b.x < L.barX;
+      var flung = sp > 380 && dist > 18 && ang > -45 && ang < 105, carried = over;
       if (flung || carried) { if (navigator.vibrate) try { navigator.vibrate(8); } catch (e) {} handOver([vx, vy]); return; }
     }
     ps.ds.forEach(function (q) { q.d.tidy = true; });
@@ -2319,7 +2327,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     PRIM = null;
     if (!G || !stacks) return;
     if (!cancelled) { endPointer(e); return; }
-    if (pass) dropDice(true);
+    if (pass) dropDice('lost');
     if (BH && BH.on) { var bh = BH; BH = null; sideDrop(bh); }
     BH = null; drag = null; flick = null; hover = null;
     if (hold) { var hd = hold; hold = null; $('slide').hidden = true; if (hd.slide) skyBack(2 * Math.PI * ease(hd.k)); }

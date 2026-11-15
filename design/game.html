@@ -242,7 +242,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
         <li>Tap a checker: it moves by the higher die. Tap the dice to swap which one goes first.</li>
         <li>Changed your mind? Drag a moved checker back to where it started: its point lights in the second sky colour, and the move is undone. If it used both dice, you can also drop it on the point where it stopped in between: only the second die is undone. Or double tap it to send it straight back.</li>
         <li>Try a bear-off position: all your checkers are home and it's your throw, with Luca still bringing his last ones in.</li>
-        <li>When you have no dice left to play, pick up your dice and flick them across toward Luca (left or up): they slide over to his side and the turn passes. A tap, a slow drag or a flick the other way puts them back.</li>
+        <li>When you have no dice left to play, pick up your dice and flick them across toward Luca (left or up): they slide over to his side and the turn passes. Carrying them over the bar to his side and letting go there passes too, however slowly. A tap, a short drag on your own side or a flick the other way puts them back.</li>
         <li>Playing a friend: when your turn ends with them on the bar, their dice are thrown at once. If they can't come in, it's your turn again straight away. When you open the game, everything you missed since your last turn plays again on the board, move by move, with a line for each turn; a tap jumps to the end.</li>
         <li>To give up the match, put two fingers at the two ends of the board and bring them together: each half lifts with its own finger and the board closes like a case. Once it is shut it asks whether you really want to give up the whole match; Play on opens it again. Giving up hands Luca the match, whatever the score.</li>
         <li>Drag a checker: a point lights up only when you can land there, with one die or both. Points just next to a good one get a dull warning; dropping there pulls the checker back onto the good point.</li>
@@ -699,8 +699,10 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
 
   /* ---------- Handing over the dice ----------
      When your moves are done, pick up your dice and flick them across, toward the other player: that ends your turn.
-     It only counts as a real flick that starts on the dice and goes their way (left or up), or as carrying the dice
-     over to their half. A tap, a slow drag, or a flick any other way puts the dice back, so it can't happen by accident.
+     It counts as a real flick that starts on the dice and goes their way (left or up), or as carrying the dice over to
+     their half and letting go there, however slowly: over the middle of the bar is enough, by the finger or by the dice
+     in it. A tap, a drag that stays on your own side, or a flick any other way puts the dice back, so it can't happen
+     by accident.
      The dice slide over to the other side and fade; on the other device they arrive on that player's side. */
   var pass = null, PASSD = [], GIN = null, READY = false;
   function canPass() { return !!G && !!stacks && G.turn === ME && G.phase === 'move' && !G.auto && !G.rolling && !(remaining().length && anyMove(ME)); }
@@ -713,6 +715,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     var ds = D.filter(function (d) { return d.live; });
     pass = { hist: [{ x: x, y: y, t: performance.now() }], x0: x, y0: y, moved: false, ds: ds.map(function (d) { return { d: d, ox: d.x - x, oy: d.y - y }; }) };
     ds.forEach(function (d) { d.held = true; });
+    BH = null; /* holding the dice is never a hold on the bar */
     if (navigator.vibrate) try { navigator.vibrate(6); } catch (e) {}
   }
   function moveDice(x, y) {
@@ -721,9 +724,14 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     /* the dice gather a little in the hand */
     pass.ds.forEach(function (q) { q.d.tidy = false; q.d.x = x + q.ox * 0.75; q.d.y = y + q.oy * 0.75; });
   }
+  /* cancel: put the dice back. 'lost': the phone took the touch away (it can, near the screen's edge); dice already
+     carried over still go across then. */
   function dropDice(cancel) {
     var ps = pass; pass = null; if (!ps) return;
     ps.ds.forEach(function (q) { q.d.held = false; });
+    var line = L.barX + L.bw / 2, lead = Math.min.apply(null, ps.ds.map(function (q) { return q.d.x; }));
+    var over = ps.hist[ps.hist.length - 1].x < line || lead < line;
+    if (cancel === 'lost' && over && canPass()) { if (navigator.vibrate) try { navigator.vibrate(8); } catch (e) {} handOver(null); return; }
     if (!cancel && canPass()) {
       var h = ps.hist, b = h[h.length - 1], i = h.length - 1, now = performance.now();
       while (i > 0 && b.t - h[i - 1].t < 100) i--;
@@ -732,7 +740,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
       if (now - b.t > 110) { vx = 0; vy = 0; sp = 0; } /* the finger had stopped before letting go */
       /* 0° = straight toward their half (left), 90° = straight up toward them across the table */
       var ang = Math.atan2(-vy, -vx) * 180 / Math.PI, dist = Math.hypot(b.x - ps.x0, b.y - ps.y0);
-      var flung = sp > 380 && dist > 18 && ang > -45 && ang < 105, carried = b.x < L.barX;
+      var flung = sp > 380 && dist > 18 && ang > -45 && ang < 105, carried = over;
       if (flung || carried) { if (navigator.vibrate) try { navigator.vibrate(8); } catch (e) {} handOver([vx, vy]); return; }
     }
     ps.ds.forEach(function (q) { q.d.tidy = true; });
@@ -1070,7 +1078,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     PRIM = null;
     if (!G || !stacks) return;
     if (!cancelled) { endPointer(e); return; }
-    if (pass) dropDice(true);
+    if (pass) dropDice('lost');
     if (BH && BH.on) { var bh = BH; BH = null; sideDrop(bh); }
     BH = null; drag = null; flick = null; hover = null;
     if (hold) { var hd = hold; hold = null; $('slide').hidden = true; if (hd.slide) skyBack(2 * Math.PI * ease(hd.k)); }
