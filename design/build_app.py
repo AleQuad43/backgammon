@@ -73,7 +73,7 @@ api = r"""
         if (!DB) { PENDING = function () { window.BG.open(o); }; say('Connecting to the shared game…'); return; }
         if (DUO && DUO.gid !== o.gid) { if (DUO.unsub) DUO.unsub(); DUO = null; G = null; }
         CUR = o.id; SEATS.A = o.seats.A; SEATS.B = o.seats.B; OPP = SEATS[o.seat === 'A' ? 'B' : 'A'];
-        if (!DUO) { CASE.fresh = true; MATCH = o.to || 5; window.GAMEID = o.gid; joinDuo(o.seat); DUO.gid = o.gid; }
+        if (!DUO) { CASE.fresh = true; MATCH = o.to || 5; PIPS = o.pips !== false; window.GAMEID = o.gid; joinDuo(o.seat); DUO.gid = o.gid; }
         return;
       }
       if (o.duo && !NODB) {
@@ -84,7 +84,7 @@ api = r"""
       }
       if (DUO) { if (DUO.unsub) DUO.unsub(); DUO = null; }
       var fresh = CUR !== o.id || !G; CUR = o.id; OPP = o; setNames();
-      if (fresh) { CASE.fresh = true; G = null; if (o.to) { MATCH = o.to; $('scTo').textContent = 'match to ' + MATCH; } start(); }
+      if (fresh) { CASE.fresh = true; G = null; PIPS = o.pips !== false; if (o.to) { MATCH = o.to; $('scTo').textContent = 'match to ' + MATCH; } start(); }
     },
     close: function () { if (DAYF) { DAYF = 0; if (window.skyShift) window.skyShift(0, 600); } $('gv').hidden = true; $('over').hidden = true; if (history.state && history.state.bg) try { history.back(); } catch (e) {} },
     seat: function () { CUR = 'duo'; showBoard(); if (DB) pickSeat(); else say('The shared game needs the published page.'); },

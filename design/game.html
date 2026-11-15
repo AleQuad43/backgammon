@@ -586,6 +586,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     var S = state(), p = { me: 25 * S.bar.me, them: 25 * S.bar.them };
     for (var a = 1; a <= 24; a++) { p.me += own(S, ME, a) * a; p.them += own(S, TH, a) * (25 - a); }
     $('pipMe').textContent = p.me + ' pips'; $('pipThem').textContent = p.them + ' pips';
+    $('pipMe').style.display = $('pipThem').style.display = PIPS ? '' : 'none';
   }
 
   /* ---------- dice ---------- */
@@ -1144,6 +1145,8 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   }
   /* House rule: no doubling at all while either player is one point from winning the match. */
   var MATCH = 5;
+  /* Pip counts beside each player: chosen when the match is set up, the same for both players. */
+  var PIPS = true;
   function canDouble() { return G.score.me < MATCH - 1 && G.score.them < MATCH - 1 && G.cube.v < 64; }
   /* While a double waits for an answer the day turns 12 hours over; once it's answered it turns back. */
   var DAYF = 0;
@@ -2115,7 +2118,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     var sc = {}, ld = DUO.lastDoc || {}; sc[DUO.seat] = G.score.me; sc[DUO.other] = G.score.them;
     return { v: ++DUO.V, by: DUO.seat, game: DUO.game, round: ld.round || 0, phase: o.phase, turn: o.turn || null, open: { A: null, B: null },
       board: boardToShared(), dice: o.dice !== undefined ? o.dice : diceToShared(), cube: { v: G.cube.v, owner: G.cube.owner ? seatOf(G.cube.owner) : null },
-      offerBy: o.offerBy || null, score: sc, result: o.result || null, to: MATCH, log: DUO.log || [], race: raceToShared(), ro: G.ro || ld.ro || null, t0: ld.t0 || null };
+      offerBy: o.offerBy || null, score: sc, result: o.result || null, to: MATCH, log: DUO.log || [], race: raceToShared(), ro: G.ro || ld.ro || null, t0: ld.t0 || null, pips: PIPS };
   }
   function raceToShared() {
     if (!G.race) return null; var o = { A: null, B: null };
@@ -2140,7 +2143,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
       open: { A: null, B: fresh ? { v: rnd6(), n: nonce(), t: null } : null }, board: startBoard(), dice: null, cube: { v: 1, owner: null },
       offerBy: null, score: sc, result: null, to: MATCH, log: [], race: null, ro: null,
       /* when this match began (kept through every game of it, saved with the match at the end) */
-      t0: fresh ? Date.now() : ((DUO.lastDoc && DUO.lastDoc.t0) || null) };
+      t0: fresh ? Date.now() : ((DUO.lastDoc && DUO.lastDoc.t0) || null), pips: PIPS };
     DUO.V = doc.v; applyShared(doc, true);
     put(DUO, { doc: doc });
   }
@@ -2196,6 +2199,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     G.score = { me: (d.score && d.score[DUO.seat]) || 0, them: (d.score && d.score[DUO.other]) || 0 };
     $('scMe').textContent = G.score.me; $('scThem').textContent = G.score.them;
     if (d.to) MATCH = d.to; $('scTo').textContent = 'match to ' + MATCH;
+    PIPS = d.pips !== false; $('pipMe').style.display = $('pipThem').style.display = PIPS ? '' : 'none';
     G.cube = { v: d.cube.v, owner: d.cube.owner ? sideOf(d.cube.owner) : null };
     var lg = d.log || [], lastE = lg[lg.length - 1], lkey = JSON.stringify(lastE || null), newLog = lkey !== DUO.lkey;
     DUO.log = lg; DUO.lkey = lkey;
