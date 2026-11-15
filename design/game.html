@@ -2005,7 +2005,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   function recordMatch(winner) {
     if (!DUO || !window.onMatchEnd) return;
     var key = (DUO.gid || window.GAMEID || 'duo') + '_' + DUO.game; if (DUO.recorded === key) return; DUO.recorded = key;
-    window.onMatchEnd({ id: key, winner: SEATS[seatOf(winner)].ini, loser: SEATS[seatOf(other(winner))].ini, to: MATCH, score: [G.score[winner], G.score[other(winner)]] });
+    window.onMatchEnd({ id: key, winner: SEATS[seatOf(winner)].ini, loser: SEATS[seatOf(other(winner))].ini, to: MATCH, score: [G.score[winner], G.score[other(winner)]], t0: (DUO.lastDoc && DUO.lastDoc.t0) || null });
   }
   function showOver(winner, pts, dropped, gam, bg, forfeit) {
     var o = $('over'); o.hidden = false;
@@ -2115,7 +2115,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     var sc = {}, ld = DUO.lastDoc || {}; sc[DUO.seat] = G.score.me; sc[DUO.other] = G.score.them;
     return { v: ++DUO.V, by: DUO.seat, game: DUO.game, round: ld.round || 0, phase: o.phase, turn: o.turn || null, open: { A: null, B: null },
       board: boardToShared(), dice: o.dice !== undefined ? o.dice : diceToShared(), cube: { v: G.cube.v, owner: G.cube.owner ? seatOf(G.cube.owner) : null },
-      offerBy: o.offerBy || null, score: sc, result: o.result || null, to: MATCH, log: DUO.log || [], race: raceToShared(), ro: G.ro || ld.ro || null };
+      offerBy: o.offerBy || null, score: sc, result: o.result || null, to: MATCH, log: DUO.log || [], race: raceToShared(), ro: G.ro || ld.ro || null, t0: ld.t0 || null };
   }
   function raceToShared() {
     if (!G.race) return null; var o = { A: null, B: null };
@@ -2138,7 +2138,9 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     var ws = !fresh && DUO.lastDoc && DUO.lastDoc.result ? DUO.lastDoc.result.winner : null;
     var doc = { v: DUO.V + 1, by: DUO.seat, game: Math.max(DUO.game || 0, (DUO.lastDoc && DUO.lastDoc.game) || 0) + 1, round: 0, phase: ws ? 'roll' : 'opening', turn: ws,
       open: { A: null, B: fresh ? { v: rnd6(), n: nonce(), t: null } : null }, board: startBoard(), dice: null, cube: { v: 1, owner: null },
-      offerBy: null, score: sc, result: null, to: MATCH, log: [], race: null, ro: null };
+      offerBy: null, score: sc, result: null, to: MATCH, log: [], race: null, ro: null,
+      /* when this match began (kept through every game of it, saved with the match at the end) */
+      t0: fresh ? Date.now() : ((DUO.lastDoc && DUO.lastDoc.t0) || null) };
     DUO.V = doc.v; applyShared(doc, true);
     put(DUO, { doc: doc });
   }
