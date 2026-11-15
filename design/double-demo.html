@@ -1327,9 +1327,11 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     PAN = clampPan(PAN + e.deltaY); PV = 0;
   }, { passive: false });
   var lastT = performance.now(), reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var sizeTB = 0;
   function loopB(now) {
     if ($('gv').hidden) {
-      if (!FW) layoutB();
+      /* measure the real size ourselves (twice a second): never trust the phone to report a change at the right moment */
+      if (!FW || (now - sizeTB > 500 && (sizeTB = now) && (field.clientWidth !== FW || field.clientHeight !== VH))) layoutB();
       var dt = Math.min(1 / 30, (now - lastT) / 1000), t = now / 1000, fl = TUNE.float;
       if (reduce) TUNE.float = 0;
       step(dt / 2, t); step(dt / 2, t); TUNE.float = fl;
@@ -2073,7 +2075,18 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     ctx.restore();
   }
   var last = performance.now();
+  /* The board measures its real size itself instead of trusting the phone to say when it changed: some phones (iPhone
+     turning sideways, a toolbar sliding away) report a size mid-change, and a board measured then would stay squashed.
+     The browser tells us whenever the board's box really changes size, and twice a second the frame checks it anyway.
+     Both only re-draw when the size actually differs, so they cost nothing the rest of the time. */
+  var sizeT = 0;
+  function sizeCheck() {
+    var wr = $('wrap'), w = wr.clientWidth, h = wr.clientHeight;
+    if (w > 0 && h > 0 && (w !== W || h !== H || (window.devicePixelRatio || 1) !== DPR)) layout();
+  }
+  if (window.ResizeObserver) try { new ResizeObserver(function () { sizeCheck(); }).observe($('wrap')); } catch (e) {}
   function frame(now) {
+    if (now - sizeT > 500) { sizeT = now; try { sizeCheck(); } catch (e) {} }
     var last0 = last, dt = Math.min(0.033, (now - last) / 1000); last = now; ghostT += dt; nowT = now / 1000;
     /* one bad frame must never stop the board from being drawn */
     try { if (W && G && stacks) drawFrame(now, last0, dt); } catch (e) { console.error(e); }

@@ -845,9 +845,11 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     PAN = clampPan(PAN + e.deltaY); PV = 0;
   }, { passive: false });
   var lastT = performance.now(), reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var sizeTB = 0;
   function loopB(now) {
     if ($('gv').hidden) {
-      if (!FW) layoutB();
+      /* measure the real size ourselves (twice a second): never trust the phone to report a change at the right moment */
+      if (!FW || (now - sizeTB > 500 && (sizeTB = now) && (field.clientWidth !== FW || field.clientHeight !== VH))) layoutB();
       var dt = Math.min(1 / 30, (now - lastT) / 1000), t = now / 1000, fl = TUNE.float;
       if (reduce) TUNE.float = 0;
       step(dt / 2, t); step(dt / 2, t); TUNE.float = fl;

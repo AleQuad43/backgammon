@@ -855,7 +855,18 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     ctx.restore();
   }
   var last = performance.now();
+  /* The board measures its real size itself instead of trusting the phone to say when it changed: some phones (iPhone
+     turning sideways, a toolbar sliding away) report a size mid-change, and a board measured then would stay squashed.
+     The browser tells us whenever the board's box really changes size, and twice a second the frame checks it anyway.
+     Both only re-draw when the size actually differs, so they cost nothing the rest of the time. */
+  var sizeT = 0;
+  function sizeCheck() {
+    var wr = $('wrap'), w = wr.clientWidth, h = wr.clientHeight;
+    if (w > 0 && h > 0 && (w !== W || h !== H || (window.devicePixelRatio || 1) !== DPR)) layout();
+  }
+  if (window.ResizeObserver) try { new ResizeObserver(function () { sizeCheck(); }).observe($('wrap')); } catch (e) {}
   function frame(now) {
+    if (now - sizeT > 500) { sizeT = now; try { sizeCheck(); } catch (e) {} }
     var last0 = last, dt = Math.min(0.033, (now - last) / 1000); last = now; ghostT += dt; nowT = now / 1000;
     /* one bad frame must never stop the board from being drawn */
     try { if (W && G && stacks) drawFrame(now, last0, dt); } catch (e) { console.error(e); }
