@@ -1537,6 +1537,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     L = { f: f, bw: bw, tw: tw, pw: pw, y0: f, fh: H - 2 * f, lx: f, barX: f + 6 * pw, rx: f + 6 * pw + bw, trayX: f + 12 * pw + bw + gap };
     L.mid = H / 2; L.th = L.fh * 0.41; L.r = Math.min(pw * 0.45, L.fh / 13.5); L.ds = Math.round(L.r * 1.55);
     drawStatic();
+    if (typeof NOTE !== 'undefined' && NOTE.on) placeNote();
   }
   function colX(c) { return c < 6 ? L.lx + c * L.pw : L.rx + (c - 6) * L.pw; }
   function colOf(a) {
@@ -2479,10 +2480,14 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     return out.slice(0, 2).join(' ');
   }
   var NOTE = { on: false, tm: null };
-  function showNote(html) {
+  /* the message sits in the middle of your half; placed again whenever the board is re-measured */
+  function placeNote() {
     var n = $('note'), R = region(ME);
-    clearTimeout(NOTE.tm); n.innerHTML = html; n.hidden = false; NOTE.on = true;
     n.style.left = ((R.x0 + R.x1) / 2) + 'px'; n.style.top = L.mid + 'px'; n.style.width = Math.round((R.x1 - R.x0) - 24) + 'px';
+  }
+  function showNote(html) {
+    var n = $('note');
+    clearTimeout(NOTE.tm); n.innerHTML = html; n.hidden = false; NOTE.on = true; placeNote();
     requestAnimationFrame(function () { n.classList.add('on'); });
   }
   function hideNote() {
