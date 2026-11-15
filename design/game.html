@@ -243,6 +243,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
         <li>Changed your mind? Drag a moved checker back to where it started: its point lights in the second sky colour, and the move is undone. If it used both dice, you can also drop it on the point where it stopped in between: only the second die is undone. Or double tap it to send it straight back.</li>
         <li>Try a bear-off position: all your checkers are home and it's your throw, with Luca still bringing his last ones in.</li>
         <li>When you have no dice left to play, pick up your dice and flick them across toward Luca (left or up): they slide over to his side and the turn passes. A tap, a slow drag or a flick the other way puts them back.</li>
+        <li>Playing a friend: when your turn ends with them on the bar, their dice are thrown at once. If they can't come in, it's your turn again straight away. When you open the game, everything you missed since your last turn plays again on the board, move by move, with a line for each turn; a tap jumps to the end.</li>
         <li>To give up the match, put two fingers at the two ends of the board and bring them together: each half lifts with its own finger and the board closes like a case. Once it is shut it asks whether you really want to give up the whole match; Play on opens it again. Giving up hands Luca the match, whatever the score.</li>
         <li>Drag a checker: a point lights up only when you can land there, with one die or both. Points just next to a good one get a dull warning; dropping there pulls the checker back onto the good point.</li>
         <li>To double: before you roll, drag the red cube from the rail onto the board. It turns over as it goes in; once it is fully inside the playing area it shows ×2, and letting go offers the double.</li>
@@ -938,6 +939,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     if (e.isPrimary) PTS = {}; /* the first finger of a new touch: forget any finger whose lifting we never heard about */
     PTS[id] = { x: x, y: y, x0: x, y0: y };
     if (FOLD || !G || !stacks || npts() > 2) return;
+    if (REPL && REPL.skip) { REPL.skip(); return; } /* a tap while catching up jumps to the end */
     PINCH = null;
     if (npts() === 2) {
       var oid = Object.keys(PTS).filter(function (k) { return k !== id; })[0], o = PTS[oid];
@@ -1181,63 +1183,131 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     G.phase = 'auto'; hideNote();
     throwDice(ME, 2, null, function () {
       var v = liveVals(ME);
-      if (DUO) pushLog({ s: DUO.seat, d: v, h: 0, z: true });
+      if (DUO) pushLog({ s: DUO.seat, d: v, h: 0, z: true, m: '', pre: boardToShared() });
       say('You couldn’t come in with ' + dtx(v) + '.');
       setTimeout(function () {
         if (G.phase !== 'auto') return;
         spawnPass(null); clearDice();
-        if (DUO) { G.phase = 'remote'; setTurn(TH); say(NAME.them + '’s turn.'); save({ phase: 'roll', turn: DUO.other, dice: null }); }
+        if (DUO) { var a = passShared(null); if (a) { showAuto(a); return; } G.phase = 'remote'; setTurn(TH); say(NAME.them + '’s turn.'); }
         else { G.phase = 'ai'; setTurn(TH); say(NAME.them + ' is playing.'); setTimeout(aiRoll, 900); }
       }, 1600);
     });
   }
-  function danceThem() {
-    G.phase = 'auto'; setTurn(TH); say('');
-    setTimeout(function () {
+  /* ---------- On the bar: their dice are thrown at once ----------
+     When your turn ends with the other player on the bar, their dice are thrown right away, on this device, in the
+     same save that passes the turn (so nothing waits on this phone). If they can't come in, it's straight back to you;
+     if they can, it's their move with the dice already thrown. On both screens the throw rolls in from their side
+     with a line saying what happened. (Both players shut out at once would bounce for ever, so then nothing is thrown.) */
+  function thStarts() {
+    var R = region(TH), out = [];
+    for (var i = 0; i < 2; i++) out.push({ x: R.x0 + 24, y: L.y0 + 30 + i * 40, vx: 650 + Math.random() * 350, vy: -(180 + Math.random() * 260) * (i ? 0.6 : 1) });
+    return out;
+  }
+  function passShared(myDice) {
+    var S = state();
+    if (S.bar.them && !(closedOut(S, ME) && closedOut(S, TH))) {
+      var v1 = rnd6(), v2 = rnd6(), vals = v1 === v2 ? [v1, v1, v1, v1] : [v1, v2], ps = plays(S, TH, vals, 2);
+      var a = { d: [v1, v2], dead: ps.length === 1 && !ps[0].path.length, n: nonce(), st: thStarts() };
+      var sd = { by: DUO.other, n: a.n, t: a.st.map(vecOf), list: vals.map(function (v) { return { v: v, used: false }; }), auto: true };
+      if (myDice && myDice.dead) sd.pz = [myDice.list[0].v, myDice.list[myDice.list.length - 1].v];
+      DUO.diceN = a.n; DUO.diceT = sd.t;
+      if (a.dead) { sd.dead = true; pushLog({ s: DUO.other, d: a.d, h: 0, z: true, x: 1, m: '', pre: boardToShared() }); save({ phase: 'roll', turn: DUO.seat, dice: sd }); }
+      else save({ phase: 'move', turn: DUO.other, dice: sd });
+      return a;
+    }
+    save({ phase: 'roll', turn: DUO.other, dice: myDice || null });
+    return null;
+  }
+  /* On this screen: their dice roll in from their side; then either it's your turn again or theirs to move. */
+  function showAuto(a) {
+    G.phase = 'auto'; setTurn(TH); clearDice(); hideNote();
+    function after() {
       if (G.phase !== 'auto') return;
-      throwDice(TH, 2, null, function () {
-        var v = liveVals(TH);
-        pushLog({ s: DUO.other, d: v, h: 0, z: true, x: 1 });
-        say(NAME.them + ' couldn’t come in with ' + dtx(v) + '.');
+      if (a.d[0] === a.d[1] && D.length === 2) for (var i = 0; i < 2; i++) { var c = newDie(TH, a.d[0], D[1].x, D[1].y, 0, 0); c.settled = true; c.face = c.v; D.push(c); }
+      D.forEach(function (x) { x.tidy = true; });
+      if (a.dead) {
+        var t = NAME.them + ' is on the bar: their dice were thrown at once, ' + dtx(a.d) + '. No way in.';
+        say(t); showNote(esc(t));
         setTimeout(function () {
           if (G.phase !== 'auto') return;
-          handIn(); G.phase = 'roll'; setTurn(ME); say(NAME.them + ' couldn’t come in with ' + dtx(v) + '. Your turn.');
-          save({ phase: 'roll', turn: DUO.seat, dice: null });
-        }, 1600);
-      });
-    }, 600);
+          hideNote(); handIn(); G.phase = 'roll'; setTurn(ME); say(NAME.them + ' couldn’t come in with ' + dtx(a.d) + '. Your turn.'); cubeUI();
+        }, 2200);
+      } else {
+        G.phase = 'remote';
+        var t2 = NAME.them + ' is on the bar: their dice were thrown at once, ' + dtx(a.d) + '. Their move.';
+        say(t2); showNote(esc(t2)); NOTE.tm2 = setTimeout(function () { if (G.phase === 'remote') hideNote(); }, 3000);
+      }
+    }
+    if (reduce || !W) { a.d.forEach(function (v) { placeDie(TH, v); }); after(); return; }
+    a.st.forEach(function (q, i) { D.push(newDie(TH, a.d[i], q.x, q.y, q.vx, q.vy)); });
+    G.throwCb = after; G.rolling = true;
+  }
+  /* The other side of it, on the screen of the player who was on the bar: their own dice roll in as thrown (after, if
+     the other player's throw before couldn't be played, a moment showing that), with a line saying what happened. */
+  function autoMine(d) {
+    var sd = d.dice, dead = !!sd.dead, v2 = [sd.list[0].v, sd.list[sd.list.length - 1].v], vals = sd.list.slice(0, 2).map(function (x) { return x.v; });
+    G.phase = 'watch'; clearDice(); hideNote(); DUO.diceN = sd.n; DUO.diceT = sd.t || null;
+    function alive() { return DUO.lastDoc === d && G.phase === 'watch'; }
+    function go() {
+      if (!alive()) return;
+      clearDice(); if (!dead) setTurn(ME);
+      var msg = 'You’re on the bar, so your dice were thrown for you: ' + dtx(v2) + '.';
+      function landed() {
+        if (!alive()) return;
+        if (dead) {
+          D.forEach(function (x) { x.tidy = true; });
+          showNote(esc(msg + ' No way in.'), TH); say('You couldn’t come in with ' + dtx(v2) + '.');
+          setTimeout(function () {
+            if (!alive()) return;
+            hideNote(); spawnPass(null); clearDice(); G.phase = 'remote'; setTurn(TH); say(NAME.them + '’s turn to throw.'); cubeUI();
+          }, 2400);
+        } else { rolled(ME); showNote(esc(msg), TH); NOTE.tm2 = setTimeout(function () { if (G.phase === 'move') hideNote(); }, 3500); }
+      }
+      if (sd.t && sd.t.length && !reduce) throwVec(ME, vals, sd.t, landed); else { vals.forEach(function (v) { placeDie(ME, v); }); landed(); }
+    }
+    if (sd.pz) {
+      setTurn(TH); sd.pz.forEach(function (v) { placeDie(TH, v); });
+      say(NAME.them + (state().bar.them ? ' couldn’t come in with ' : ' couldn’t move with ') + dtx(sd.pz) + '.');
+      setTimeout(go, 1500);
+    } else go();
   }
   /* What happened in a turn, kept in the shared game (the last 8 turns) so the other player can catch up. */
   function turnEntry() {
     var ts = G.turnStart, d = ts ? ts.d : liveVals(ME);
-    return { s: DUO ? DUO.seat : 'A', d: d, h: ts ? Math.max(0, state().bar.them - ts.bar) : 0, z: !(G.hist && G.hist.length), pre: ts && ts.pre ? ts.pre : null };
+    return { s: DUO ? DUO.seat : 'A', d: d, h: ts ? Math.max(0, state().bar.them - ts.bar) : 0, z: !(G.hist && G.hist.length), pre: ts && ts.pre ? ts.pre : null,
+      m: (G.hist || []).map(function (q) { return q.from + '.' + q.to + '.' + q.d; }).join(' ') };
   }
   function pushLog(e) {
-    var l = (DUO.log || []).concat([e]).slice(-8);
-    DUO.log = l.map(function (x, i) { if (i < l.length - 1 && x.pre) { var y = {}; for (var k in x) if (k !== 'pre') y[k] = x[k]; return y; } return x; });
+    DUO.log = (DUO.log || []).concat([e]).slice(-8);
+    markSeen(JSON.stringify(e)); /* this phone wrote it, so it has seen it */
   }
-  /* The note when you open a game: everything since your own last turn, in at most two short sentences. */
-  function noteFor(log) {
-    var mine = [], theirs = [];
-    for (var i = log.length - 1; i >= 0; i--) { var e = log[i]; if (e.s === DUO.seat && !e.x) break; (e.s === DUO.seat ? mine : theirs).unshift(e); }
-    if (!mine.length && !theirs.length) return '';
-    var out = [], nm = NAME.them, h = theirs.reduce(function (a, e) { return a + (e.h || 0); }, 0), words = ['', 'one', 'two', 'three', 'four', 'five'];
-    if (mine.length) out.push('You couldn’t come in with ' + mine.map(function (e) { return dtx(e.d); }).join(', then ') + '.');
-    var one = !mine.length && theirs.length === 1 ? ' rolled ' + dtx(theirs[0].d) + ' and' : '';
-    if (h) out.push(nm + one + ' hit ' + (h === 1 ? (mine.length ? 'another' : 'you') : (words[h] || h) + (mine.length ? ' more' : ' of yours')) + '.');
-    else if (!mine.length && theirs.length) { var la = theirs[theirs.length - 1]; out.push(nm + (la.z ? ' couldn’t move with ' : ' played ') + dtx(la.d) + '.'); }
-    var S = state(); if (closedOut(S, ME)) out.push('Their board is closed, so your dice are thrown for you.');
-    return out.slice(0, 2).join(' ');
+  /* The note when you open a game: what you hadn't seen yet, in the order it happened, in at most three short sentences
+     (several throws of yours in a row that couldn't come in make one sentence). */
+  function noteFor(log, d) {
+    var out = [], nm = NAME.them, words = ['', 'you', 'two of yours', 'three of yours', 'four of yours'], mine = [];
+    function flush() { if (mine.length) out.push('You couldn’t come in with ' + mine.join(', then ') + '.'); mine = []; }
+    (log || []).forEach(function (e) {
+      if (e.s === DUO.seat) { if (e.x) mine.push(dtx(e.d)); return; }
+      flush();
+      var onBar = e.pre && e.pre.bar && e.pre.bar[e.s] > 0;
+      if (e.z) out.push(nm + (onBar ? ' couldn’t come in with ' : ' couldn’t move with ') + dtx(e.d) + '.');
+      else out.push(nm + ' played ' + dtx(e.d) + (e.h ? ' and hit ' + (words[e.h] || e.h + ' of yours') : '') + '.');
+    });
+    flush();
+    if (d && d.phase === 'move' && d.turn === DUO.seat && d.dice && d.dice.auto && d.dice.by === DUO.seat && !d.dice.list.some(function (x) { return x.used; }))
+      out.push('You’re on the bar, so your dice were thrown for you: ' + dtx([d.dice.list[0].v, d.dice.list[d.dice.list.length - 1].v]) + '.');
+    return out.slice(-3).join(' ');
   }
   var NOTE = { on: false, tm: null };
   /* the message sits in the middle of your half; placed again whenever the board is re-measured */
   function placeNote() {
-    var n = $('note'), R = region(ME);
+    var n = $('note'), R = region(NOTE.half || ME);
     n.style.left = ((R.x0 + R.x1) / 2) + 'px'; n.style.top = L.mid + 'px'; n.style.width = Math.round((R.x1 - R.x0) - 24) + 'px';
   }
-  function showNote(html) {
-    var n = $('note');
-    clearTimeout(NOTE.tm); n.innerHTML = html; n.hidden = false; NOTE.on = true; placeNote();
+  /* half: whose half of the board the message sits in (yours unless said), so it never covers dice landing on yours */
+  function showNote(html, half) {
+    var n = $('note'); NOTE.half = half || ME;
+    clearTimeout(NOTE.tm); clearTimeout(NOTE.tm2); n.innerHTML = html; n.hidden = false; NOTE.on = true; placeNote();
     requestAnimationFrame(function () { n.classList.add('on'); });
   }
   function hideNote() {
@@ -1333,9 +1403,12 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     var entry = turnEntry(), saved = DUO && G.deadSaved; G.deadSaved = false; /* already passed with the throw */
     G.hist = []; G.turnStart = null;
     D.forEach(function (d) { d.live = false; });
-    if (DUO && !saved) pushLog(entry);
-    if (DUO && !saved && closedOut(state(), TH) && !closedOut(state(), ME)) { D = []; danceThem(); return; }
-    if (DUO) { D = []; G.phase = 'remote'; setTurn(TH); say(NAME.them + '’s turn.'); if (!saved) save({ phase: 'roll', turn: DUO.other, dice: null }); return; }
+    if (DUO) {
+      var a = saved ? saved.auto : (pushLog(entry), passShared(null));
+      D = [];
+      if (a) { showAuto(a); return; }
+      G.phase = 'remote'; setTurn(TH); say(NAME.them + '’s turn.'); return;
+    }
     D = []; G.phase = 'ai'; setTurn(TH); say('Luca is playing.');
     setTimeout(aiRoll, 1400);
   }
@@ -1772,12 +1845,12 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
       var sd = { by: DUO.seat, n: DUO.diceN, t: DUO.diceT, list: vals.map(function (v) { return { v: v, used: false }; }) };
       /* A throw that can't be played at all passes the turn in the same save as the throw itself, so nothing is left
          waiting on this phone (closed, locked, offline) and the other player can go on at once. Their device replays
-         the throw, then it's their turn. (Both closed out is left to the usual way: this device throws for them.) */
+         the throw, then it's their turn (or, if they're on the bar, their dice are thrown at once: see passShared). */
       var S0 = state(), ps = plays(S0, ME, vals, 2);
-      G.deadSaved = ps.length === 1 && !ps[0].path.length && !(closedOut(S0, TH) && !closedOut(S0, ME));
-      if (G.deadSaved) {
-        pushLog({ s: DUO.seat, d: [nd[0].v, nd[1].v], h: 0, z: true, pre: boardToShared() });
-        sd.dead = true; save({ phase: 'roll', turn: DUO.other, dice: sd });
+      G.deadSaved = false;
+      if (ps.length === 1 && !ps[0].path.length) {
+        pushLog({ s: DUO.seat, d: [nd[0].v, nd[1].v], h: 0, z: true, m: '', pre: boardToShared() });
+        sd.dead = true; G.deadSaved = { auto: passShared(sd) };
       } else save({ phase: 'move', turn: DUO.seat, dice: sd });
     }
   }
@@ -2117,21 +2190,24 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     var lg = d.log || [], lastE = lg[lg.length - 1], lkey = JSON.stringify(lastE || null), newLog = lkey !== DUO.lkey;
     DUO.log = lg; DUO.lkey = lkey;
     G.race = { me: d.race && d.race[DUO.seat] != null ? d.race[DUO.seat] : null, them: d.race && d.race[DUO.other] != null ? d.race[DUO.other] : null };
-    /* Opening a game on your turn: their last turn replays (their dice appear, their checkers glide), then the note. */
-    var replay = fresh && d.phase === 'roll' && d.turn === DUO.seat && lastE && lastE.s === DUO.other && !lastE.x && lastE.pre;
+    /* Opening a game: everything you haven't seen since your own last turn plays again on the board first, turn by
+       turn and move by move, with a line for each (see replayLog); then the game as it stands, and the summary. */
+    if (REPL) REPL.stop();
+    /* the summary afterwards only tells what this phone hasn't shown you yet */
+    var unseen = fresh ? (DUO.repKey === lkey && DUO.repUnseen ? DUO.repUnseen : toReplay(lg, true)) : null;
+    if (fresh && (d.phase === 'roll' || d.phase === 'move') && DUO.repKey !== lkey) {
+      DUO.repKey = lkey; DUO.repUnseen = unseen; var rep = toReplay(lg);
+      if (rep.length && W && !reduce) { replayLog(d, rep); return; }
+    }
+    markSeen(lkey);
     var roReplay = d.phase === 'over' && d.ro && d.ro.pre && d.ro.t && d.ro.t.length && d.result && !d.result.dropped && !DUO.overShown && G.phase !== 'rollout';
-    applyBoard(roReplay ? d.ro.pre : replay ? lastE.pre : d.board);
+    applyBoard(roReplay ? d.ro.pre : d.board);
     var prev = G.phase;
     if (roReplay) { DUO.overShown = true; replayRollout(d); return; }
     if (d.phase === 'rollout') { G.asking = false; hideNote(); setTurn(sideOf(d.turn)); G.phase = 'rollout'; applyDice(d.dice, false); say('Rolling out the race…'); cubeUI(); return; }
     if (fresh && (d.phase === 'roll' || d.phase === 'move')) {
-      setTimeout(function () {
-        if (DUO.lastDoc !== d) return;
-        if (replay) { if (G.phase === 'roll') lastE.d.forEach(function (v) { placeDie(TH, v); }); setTimeout(function () { if (DUO.lastDoc !== d) return; applyBoard(d.board); info(noteFor(lg)); cubeUI(); }, 450); }
-        else info(noteFor(lg));
-      }, 900);
+      setTimeout(function () { if (DUO.lastDoc === d) info(noteFor(unseen, d)); }, 900);
     }
-    if (!fresh && newLog && lastE && lastE.x && lastE.s === DUO.seat) setTimeout(function () { info('You couldn’t come in with ' + dtx(lastE.d) + '.'); }, 300);
     if (d.phase === 'opening') { applyOpening(d, fresh); cubeUI(); return; }
     if (d.phase === 'over') {
       G.phase = 'over'; cubeUI(); say('');
@@ -2156,7 +2232,8 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     }
     var t = sideOf(d.turn);
     if (t === ME) {
-      if (d.phase === 'roll' && d.dice && d.dice.dead && prev === 'remote' && !fresh && d.dice.n !== DUO.diceN) { watchDead(d); cubeUI(); return; }
+      if (d.phase === 'roll' && d.dice && d.dice.dead && !d.dice.auto && prev === 'remote' && !fresh && d.dice.n !== DUO.diceN) { watchDead(d); cubeUI(); return; }
+      if (d.phase === 'move' && d.dice && d.dice.auto && d.dice.by === DUO.seat && !fresh && d.dice.n !== DUO.diceN) { autoMine(d); cubeUI(); return; }
       if (d.phase === 'roll') {
         if (prev === 'remote' && !fresh) handIn(); else clearDice();
         G.phase = 'roll'; setTurn(ME);
@@ -2166,15 +2243,72 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
         } else say(fresh && !lg.length ? 'You won the last game, so you start. Throw your dice.' : 'Your turn. Throw your dice.');
       } else {
         setTurn(ME); applyDice(d.dice, false); G.phase = 'move'; G.hist = []; afterMyMove(true);
+        /* a throw of yours with only one way to play (or none) plays itself out when you open the game */
         var lv = d.dice && d.dice.list || [], vv = lv.map(function (x) { return x.v; }), ps0 = vv.length && !lv.some(function (x) { return x.used; }) ? plays(state(), ME, vv, 2) : null;
-        if (fresh && ps0 && ps0.length === 1 && !ps0[0].path.length) { G.turnStart = { bar: state().bar.them, pre: boardToShared(), d: [vv[0], vv[vv.length - 1]] }; autoPlay([]); }
+        if (fresh && ps0 && ps0.length === 1) { G.turnStart = { bar: state().bar.them, pre: boardToShared(), d: [vv[0], vv[vv.length - 1]] }; autoPlay(ps0[0].path); }
       }
     } else {
+      if (d.phase === 'roll' && d.dice && d.dice.auto && d.dice.dead && d.dice.by === DUO.seat && !fresh && d.dice.n !== DUO.diceN) { autoMine(d); cubeUI(); return; }
       setTurn(TH); G.phase = 'remote';
       if (d.phase === 'roll') { clearDice(); say(fresh && !lg.length ? NAME.them + ' won the last game, so they start.' : NAME.them + '’s turn to throw.'); }
       else { applyDice(d.dice, !fresh); say(NAME.them + ' is playing.'); }
     }
     cubeUI();
+  }
+  /* ---------- Catching up ----------
+     What you haven't seen yet: the turns since your own last one (theirs, and your dice thrown for you while you were
+     on the bar), minus what this phone already showed you (remembered per game). Each turn plays again on the board:
+     the sky turns to whoever's turn it was, their dice appear, each checker moves in order, with a line on what
+     happened. A tap jumps to the end. Turns saved before moves were kept just glide to where they ended. */
+  var REPL = null;
+  function seenKey() { return 'bgSeen:' + (DUO.gid || window.GAMEID || 'duo') + ':' + DUO.seat + ':' + DUO.game; }
+  function markSeen(k) { try { localStorage.setItem(seenKey(), k); } catch (e) {} }
+  function toReplay(lg, all) {
+    var rep = [];
+    for (var i = lg.length - 1; i >= 0; i--) { var e = lg[i]; if (e.s === DUO.seat && !e.x) break; rep.unshift(e); }
+    var seen = null; try { seen = localStorage.getItem(seenKey()); } catch (e2) {}
+    if (seen) for (var j = rep.length - 1; j >= 0; j--) if (JSON.stringify(rep[j]) === seen) { rep = rep.slice(j + 1); break; }
+    if (!all) while (rep.length && !rep[0].pre) rep.shift();
+    return rep;
+  }
+  function capFor(e, side, hits, bar0, done) {
+    var dt = dtx(e.d);
+    if (side === ME) return e.x ? 'You were on the bar, so your dice were thrown for you: ' + dt + '.' + (done && e.z ? ' No way in.' : '') : 'You rolled ' + dt + '.';
+    if (e.x) return NAME.them + ' was on the bar: their dice were thrown at once, ' + dt + '.' + (done && e.z ? ' No way in.' : '');
+    if (done && e.z) return NAME.them + (bar0 ? ' couldn’t come in with ' : ' couldn’t move with ') + dt + '.';
+    var w = ['', 'you', 'two of yours', 'three of yours', 'four of yours'];
+    return NAME.them + ' rolled ' + dt + (hits ? ' and hit ' + (w[hits] || hits + ' of yours') : '') + '.';
+  }
+  function replayLog(d, rep) {
+    var i = 0, R = REPL = { stop: function () { if (REPL === R) REPL = null; R.dead = true; } };
+    function alive() { return !R.dead && DUO.lastDoc === d; }
+    function end() { if (!alive()) return; R.stop(); clearDice(); hideNote(); G.phase = 'sync'; applyShared(d, true); }
+    R.skip = end;
+    G.phase = 'replay'; G.asking = false; hideNote(); clearDice(); cubeUI();
+    applyBoard(rep[0].pre);
+    say('Here’s what happened since your last turn. Tap to skip.');
+    setTimeout(function turn() {
+      if (!alive()) return;
+      var e = rep[i++]; if (!e) { setTimeout(end, 400); return; }
+      var side = sideOf(e.s), os = side === ME ? 'them' : 'me', ms = e.m ? e.m.split(' ').map(function (x) { var q = x.split('.'); return { from: +q[0], to: +q[1], d: +q[2] }; }) : [], j = 0;
+      applyBoard(e.pre); clearDice(); setTurn(side);
+      (e.d[0] === e.d[1] ? [e.d[0], e.d[0], e.d[0], e.d[0]] : e.d).forEach(function (v) { placeDie(side, v); });
+      var bar0 = state().bar[side === ME ? 'me' : 'them'], hb = state().bar[os], hits = 0;
+      var ch = side === ME ? TH : ME;
+      showNote(esc(capFor(e, side, 0, bar0, false)), ch);
+      setTimeout(function step() {
+        if (!alive()) return;
+        if (j < ms.length) {
+          var m = ms[j++];
+          try { moveOne(side, m.from, m.to, m.d, true); } catch (er) { j = ms.length; }
+          hits = state().bar[os] - hb; showNote(esc(capFor(e, side, hits, bar0, false)), ch);
+          setTimeout(step, 560); return;
+        }
+        if (!('m' in e)) applyBoard(rep[i] ? rep[i].pre : d.board);
+        if (e.z) showNote(esc(capFor(e, side, 0, bar0, true)), ch);
+        setTimeout(turn, e.z ? 1700 : 900);
+      }, e.z ? 1100 : 800);
+    }, 700);
   }
   /* Their throw couldn't be played: it rolls on this board as they threw it, a word on what happened, then it's yours. */
   function watchDead(d) {
@@ -2182,12 +2316,12 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     G.phase = 'watch'; setTurn(TH); clearDice(); DUO.diceN = sd.n; DUO.diceT = sd.t || null;
     function mine() {
       if (DUO.lastDoc !== d || G.phase !== 'watch') return;
-      handIn(); G.phase = 'roll'; setTurn(ME); say(NAME.them + ' couldn’t move with ' + dtx(v2) + '. Your turn.'); cubeUI();
+      handIn(); G.phase = 'roll'; setTurn(ME); say(NAME.them + (state().bar.them ? ' couldn’t come in with ' : ' couldn’t move with ') + dtx(v2) + '. Your turn.'); cubeUI();
     }
     if (sd.t && sd.t.length && !reduce) throwVec(TH, vals, sd.t, function () {
       if (DUO.lastDoc !== d || G.phase !== 'watch') return;
       D.forEach(function (x) { x.tidy = true; });
-      say(NAME.them + ' couldn’t move with ' + dtx(v2) + '.'); setTimeout(mine, 1300);
+      say(NAME.them + (state().bar.them ? ' couldn’t come in with ' : ' couldn’t move with ') + dtx(v2) + '.'); setTimeout(mine, 1300);
     });
     else { vals.forEach(function (v) { placeDie(TH, v); }); setTimeout(mine, 900); }
   }
