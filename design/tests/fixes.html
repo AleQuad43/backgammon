@@ -1,0 +1,130 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Fix checks</title>
+<!-- Exact scenarios for bugs fixed on 2026-11-16, two phones in one browser (like end_of_game.html, but on
+     tests/sim_app.html, which has the test hook). Build: python3 design/build_app.py && python3 design/tests/make_sim.py
+     Then open http://localhost:8771/tests/fixes.html, or: python3 design/tests/run_headless.py tests/fixes.html -->
+<style>
+  body { font: 14px/1.4 system-ui, sans-serif; margin: 16px; background: #f4f1ea; color: #222; }
+  #log div { padding: 2px 0; } .ok { color: #17803d; } .no { color: #b3261e; font-weight: 600; } .h { margin-top: 10px; font-weight: 700; }
+  .fr { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; } iframe { width: 640px; height: 320px; border: 1px solid #ccc; background: #fff; }
+</style>
+<div id="sum">Running…</div>
+<div id="log"></div>
+<div class="fr"><iframe id="fA"></iframe><iframe id="fB"></iframe></div>
+<script>
+(function () {
+  var GID = 'fix_pair', fails = 0, passes = 0, APP = (location.search.match(/[?&]app=([\w.-]+)/) || [])[1] || 'sim_app.html';
+  var SEATS = { A: { name: 'Quad', ini: 'qu' }, B: { name: 'Nolf', ini: 'no' } };
+  function log(t, cls) { var d = document.createElement('div'); d.textContent = t; if (cls) d.className = cls; document.getElementById('log').appendChild(d); }
+  function check(ok, what) { if (ok) passes++; else fails++; log((ok ? '✓ ' : '✗ ') + what, ok ? 'ok' : 'no'); }
+  function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  async function until(fn, ms) { var t = Date.now(); while (Date.now() - t < (ms || 15000)) { try { if (fn()) return true; } catch (e) {} await wait(100); } return false; }
+  function doc() { try { return JSON.parse(localStorage.getItem('mock:games/' + GID)); } catch (e) { return null; } }
+  function put(d) { localStorage.setItem('mock:games/' + GID, JSON.stringify(d)); }
+  function clean() { Object.keys(localStorage).forEach(function (k) { if (/^mock:|^bgSeen:|^bgEnd:|^duoSeat/.test(k)) localStorage.removeItem(k); }); }
+  function pts(o) { var p = []; for (var i = 0; i <= 24; i++) p.push(o[i] || 0); return p; }
+  function base(o) {
+    return Object.assign({ v: 10, by: 'B', game: 1, round: 0, phase: 'roll', turn: 'A', open: { A: null, B: null }, board: null, dice: null,
+      cube: { v: 1, owner: null }, offerBy: null, score: { A: 0, B: 0 }, result: null, to: 1, log: [], race: null, ro: null, t0: Date.now() - 3600e3, pips: true }, o);
+  }
+  /* Quad (A) has one checker left, on his 1-point, with 6–5 to play: it bears off by itself and he wins. */
+  function nearEnd() { return base({ phase: 'move', turn: 'A', board: { pts: pts({ 1: 1, 19: -5, 20: -5 }), bar: { A: 0, B: 0 }, off: { A: 14, B: 5 } }, dice: { by: 'A', n: 'tst', t: null, list: [{ v: 6, used: false }, { v: 5, used: false }] } }); }
+  function frame(id, seat) {
+    var f = document.getElementById(id);
+    return new Promise(function (r) { f.onload = function () { setTimeout(function () { r(f.contentWindow); }, 600); }; f.src = APP + '?mock&t=' + Date.now(); })
+      .then(function (w) { w.__seat = seat; return w; });
+  }
+  function open(w, extra) { w.BG.open(Object.assign({ id: w.__seat === 'A' ? 'no' : 'qu', gid: GID, seat: w.__seat, seats: SEATS, name: SEATS[w.__seat === 'A' ? 'B' : 'A'].name, ini: 'x', to: 1, pips: true }, extra || {})); }
+  function $$(w, id) { return w.document.getElementById(id); }
+  function overOn(w) { return !$$(w, 'over').hidden && $$(w, 'over').style.visibility !== 'hidden'; }
+  function errs(w) { return (w.__errors || []).slice(); }
+  function tap(w, fx, fy) {
+    var cv = $$(w, 'board'), r = cv.getBoundingClientRect(), x = r.left + r.width * fx, y = r.top + r.height * fy, P = w.PointerEvent;
+    cv.dispatchEvent(new P('pointerdown', { clientX: x, clientY: y, pointerId: 7, isPrimary: true, bubbles: true, pointerType: 'mouse' }));
+    cv.dispatchEvent(new P('pointerup', { clientX: x, clientY: y, pointerId: 7, isPrimary: true, bubbles: true, pointerType: 'mouse' }));
+  }
+  function blank() { return new Promise(function (r) { ['fA', 'fB'].forEach(function (id) { document.getElementById(id).src = 'about:blank'; }); setTimeout(r, 200); }); }
+
+  async function run() {
+    /* ---------- 1 ---------- */
+    log('1. Nolf has gone back home when Quad wins: nothing is counted as seen until he opens the board', 'h');
+    clean(); put(nearEnd());
+    var B = await frame('fB', 'B'); open(B); await wait(1500);
+    B.BG.close();
+    var A = await frame('fA', 'A'); open(A);
+    check(await until(function () { var d = doc(); return d && d.phase === 'over'; }, 12000), 'the game ends (Quad wins)');
+    await wait(2500);
+    check(!localStorage.getItem('bgEnd:' + GID + '_1:B'), 'Nolf’s phone has not marked the end as seen while its board is put away');
+    check($$(B, 'over').hidden, 'and no end card has come up behind the home screen');
+    open(B);
+    check(await until(function () { return !!B.__T.REPL; }, 4000), 'opening the board: Quad’s last turn plays first');
+    check(await until(function () { return overOn(B); }, 12000), 'then the end card');
+    check(!!localStorage.getItem('bgEnd:' + GID + '_1:B'), 'now the end is marked as seen');
+    check($$(B, 'scThem').textContent === '1', 'and the rail shows the score');
+    check(!errs(A).length && !errs(B).length, 'no script errors ' + errs(A).concat(errs(B)).join(' / '));
+
+    /* ---------- 2 ---------- */
+    log('2. A catch-up replay, then the Computer: taps on the board still work', 'h');
+    await blank(); clean(); put(nearEnd());
+    A = await frame('fA', 'A'); open(A);
+    await until(function () { var d = doc(); return d && d.phase === 'over'; }, 12000);
+    B = await frame('fB', 'B'); open(B);
+    check(await until(function () { return !!B.__T.REPL; }, 5000), 'Nolf’s phone is replaying Quad’s last turn');
+    B.BG.close(); B.BG.open({ id: 'bot', name: 'Computer', ini: 'bot', to: 3, pips: true });
+    await until(function () { return B.__T.G && B.__T.G.phase === 'opening'; }, 4000);
+    check(!B.__T.REPL, 'the replay has let go of the board');
+    tap(B, 0.75, 0.5);
+    check(await until(function () { return B.__T.G.phase !== 'opening'; }, 3000), 'a tap on the board throws the opening die (' + B.__T.G.phase + ')');
+    check(!errs(B).length, 'no script errors ' + errs(B).join(' / '));
+
+    /* ---------- 3 ---------- */
+    log('3. The race roll-out is decided and saved at once', 'h');
+    await blank(); clean();
+    put(base({ to: 5, board: { pts: pts({ 1: 3, 2: 3, 3: 3, 4: 2, 5: 2, 6: 2, 19: -3, 20: -3, 21: -3, 22: -2, 23: -2, 24: -2 }), bar: { A: 0, B: 0 }, off: { A: 0, B: 0 } }, race: { A: null, B: true } }));
+    A = await frame('fA', 'A'); B = await frame('fB', 'B'); open(B); await wait(800); open(A);
+    var phases = {}; var watch = setInterval(function () { var d = doc(); if (d) phases[d.phase] = 1; }, 50);
+    check(await until(function () { return !!A.document.querySelector('#note button[data-a="1"]'); }, 6000), 'Quad is asked to roll it out');
+    A.document.querySelector('#note button[data-a="1"]').click();
+    check(await until(function () { var d = doc(); return d && d.phase === 'over'; }, 3000), 'the finished race is in the shared game within moments');
+    var d3 = doc();
+    check(d3 && d3.ro && d3.ro.t.length > 3 && d3.result && (d3.board.off.A === 15 || d3.board.off.B === 15), 'with every turn of it and the result (' + (d3 && d3.ro && d3.ro.t.length) + ' turns)');
+    check(await until(function () { return A.__T.G.phase === 'rollout'; }, 3000), 'Quad’s phone plays it turn by turn');
+    check(await until(function () { return B.__T.G.phase === 'rollout'; }, 3000), 'and so does Nolf’s');
+    tap(A, 0.5, 0.5); tap(B, 0.5, 0.5);
+    check(await until(function () { return overOn(A) && overOn(B); }, 15000), 'both end on the card');
+    clearInterval(watch);
+    check(!phases.rollout, 'the shared game never sat in a half-played roll-out');
+    var w = d3 && d3.result ? d3.result.winner : 'A', sA = $$(A, w === 'A' ? 'scMe' : 'scThem').textContent, sB = $$(B, w === 'B' ? 'scMe' : 'scThem').textContent;
+    check(+sA === d3.result.pts && +sB === d3.result.pts, 'both rails show the winner’s points (' + sA + ', ' + sB + ')');
+    check(!errs(A).length && !errs(B).length, 'no script errors ' + errs(A).concat(errs(B)).join(' / '));
+
+    /* ---------- 4 ---------- */
+    log('4. A turn picked up after the app reloaded is logged as played', 'h');
+    await blank(); clean();
+    put(base({ to: 5, phase: 'move', turn: 'A', board: { pts: pts({ 24: 2, 13: 5, 8: 3, 6: 5, 1: -2, 12: -5, 17: -3, 19: -5 }), bar: { A: 0, B: 0 }, off: { A: 0, B: 0 } }, dice: { by: 'A', n: 'x1', t: null, list: [{ v: 6, used: false }, { v: 1, used: false }] } }));
+    A = await frame('fA', 'A'); open(A); await until(function () { return A.__T.G && A.__T.G.phase === 'move'; }, 6000); await wait(1500);
+    A.__T.stepMove(13, 7, 6); A.__T.afterMyMove();
+    await until(function () { var d = doc(); return d && d.dice.list.some(function (x) { return x.used; }); }, 4000);
+    A = await frame('fA', 'A'); open(A); await until(function () { return A.__T.G && A.__T.G.phase === 'move'; }, 6000); await wait(1500);
+    A.__T.stepMove(8, 7, 1); A.__T.afterMyMove(); await wait(300); A.__T.handOver(null);
+    check(await until(function () { var d = doc(); return d && d.turn === 'B'; }, 4000), 'the turn is handed over');
+    var e = (doc().log || []).slice(-1)[0];
+    check(e && e.s === 'A' && !e.z, 'the log says Quad played, not that he couldn’t move (' + JSON.stringify(e && { z: e.z, m: e.m }) + ')');
+    B = await frame('fB', 'B'); open(B); await wait(4000);
+    check(!errs(A).length && !errs(B).length, 'Nolf opens it without trouble ' + errs(A).concat(errs(B)).join(' / '));
+
+    /* ---------- 5 ---------- */
+    log('5. Signing in as the other player on the same phone takes the other seat', 'h');
+    await blank(); clean(); put(nearEnd());
+    A = await frame('fA', 'A'); open(A); await wait(1500);
+    A.BG.close(); A.__seat = 'B'; open(A); await wait(1500);
+    check(A.__T.DUO && A.__T.DUO.seat === 'B', 'the board now plays seat B (' + (A.__T.DUO && A.__T.DUO.seat) + ')');
+
+    clean();
+    document.getElementById('sum').innerHTML = '<b class="' + (fails ? 'no' : 'ok') + '">' + (fails ? fails + ' failed, ' : 'All ') + passes + ' passed</b>';
+    window.__result = { passes: passes, fails: fails };
+  }
+  run().catch(function (e) { log('crashed: ' + (e && e.stack || e), 'no'); window.__result = { crashed: String(e) }; });
+})();
+</script>

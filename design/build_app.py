@@ -62,6 +62,12 @@ sub("window.addEventListener('resize', function () { fit(); layout(); });", "win
 api = r"""
   /* ---------- App hooks: the home screen opens and closes the board ---------- */
   var OPP = { name: 'Nolf', ini: 'NO' }, CUR = null, PENDING = null, NODB = false;
+  function comeBack() {
+    if (!DUO || !DUO.away) return false;
+    DUO.away = false;
+    var d = DUO.pending; DUO.pending = null; if (!d) return false;
+    applyShared(d, true); return true;
+  }
   function storedSeat() { var m = location.search.match(/[?&]seat=([AB])/); if (m) return m[1]; try { return localStorage.getItem('duoSeat'); } catch (e) { return null; } }
   /* The board is a step in the phone's history, so the back gesture takes you to your friends. */
   function showBoard() { $('gv').hidden = false; layout(); paintSky(skyA); if (!(history.state && history.state.bg)) try { history.pushState({ bg: 1 }, ''); } catch (e) {} }
@@ -71,11 +77,14 @@ api = r"""
       /* Real accounts: one shared game per pair of friends, seat decided by the app. */
       if (o.gid && !NODB) {
         if (!DB) { PENDING = function () { window.BG.open(o); }; say('Connecting to the shared game…'); return; }
-        if (DUO && DUO.gid !== o.gid) { if (DUO.unsub) DUO.unsub(); DUO = null; G = null; }
+        /* another game, or the same pair seen from the other seat (signed out and in as the other player on this phone) */
+        if (DUO && (DUO.gid !== o.gid || DUO.seat !== o.seat)) { if (DUO.unsub) DUO.unsub(); DUO = null; G = null; }
         CUR = o.id; SEATS.A = o.seats.A; SEATS.B = o.seats.B; OPP = SEATS[o.seat === 'A' ? 'B' : 'A'];
         /* a finished match on the table and "Play" pressed at home: a new one starts as soon as the old end is on screen */
         NEWM = o.newMatch ? { to: o.to || 5, pips: o.pips !== false } : null;
         if (!DUO) { CASE.fresh = true; MATCH = o.to || 5; SHOWPIPS = o.pips !== false; window.GAMEID = o.gid; joinDuo(o.seat); DUO.gid = o.gid; }
+        /* back to the board: what came in while it was put away plays now, as missed turns */
+        else if (comeBack()) {}
         /* back to a game that had ended (its card was closed with the board): show the end again, with its buttons */
         else if (DUO.lastDoc && G && (G.phase === 'over' || DUO.prevShow) && (NEWM || $('over').hidden)) { DUO.overShown = false; DUO.prevShow = null; applyShared(DUO.lastDoc, true); }
         return;
@@ -84,13 +93,21 @@ api = r"""
         if (!DB) { PENDING = function () { window.BG.open(o); }; if (!G) { OPP = o; setNames(); start(); } say('Connecting to the shared game…'); return; }
         CUR = 'duo';
         if (!DUO) { CASE.fresh = true; var s = storedSeat(); if (s === 'A' || s === 'B') joinDuo(s); else pickSeat(); }
+        else comeBack();
         return;
       }
+      if (REPL) REPL.stop();
       if (DUO) { if (DUO.unsub) DUO.unsub(); DUO = null; }
       var fresh = CUR !== o.id || !G; CUR = o.id; OPP = o; setNames();
       if (fresh) { CASE.fresh = true; G = null; SHOWPIPS = o.pips !== false; if (o.to) { MATCH = o.to; $('scTo').textContent = 'match to ' + MATCH; } start(); }
     },
-    close: function () { if (DAYF) { DAYF = 0; if (window.skyShift) window.skyShift(0, 600); } $('gv').hidden = true; $('over').hidden = true; if (history.state && history.state.bg) try { history.back(); } catch (e) {} },
+    close: function () {
+      if (DAYF) { DAYF = 0; if (window.skyShift) window.skyShift(0, 600); }
+      /* the shared game keeps listening, but holds what arrives until the board is back (see joinDuo); a catch-up cut
+         short starts again then */
+      if (DUO) { DUO.away = true; if (REPL) { REPL.stop(); DUO.repKey = null; DUO.prevShow = null; if (!DUO.pending) DUO.pending = DUO.lastDoc; } }
+      $('gv').hidden = true; $('over').hidden = true; if (history.state && history.state.bg) try { history.back(); } catch (e) {}
+    },
     seat: function () { CUR = 'duo'; showBoard(); if (DB) pickSeat(); else say('The shared game needs the published page.'); },
     bearOff: function () { tryBearOff(); },
     restart: function () { if (DUO) newGame(true); else { G = null; start(); } },

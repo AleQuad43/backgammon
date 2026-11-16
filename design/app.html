@@ -1641,7 +1641,11 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       var pv = d.prev && d.prev.result && d.prev.game !== d.game ? d.prev : null;
       if (d.phase === 'over') mine = true;
       else if (d.phase === 'offered') mine = d.offerBy !== seat;
-      else if (d.phase === 'opening' || !d.turn) mine = !(d.open && d.open[seat]);
+      else if (d.phase === 'opening' || !d.turn) {
+        /* both dice out: the higher one starts, and on a tie seat A's phone clears them for another throw */
+        var om = d.open && d.open[seat], oo = d.open && d.open[other];
+        mine = !om ? true : !oo ? false : om.v === oo.v ? seat === 'A' : om.v > oo.v;
+      }
       else mine = d.turn === seat;
       return { s: mine ? 'yours' : 'them', sc: [(d.score && d.score[seat]) || 0, (d.score && d.score[other]) || 0], to: d.to || 5, when: '',
         seat: seat, phase: d.phase, board: d.board, dice: d.dice, cube: d.cube,
@@ -2731,7 +2735,9 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   /* What happened in a turn, kept in the shared game (the last 8 turns) so the other player can catch up. */
   function turnEntry() {
     var ts = G.turnStart, d = ts ? ts.d : liveVals(ME);
-    return { s: DUO ? DUO.seat : 'A', d: d, h: ts ? Math.max(0, state().bar.them - ts.bar) : 0, z: !(G.hist && G.hist.length), pre: ts && ts.pre ? ts.pre : null,
+    /* "couldn't move" only when no die was used (a turn picked up again after the app reloaded has moves made before) */
+    var used = D.some(function (x) { return x.live && x.side === ME && x.used; });
+    return { s: DUO ? DUO.seat : 'A', d: d, h: ts ? Math.max(0, state().bar.them - ts.bar) : 0, z: !used && !(G.hist && G.hist.length), pre: ts && ts.pre ? ts.pre : null,
       m: (G.hist || []).map(function (q) { return q.from + '.' + q.to + '.' + q.d; }).join(' ') };
   }
   function pushLog(e) {
@@ -2789,7 +2795,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     var b = e.target.closest && e.target.closest('button[data-a]'); if (!b || !G.asking) return;
     var yes = b.getAttribute('data-a') === '1', r = race();
     G.asking = false; hideNote(); r.me = yes;
-    if (yes && (!DUO || r.them === true)) { rollout(ME); return; }
+    if (yes && (!DUO || r.them === true)) { if (DUO) rolloutShared(ME); else rollout(ME); return; }
     say(yes ? NAME.them + ' will be asked on their turn. Throw your dice.' : 'Throw your dice.');
     if (DUO) save({ phase: 'roll', turn: DUO.seat, dice: null });
   });
@@ -2813,6 +2819,26 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
         later(function () { turn(other(side)); }, 600);
       }, 380);
     })(side);
+  }
+  /* Against a friend the whole roll-out is thrown and played at once, and its end saved in one go, so nothing is left
+     running on this phone (a phone locked half-way through would leave the game stuck for both). Then both phones
+     watch it turn by turn, the same way (see replayRollout). */
+  function rolloutShared(side) {
+    var pre = boardToShared(), S = state(), s = side, t = [], n = 0;
+    while (S.off.me < 15 && S.off.them < 15 && n++ < 500) {
+      var a = rnd6(), b = rnd6(), vals = a === b ? [a, a, a, a] : [Math.max(a, b), Math.min(a, b)], path = racePlay(S, s, vals);
+      path.forEach(function (m) { S = applyS(S, s, m.from, m.to); });
+      t.push({ s: seatOf(s), d: [a, b], m: path.map(function (m) { return m.from + '.' + m.to + '.' + m.d; }).join(' ') });
+      s = other(s);
+    }
+    var win = S.off.me === 15 ? ME : TH, lose = other(win), gam = S.off[lose] === 0, bg = false;
+    if (gam) { bg = S.bar[lose] > 0; for (var r = 1; r <= 6 && !bg; r++) bg = own(S, lose, absOf(win, r)) > 0; }
+    var pts = G.cube.v * (bg ? 3 : gam ? 2 : 1);
+    LASTW = win; G.score[win] += pts; G.ro = { pre: pre, t: t };
+    var od = buildDoc({ phase: 'over', result: { winner: seatOf(win), pts: pts, dropped: false, gammon: gam, bg: bg, forfeit: false } });
+    od.board = boardToShared(S); od.dice = null;
+    DUO.lastDoc = od; put(DUO, { doc: od });
+    DUO.overShown = true; replayRollout(od);
   }
   /* A roll-out you missed plays again when you open the game, at the same pace (a tap jumps to the end). The score
      waits until the end card, so the result is a surprise, as it would have been live. */
@@ -3459,6 +3485,8 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   }
   /* pv: the end of a game the other player has already moved on from: { game, go } — its card leads on to the new game. */
   function showOver(winner, pts, dropped, gam, bg, forfeit, pv) {
+    /* the board was put away before the card came up: it comes up when the board is opened again, not unseen now */
+    if (DUO && DUO.away) { DUO.overShown = false; DUO.prevShow = null; DUO.repKey = null; if (!DUO.pending) DUO.pending = DUO.lastDoc; return; }
     var o = $('over'); o.hidden = false;
     $('scMe').textContent = G.score.me; $('scThem').textContent = G.score.them;
     if (DUO) markEnd(pv ? pv.game : DUO.game);
@@ -3551,8 +3579,8 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     if (!me.markT) me.markT = setTimeout(function () { if (DUO === me && me.q.length) $('scTo').classList.add('saving'); }, 3000);
   }
   function save(o) { put(DUO, { doc: buildDoc(o) }); }
-  function boardToShared() {
-    var S = state(), sA = DUO.seat === 'A', pts = [], bar = {}, off = {};
+  function boardToShared(S) {
+    S = S || state(); var sA = DUO.seat === 'A', pts = [], bar = {}, off = {};
     for (var i = 0; i <= 24; i++) pts.push(0);
     for (var a = 1; a <= 24; a++) pts[sA ? a : 25 - a] = S.pts[a] * (sA ? 1 : -1);
     bar[DUO.seat] = S.bar.me; bar[DUO.other] = S.bar.them; off[DUO.seat] = S.off.me; off[DUO.other] = S.off.them;
@@ -3730,8 +3758,11 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       } else {
         setTurn(ME); applyDice(d.dice, false); G.phase = 'move'; G.hist = []; afterMyMove(true);
         /* a throw of yours with only one way to play (or none) plays itself out when you open the game */
-        var lv = d.dice && d.dice.list || [], vv = lv.map(function (x) { return x.v; }), ps0 = vv.length && !lv.some(function (x) { return x.used; }) ? plays(state(), ME, vv, 2) : null;
-        if (fresh && ps0 && ps0.length === 1) { G.turnStart = { bar: state().bar.them, pre: boardToShared(), d: [vv[0], vv[vv.length - 1]] }; autoPlay(ps0[0].path); }
+        var lv = d.dice && d.dice.list || [], vv = lv.map(function (x) { return x.v; }), none = !lv.some(function (x) { return x.used; }), ps0 = vv.length && none ? plays(state(), ME, vv, 2) : null;
+        /* picking up your turn (the app was reloaded): remember how it started, so the turn log is right. With dice already
+           used, the board from before them is unknown here, so that turn is told but not replayed to the other player. */
+        if (fresh && vv.length) G.turnStart = { bar: state().bar.them, pre: none ? boardToShared() : null, d: [vv[0], vv[vv.length - 1]] };
+        if (fresh && ps0 && ps0.length === 1) autoPlay(ps0[0].path);
       }
     } else {
       if (d.phase === 'roll' && d.dice && d.dice.auto && d.dice.dead && d.dice.by === DUO.seat && !fresh && d.dice.n !== DUO.diceN) { autoMine(d); cubeUI(); return; }
@@ -3759,7 +3790,8 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     for (var i = lg.length - 1; i >= 0; i--) { var e = lg[i]; if (e.s === DUO.seat && !e.x) break; rep.unshift(e); }
     var seen = null; try { seen = localStorage.getItem(seenKey(game)); } catch (e2) {}
     if (seen) for (var j = rep.length - 1; j >= 0; j--) if (JSON.stringify(rep[j]) === seen) { rep = rep.slice(j + 1); break; }
-    if (!all) while (rep.length && !rep[0].pre) rep.shift();
+    /* a turn without its starting board can't be played again (it is still told in the summary) */
+    if (!all) rep = rep.filter(function (e) { return !!e.pre; });
     return rep;
   }
   function capFor(e, side, hits, bar0, done) {
@@ -3772,8 +3804,9 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   }
   function replayLog(d, rep, opt) {
     var i = 0, R = REPL = { stop: function () { if (REPL === R) REPL = null; R.dead = true; } };
-    function alive() { return !R.dead && (opt ? opt.alive() : DUO.lastDoc === d); }
-    function end() { if (!alive()) return; R.stop(); clearDice(); hideNote(); if (opt) { opt.fin(); return; } G.phase = 'sync'; applyShared(d, true); }
+    function alive() { return !R.dead && !!DUO && (opt ? opt.alive() : DUO.lastDoc === d); }
+    /* a replay that has lost its game (another game opened, or the Computer) lets go of the board, so taps work again */
+    function end() { if (!alive()) { R.stop(); return; } R.stop(); clearDice(); hideNote(); if (opt) { opt.fin(); return; } G.phase = 'sync'; applyShared(d, true); }
     R.skip = end;
     G.phase = 'replay'; G.asking = false; hideNote(); clearDice(); cubeUI();
     applyBoard(rep[0].pre);
@@ -3807,7 +3840,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     var p = d.prev, w = sideOf(p.result.winner), pts = p.result.pts || 0;
     var sc = { me: (p.score && p.score[DUO.seat]) || 0, them: (p.score && p.score[DUO.other]) || 0 };
     if (REPL) REPL.stop(); DUO.prevShow = p.game;
-    function alive() { return DUO.prevShow === p.game && !!DUO.lastDoc && !!DUO.lastDoc.prev && DUO.lastDoc.prev.game === p.game; }
+    function alive() { return !!DUO && DUO.prevShow === p.game && !!DUO.lastDoc && !!DUO.lastDoc.prev && DUO.lastDoc.prev.game === p.game; }
     G.phase = 'replay'; G.asking = false; hideNote(); clearDice(); $('over').hidden = true; cubeUI();
     $('scMe').textContent = sc.me - (w === ME ? pts : 0); $('scThem').textContent = sc.them - (w === TH ? pts : 0);
     function card() {
@@ -3912,6 +3945,9 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
         if (d.by === me.seat && (d.v || 0) <= me.V && d.phase !== 'opening') return;
       }
       me.V = Math.max(me.V, d.v || 0);
+      /* the board is put away (the app's home is showing): keep the news until it is opened again, so what the other
+         player did plays there as missed turns, and the end of a game is never counted as seen behind your back */
+      if (me.away) { me.pending = d; return; }
       applyShared(d, fresh);
     }, function (e) { clearTimeout(timer); if (DUO === me) say('Lost the shared game' + (e && e.code ? ' (' + e.code + ')' : '') + '. Reload to try again.'); });
   }
@@ -3955,6 +3991,12 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
 
   /* ---------- App hooks: the home screen opens and closes the board ---------- */
   var OPP = { name: 'Nolf', ini: 'NO' }, CUR = null, PENDING = null, NODB = false;
+  function comeBack() {
+    if (!DUO || !DUO.away) return false;
+    DUO.away = false;
+    var d = DUO.pending; DUO.pending = null; if (!d) return false;
+    applyShared(d, true); return true;
+  }
   function storedSeat() { var m = location.search.match(/[?&]seat=([AB])/); if (m) return m[1]; try { return localStorage.getItem('duoSeat'); } catch (e) { return null; } }
   /* The board is a step in the phone's history, so the back gesture takes you to your friends. */
   function showBoard() { $('gv').hidden = false; layout(); paintSky(skyA); if (!(history.state && history.state.bg)) try { history.pushState({ bg: 1 }, ''); } catch (e) {} }
@@ -3964,11 +4006,14 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       /* Real accounts: one shared game per pair of friends, seat decided by the app. */
       if (o.gid && !NODB) {
         if (!DB) { PENDING = function () { window.BG.open(o); }; say('Connecting to the shared game…'); return; }
-        if (DUO && DUO.gid !== o.gid) { if (DUO.unsub) DUO.unsub(); DUO = null; G = null; }
+        /* another game, or the same pair seen from the other seat (signed out and in as the other player on this phone) */
+        if (DUO && (DUO.gid !== o.gid || DUO.seat !== o.seat)) { if (DUO.unsub) DUO.unsub(); DUO = null; G = null; }
         CUR = o.id; SEATS.A = o.seats.A; SEATS.B = o.seats.B; OPP = SEATS[o.seat === 'A' ? 'B' : 'A'];
         /* a finished match on the table and "Play" pressed at home: a new one starts as soon as the old end is on screen */
         NEWM = o.newMatch ? { to: o.to || 5, pips: o.pips !== false } : null;
         if (!DUO) { CASE.fresh = true; MATCH = o.to || 5; SHOWPIPS = o.pips !== false; window.GAMEID = o.gid; joinDuo(o.seat); DUO.gid = o.gid; }
+        /* back to the board: what came in while it was put away plays now, as missed turns */
+        else if (comeBack()) {}
         /* back to a game that had ended (its card was closed with the board): show the end again, with its buttons */
         else if (DUO.lastDoc && G && (G.phase === 'over' || DUO.prevShow) && (NEWM || $('over').hidden)) { DUO.overShown = false; DUO.prevShow = null; applyShared(DUO.lastDoc, true); }
         return;
@@ -3977,13 +4022,21 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
         if (!DB) { PENDING = function () { window.BG.open(o); }; if (!G) { OPP = o; setNames(); start(); } say('Connecting to the shared game…'); return; }
         CUR = 'duo';
         if (!DUO) { CASE.fresh = true; var s = storedSeat(); if (s === 'A' || s === 'B') joinDuo(s); else pickSeat(); }
+        else comeBack();
         return;
       }
+      if (REPL) REPL.stop();
       if (DUO) { if (DUO.unsub) DUO.unsub(); DUO = null; }
       var fresh = CUR !== o.id || !G; CUR = o.id; OPP = o; setNames();
       if (fresh) { CASE.fresh = true; G = null; SHOWPIPS = o.pips !== false; if (o.to) { MATCH = o.to; $('scTo').textContent = 'match to ' + MATCH; } start(); }
     },
-    close: function () { if (DAYF) { DAYF = 0; if (window.skyShift) window.skyShift(0, 600); } $('gv').hidden = true; $('over').hidden = true; if (history.state && history.state.bg) try { history.back(); } catch (e) {} },
+    close: function () {
+      if (DAYF) { DAYF = 0; if (window.skyShift) window.skyShift(0, 600); }
+      /* the shared game keeps listening, but holds what arrives until the board is back (see joinDuo); a catch-up cut
+         short starts again then */
+      if (DUO) { DUO.away = true; if (REPL) { REPL.stop(); DUO.repKey = null; DUO.prevShow = null; if (!DUO.pending) DUO.pending = DUO.lastDoc; } }
+      $('gv').hidden = true; $('over').hidden = true; if (history.state && history.state.bg) try { history.back(); } catch (e) {}
+    },
     seat: function () { CUR = 'duo'; showBoard(); if (DB) pickSeat(); else say('The shared game needs the published page.'); },
     bearOff: function () { tryBearOff(); },
     restart: function () { if (DUO) newGame(true); else { G = null; start(); } },

@@ -1164,7 +1164,11 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       var pv = d.prev && d.prev.result && d.prev.game !== d.game ? d.prev : null;
       if (d.phase === 'over') mine = true;
       else if (d.phase === 'offered') mine = d.offerBy !== seat;
-      else if (d.phase === 'opening' || !d.turn) mine = !(d.open && d.open[seat]);
+      else if (d.phase === 'opening' || !d.turn) {
+        /* both dice out: the higher one starts, and on a tie seat A's phone clears them for another throw */
+        var om = d.open && d.open[seat], oo = d.open && d.open[other];
+        mine = !om ? true : !oo ? false : om.v === oo.v ? seat === 'A' : om.v > oo.v;
+      }
       else mine = d.turn === seat;
       return { s: mine ? 'yours' : 'them', sc: [(d.score && d.score[seat]) || 0, (d.score && d.score[other]) || 0], to: d.to || 5, when: '',
         seat: seat, phase: d.phase, board: d.board, dice: d.dice, cube: d.cube,

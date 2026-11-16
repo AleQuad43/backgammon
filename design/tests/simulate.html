@@ -1,0 +1,341 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Game simulator</title>
+<!-- Plays whole matches between two phones in one browser and checks everything it can.
+     1. python3 design/build_app.py && python3 design/tests/make_sim.py
+     2. serve design/ (python3 -m http.server 8771 --directory design)
+     3. open http://localhost:8771/tests/simulate.html            (two-phone matches, random choices)
+        ?rules        only the rules check: random positions, every possible play compared with an independent engine
+        ?bot          you against the Computer, on one phone
+        ?games=N      how many games to play (default 12);  ?speed=K timers K times faster (default 4)
+        ?reduce       both phones ask for reduced motion;  ?app=sim_base.html  another build (see make_sim.py)
+        Headless:     python3 design/tests/run_headless.py "tests/simulate.html?games=8"
+     Seat A and seat B each run in a frame and share the local test store (?mock). Each phone throws, moves (picking
+     random legal steps, now and then undoing one), hands the dice over, doubles, takes or drops, answers the race
+     question, gives up once in a while, closes and reopens the board, or reloads the whole app.
+     Checked all the time: 15 checkers a side in the shared game; every finished turn (from the turn log) is legal and
+     uses as many dice as it must, by an engine written separately here; both phones show the board and score of the
+     shared game once things are quiet; no script errors; nothing ever gets stuck. -->
+<style>
+  body { font: 13px/1.4 system-ui, sans-serif; margin: 12px; background: #f4f1ea; color: #222; }
+  #log { max-height: 46vh; overflow: auto; } #log div { padding: 1px 0; white-space: pre-wrap; } .ok { color: #17803d; } .no { color: #b3261e; font-weight: 600; } .h { margin-top: 6px; font-weight: 700; } .dim { color: #777; }
+  .fr { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; } iframe { width: 640px; height: 320px; border: 1px solid #ccc; background: #fff; }
+</style>
+<div id="sum">Running…</div>
+<div id="log"></div>
+<div class="fr"><iframe id="fA"></iframe><iframe id="fB"></iframe></div>
+<script>
+(function () {
+  var Q = location.search, GID = 'sim_pair', SPEED = +((Q.match(/[?&]speed=([\d.]+)/) || [])[1]) || 4, GAMES = +((Q.match(/[?&]games=(\d+)/) || [])[1]) || 12;
+  var SEATS = { A: { name: 'Quad', ini: 'qu' }, B: { name: 'Nolf', ini: 'no' } };
+  /* ?app=sim_base.html tests another build (made with make_sim.py <preview.html> <name>) */
+  var APP = (Q.match(/[?&]app=([\w.-]+)/) || [])[1] || 'sim_app.html', HIST = [];
+  var fails = 0, passes = 0, problems = {};
+  function log(t, cls) { var d = document.createElement('div'); d.textContent = t; if (cls) d.className = cls; var L = document.getElementById('log'); L.appendChild(d); L.scrollTop = 1e9; }
+  function fail(what) { fails++; problems[what] = (problems[what] || 0) + 1; if (problems[what] <= 3) log('✗ ' + what, 'no'); }
+  function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function rnd(n) { return Math.floor(Math.random() * n); }
+  function pick(a) { return a[rnd(a.length)]; }
+
+  /* ---------- an independent rules engine, from the mover's side: mine[1..24], mine[25] = bar, mine[0] = off;
+     opp[1..24] the other player's checkers on my points, oppBar, oppOff ---------- */
+  function step(p, f, d) {
+    var m = p.mine; if (m[f] <= 0) return null; if (m[25] > 0 && f !== 25) return null;
+    var to = f - d, q = { mine: m.slice(), opp: p.opp.slice(), oppBar: p.oppBar, oppOff: p.oppOff };
+    if (to >= 1) {
+      if (p.opp[to] >= 2) return null;
+      q.mine[f]--; if (q.opp[to] === 1) { q.opp[to] = 0; q.oppBar++; } q.mine[to]++; return q;
+    }
+    for (var r = 7; r <= 25; r++) if (m[r] > 0) return null;
+    if (to < 0) for (r = f + 1; r <= 6; r++) if (m[r] > 0) return null;
+    q.mine[f]--; q.mine[0]++; return q;
+  }
+  function key(p) { return p.mine.join(',') + '|' + p.opp.join(',') + '|' + p.oppBar + ',' + p.oppOff; }
+  /* every legal way to play the roll, by final position */
+  function refPlays(p, dice) {
+    var seqs = [];
+    var orders = dice.length === 2 && dice[0] !== dice[1] ? [[dice[0], dice[1]], [dice[1], dice[0]]] : [dice.length === 2 ? [dice[0], dice[0], dice[0], dice[0]] : dice];
+    orders.forEach(function (ord) {
+      (function go(q, i, used, first) {
+        var any = false;
+        if (i < ord.length) for (var f = 25; f >= 1; f--) { var n = step(q, f, ord[i]); if (n) { any = true; go(n, i + 1, used + 1, first == null ? ord[i] : first); } }
+        if (!any) seqs.push({ k: key(q), n: q.mine[0] === 15 ? 99 : used, first: first });
+      })(p, 0, 0, null);
+    });
+    var max = Math.max.apply(null, seqs.map(function (s) { return s.n; }));
+    var ok = seqs.filter(function (s) { return s.n === max; });
+    if (max === 1 && dice.length === 2 && dice[0] !== dice[1]) { var hi = Math.max(dice[0], dice[1]); if (ok.some(function (s) { return s.first === hi; })) ok = ok.filter(function (s) { return s.first === hi; }); }
+    var set = {}; ok.forEach(function (s) { set[s.k] = 1; }); return set;
+  }
+  /* the shared board (seat A's numbers, + = A) seen by the player in `seat` */
+  function fromShared(b, seat) {
+    var mine = [], opp = []; for (var i = 0; i <= 25; i++) { mine.push(0); opp.push(0); }
+    for (var r = 1; r <= 24; r++) { var v = seat === 'A' ? b.pts[r] : -b.pts[25 - r]; if (v > 0) mine[r] = v; else opp[r] = -v; }
+    var o = seat === 'A' ? 'B' : 'A';
+    mine[25] = b.bar[seat] || 0; mine[0] = b.off[seat] || 0;
+    return { mine: mine, opp: opp, oppBar: b.bar[o] || 0, oppOff: b.off[o] || 0 };
+  }
+  /* the board's own state object (for side) seen from that side */
+  function fromApp(S, side, T) {
+    var me = side === T.ME, mine = [], opp = []; for (var i = 0; i <= 25; i++) { mine.push(0); opp.push(0); }
+    for (var r = 1; r <= 24; r++) { var a = me ? r : 25 - r, v = S.pts[a] * (me ? 1 : -1); if (v > 0) mine[r] = v; else opp[r] = -v; }
+    var s = me ? 'me' : 'them', o = me ? 'them' : 'me';
+    mine[25] = S.bar[s]; mine[0] = S.off[s];
+    return { mine: mine, opp: opp, oppBar: S.bar[o], oppOff: S.off[o] };
+  }
+  function toApp(p, side, T) {
+    var me = side === T.ME, S = { pts: [], bar: {}, off: {} }; for (var a = 0; a <= 24; a++) S.pts.push(0);
+    for (var r = 1; r <= 24; r++) { var a2 = me ? r : 25 - r; S.pts[a2] = (p.mine[r] - p.opp[r]) * (me ? 1 : -1); }
+    var s = me ? 'me' : 'them', o = me ? 'them' : 'me';
+    S.bar[s] = p.mine[25]; S.off[s] = p.mine[0]; S.bar[o] = p.oppBar; S.off[o] = p.oppOff; return S;
+  }
+  function randPos() {
+    var mine = [], opp = []; for (var i = 0; i <= 25; i++) { mine.push(0); opp.push(0); }
+    var mode = pick(['any', 'any', 'home', 'home', 'bar', 'late']), oppBar = 0, oppOff = 0;
+    for (var k = 0; k < 15; k++) {
+      var r = mode === 'home' ? rnd(7) : mode === 'bar' ? (k < 1 + rnd(3) ? 25 : 1 + rnd(24)) : mode === 'late' ? (Math.random() < 0.85 ? rnd(9) : 1 + rnd(24)) : 1 + rnd(24);
+      mine[r]++;
+    }
+    for (k = 0; k < 15; k++) {
+      var tries = 0, r2;
+      do { r2 = Math.random() < 0.06 ? 'bar' : Math.random() < 0.05 ? 'off' : (mode === 'bar' && Math.random() < 0.5 ? 1 + rnd(6) : 1 + rnd(24)); tries++; }
+      while (typeof r2 === 'number' && mine[r2] && tries < 50);
+      if (r2 === 'bar') oppBar++; else if (r2 === 'off' || mine[r2]) oppOff++; else opp[r2]++;
+    }
+    return { mine: mine, opp: opp, oppBar: oppBar, oppOff: oppOff };
+  }
+  function count(p) { var n = 0; for (var i = 0; i <= 25; i++) n += p.mine[i]; return n; }
+
+  /* ---------- frames ---------- */
+  function frame(id, seat, extra) {
+    var f = document.getElementById(id);
+    return new Promise(function (r) {
+      f.onload = function () { setTimeout(function () { r(f.contentWindow); }, 500); };
+      f.src = APP + '?mock&speed=' + SPEED + (/[?&]reduce/.test(Q) ? '&reduce' : '') + (extra || '') + '&t=' + Date.now();
+    }).then(function (w) { w.__seat = seat; return w; });
+  }
+  function open(w) { w.BG.open({ id: w.__seat === 'A' ? 'no' : 'qu', gid: GID, seat: w.__seat, seats: SEATS, name: SEATS[w.__seat === 'A' ? 'B' : 'A'].name, ini: 'x', to: 3, pips: true }); }
+  function $$(w, id) { return w.document.getElementById(id); }
+  function overOn(w) { var o = $$(w, 'over'); return o && !o.hidden && o.style.visibility !== 'hidden'; }
+  function doc() { try { return JSON.parse(localStorage.getItem('mock:games/' + GID)); } catch (e) { return null; } }
+  function clean() { Object.keys(localStorage).forEach(function (k) { if (/^mock:|^bgSeen:|^bgEnd:|^duoSeat|^newMatch/.test(k)) localStorage.removeItem(k); }); }
+
+  /* ---------- checks on the shared game ---------- */
+  var seenTurns = {}, turnsChecked = 0;
+  function checkDoc(d) {
+    if (!d || !d.board) return;
+    var b = d.board;
+    ['A', 'B'].forEach(function (s) {
+      var n = (b.bar[s] || 0) + (b.off[s] || 0); for (var a = 1; a <= 24; a++) n += s === 'A' ? Math.max(0, b.pts[a]) : Math.max(0, -b.pts[a]);
+      if (n !== 15) fail('seat ' + s + ' has ' + n + ' checkers in the shared game (phase ' + d.phase + ')');
+    });
+    if (d.dice && d.dice.list) {
+      var l = d.dice.list.map(function (x) { return x.v; });
+      if (l.some(function (v) { return !(v >= 1 && v <= 6); })) fail('a die out of 1–6: ' + l);
+      if (d.phase === 'move' && !(l.length === 2 && l[0] !== l[1]) && !(l.length === 4 && l.every(function (v) { return v === l[0]; })) && !(d.dice.by && l.length === 2 && l[0] === l[1] && false))
+        fail('dice to move with are not a pair or a double of four: ' + l);
+    }
+    if ([1, 2, 4, 8, 16, 32, 64].indexOf(d.cube.v) < 0) fail('cube value ' + d.cube.v);
+    if (['opening', 'roll', 'move', 'offered', 'over', 'rollout'].indexOf(d.phase) < 0) fail('unknown phase ' + d.phase);
+    if (d.phase !== 'over' && d.phase !== 'opening' && d.phase !== 'rollout' && !d.turn) fail('no turn in phase ' + d.phase);
+    if (d.phase === 'over' && !d.result) fail('over without a result');
+    (d.log || []).forEach(function (e) { var k = d.game + ':' + JSON.stringify(e); if (seenTurns[k]) return; seenTurns[k] = 1; checkTurn(e, d); });
+    if (d.ro && d.ro.t && d.phase === 'over') checkRollout(d);
+  }
+  function checkTurn(e, d) {
+    if (!e.pre) return;
+    var p = fromShared(e.pre, e.s), dice = e.d[0] === e.d[1] ? [e.d[0], e.d[0], e.d[0], e.d[0]] : e.d.slice();
+    var ms = e.m ? e.m.split(' ').map(function (x) { var q = x.split('.'); return [+q[0], +q[1], +q[2]]; }) : [], q = p, left = dice.slice();
+    for (var i = 0; i < ms.length; i++) {
+      var m = ms[i], k = left.indexOf(m[2]);
+      if (k < 0) { fail('turn uses a die it does not have: ' + e.m + ' with ' + e.d); return; }
+      left.splice(k, 1);
+      var n = step(q, m[0], m[2]);
+      if (!n) { fail('illegal step ' + m.join('.') + ' in turn ' + e.m + ' (' + e.d + ') seat ' + e.s); return; }
+      var to = m[0] - m[2]; if ((to < 1 ? 0 : to) !== m[1]) { fail('step lands on the wrong point: ' + m.join('.')); return; }
+      q = n;
+    }
+    turnsChecked++;
+    if (q.mine[0] === 15) return; /* the winning turn may stop early */
+    var ok = refPlays(p, e.d);
+    if (!ok[key(q)]) fail('turn ' + (e.m || '(none)') + ' with ' + e.d + ' by ' + e.s + ' is not a full legal play' + (e.z ? ' (marked as no move)' : ''));
+  }
+  var roChecked = {};
+  function checkRollout(d) {
+    var k = d.game; if (roChecked[k]) return; roChecked[k] = 1;
+    var b = JSON.parse(JSON.stringify(d.ro.pre));
+    d.ro.t.forEach(function (t) {
+      var p = fromShared(b, t.s), ms = t.m ? t.m.split(' ').map(function (x) { var q = x.split('.'); return [+q[0], +q[1], +q[2]]; }) : [], q = p;
+      ms.forEach(function (m) { if (q) q = step(q, m[0], m[2]); });
+      if (!q) { fail('roll-out: illegal step in ' + t.m); return; }
+      turnsChecked++;
+      if (q.mine[0] < 15 && !refPlays(p, t.d)[key(q)]) fail('roll-out turn ' + t.m + ' with ' + t.d + ' is not a full legal play');
+      /* write it back onto the shared board */
+      var o = t.s === 'A' ? 'B' : 'A';
+      for (var r = 1; r <= 24; r++) { var a = t.s === 'A' ? r : 25 - r, sg = t.s === 'A' ? 1 : -1; b.pts[a] = sg * (q.mine[r] - q.opp[r]); }
+      b.bar[t.s] = q.mine[25]; b.off[t.s] = q.mine[0]; b.bar[o] = q.oppBar; b.off[o] = q.oppOff;
+    });
+    if (JSON.stringify(b.pts) !== JSON.stringify(d.board.pts)) fail('roll-out turns don’t lead to the final board');
+  }
+  /* once things are quiet: each phone shows the shared board and score */
+  function checkQuiet(w, d) {
+    var T = w.__T; if (!T || !T.G || !T.stacks || !d || !d.board) return;
+    var G = T.G; if (G.rolling || T.REPL || T.FOLD || ['replay', 'rollout', 'watch', 'auto', 'sync'].indexOf(G.phase) >= 0) return;
+    if (d.phase === 'over' && !overOn(w)) return;
+    if (T.DUO && T.DUO.prevShow) return;
+    if (T.DUO && d.by !== w.__seat && T.DUO.lastDoc !== d && JSON.stringify(T.DUO.lastDoc) !== JSON.stringify(d)) {
+      if (T.DUO.q.length) return; /* its own write still on the way */
+      fail(w.__seat + ': this phone’s last known game differs from the shared one (local v' + (T.DUO.lastDoc && T.DUO.lastDoc.v) + ' ' + (T.DUO.lastDoc && T.DUO.lastDoc.phase) + ', shared v' + d.v + ' ' + d.phase + ')');
+      return;
+    }
+    if (key(fromApp(T.state(), T.ME, T)) !== key(fromShared(d.board, w.__seat))) fail(w.__seat + ': the board on screen is not the shared board (phase ' + d.phase + ', local ' + G.phase + ')');
+    var sm = +$$(w, 'scMe').textContent, st = +$$(w, 'scThem').textContent, o = w.__seat === 'A' ? 'B' : 'A';
+    if (sm !== (d.score[w.__seat] || 0) || st !== (d.score[o] || 0)) fail(w.__seat + ': rail score ' + sm + '–' + st + ' but shared ' + d.score[w.__seat] + '–' + d.score[o]);
+    var want = { opening: ['opening', 'openWait'], roll: ['roll', 'remote'], move: ['move', 'remote'], offered: ['offered', 'wait'], over: ['over'] }[d.phase];
+    if (want && want.indexOf(G.phase) < 0 && !(d.phase === 'opening' && (G.phase === 'move' || G.phase === 'remote'))) fail(w.__seat + ': shared phase ' + d.phase + ' but this phone is in ' + G.phase);
+  }
+
+  function desc(w) {
+    var T = w && w.__T; if (!T || !T.G) return '(no board)';
+    var G = T.G;
+    return G.phase + ' turn ' + G.turn + (G.auto ? ' auto' : '') + (G.rolling ? ' rolling' : '') + (G.asking ? ' asking' : '') + (T.REPL ? ' replay' : '') + (T.FOLD ? ' fold' : '') + (overOn(w) ? ' card' : '') +
+      ' dice ' + JSON.stringify(T.D.map(function (x) { return x.v + (x.used ? 'u' : '') + (x.live ? '' : 'x') + (x.settled ? '' : '~') + x.side[0]; })) + ' hist ' + (G.hist ? G.hist.length : '-') + (T.canThrow() ? ' canThrow' : '') + ($$(w, 'gv').hidden ? ' BOARD-HIDDEN' : '') +
+      (T.DUO ? ' V' + T.DUO.V + ' q' + T.DUO.q.length + (T.DUO.busy ? ' busy' : '') + (T.DUO.away ? ' away' : '') + ' last v' + (T.DUO.lastDoc && T.DUO.lastDoc.v) : '') + ' “' + $$(w, 'status').textContent + '”';
+  }
+  /* ---------- one phone's decisions ---------- */
+  var acted = 0, stats = { throws: 0, steps: 0, undos: 0, doubles: 0, takes: 0, drops: 0, giveups: 0, races: 0, reloads: 0, reopens: 0, games: 0, matches: 0 };
+  function act(w) {
+    var T = w.__T; if (!T || !T.G || !T.stacks || $$(w, 'gv').hidden) return false;
+    var G = T.G, now = Date.now();
+    if (w.__busy && now < w.__busy) return false;
+    w.__busy = now + 120 + rnd(250);
+    /* the end card: next game, or a new match (short ones) */
+    if (overOn(w)) {
+      if (Math.random() < 0.5) return false;
+      var again = $$(w, 'again'), lens = w.document.querySelectorAll('#over [data-to]');
+      if (again) { again.click(); return true; }
+      if (lens.length) { var b = [].filter.call(lens, function (x) { return +x.dataset.to <= 3; }); pick(b).click(); stats.matches++; return true; }
+      return false;
+    }
+    if (G.asking) { var btn = w.document.querySelector('#note button[data-a="' + (Math.random() < 0.6 ? 1 : 0) + '"]'); if (btn) { stats.races++; btn.click(); return true; } return false; }
+    if (T.REPL && Math.random() < 0.3) { T.REPL.skip && T.REPL.skip(); return true; }
+    if (G.auto || G.rolling) return false;
+    if (T.canForfeit() && Math.random() < 0.0015) { stats.giveups++; T.forfeit(); return true; }
+    if (G.phase === 'offered' && G.turn === T.TH) { if (Math.random() < 0.8) { stats.takes++; T.takeDouble(); } else { stats.drops++; T.dropDouble(); } return true; }
+    if (T.canThrow()) {
+      if (G.phase === 'roll' && $$(w, 'cube').classList.contains('live') && Math.random() < 0.08) { stats.doubles++; T.offerMine(); return true; }
+      stats.throws++; T.myThrow(null); return true;
+    }
+    if (G.turn === T.ME && G.phase === 'move') {
+      var rem = T.remaining();
+      if (G.hist && G.hist.length && Math.random() < 0.06) {
+        var h = G.hist[rnd(G.hist.length)], st = T.stepsOf(h.id); stats.undos++; T.undoFrom(h.id, st[0]); return true;
+      }
+      if (rem.length && T.anyMove(T.ME)) {
+        var S = T.state(), vals = rem.map(function (d) { return d.v; }), opts = [];
+        for (var f = 25; f >= 1; f--) { var seen = {}; vals.forEach(function (v) { if (seen[v]) return; seen[v] = 1; var t = T.legal(S, T.ME, f, v, vals); if (t !== null && (f === 25 ? S.bar.me > 0 : S.pts[f] > 0)) opts.push([f, t, v]); }); }
+        if (!opts.length) { fail(w.__seat + ': anyMove says yes but no legal step found'); return false; }
+        var o = pick(opts); stats.steps++;
+        if (Math.random() < 0.5) { T.stepMove(o[0], o[1], o[2]); T.afterMyMove(); } else T.tapMove(o[0]);
+        return true;
+      }
+      if (T.canPass()) { T.handOver(null); return true; }
+    }
+    return false;
+  }
+
+  async function duo() {
+    log('Two phones: ' + GAMES + ' games, timers ×' + SPEED, 'h');
+    clean();
+    var A = await frame('fA', 'A'), B = await frame('fB', 'B'); open(A); await wait(400); open(B);
+    var phones = { A: A, B: B };
+    var lastJ = null, lastChange = Date.now(), quietDone = null, lastGame = 0, t0 = Date.now(), lastAct = Date.now();
+    while (stats.games < GAMES && Date.now() - t0 < 30 * 60e3) {
+      await wait(60);
+      var d = doc(), j = d ? JSON.stringify(d) : null;
+      if (j !== lastJ) {
+        lastJ = j; lastChange = Date.now(); quietDone = null; checkDoc(d);
+        if (d) { HIST.push('v' + d.v + ' ' + d.by + ' g' + d.game + ' ' + d.phase + (d.turn ? ' →' + d.turn : '') + (d.dice ? ' ' + d.dice.list.map(function (x) { return x.v + (x.used ? 'u' : ''); }).join('') + (d.dice.auto ? 'auto' : '') + (d.dice.dead ? 'dead' : '') : '')); if (HIST.length > 14) HIST.shift(); }
+      }
+      if (d && d.game !== lastGame) { if (lastGame) { stats.games++; log('game ' + lastGame + ' done · score ' + JSON.stringify(d.prev ? d.prev.score : d.score) + ' · now game ' + d.game + ' to ' + d.to, 'dim'); } lastGame = d.game; }
+      ['A', 'B'].forEach(function (s) {
+        var w = phones[s];
+        if (!w || !w.__T) return;
+        (w.__errors || []).splice(0).forEach(function (e) { fail(s + ': script error: ' + e.slice(0, 300)); });
+      });
+      /* both phones settled for a while: they must agree with the shared game */
+      if (d && Date.now() - lastChange > 2500 && quietDone !== j) { quietDone = j; checkQuiet(A, d); checkQuiet(B, d); }
+      /* now and then a phone leaves the board, or the whole app is reloaded */
+      if (Math.random() < 0.004) {
+        var s2 = pick(['A', 'B']), w2 = phones[s2];
+        if (Math.random() < 0.5) {
+          /* while its board is put away, a phone never counts the end of a game as seen */
+          var ends = function () { return Object.keys(localStorage).filter(function (k) { return /^bgEnd:/.test(k) && k.slice(-2) === ':' + s2; }).sort().join(); };
+          var e0 = ends(); stats.reopens++; w2.BG.close(); await wait(300 + rnd(3500));
+          if (ends() !== e0) fail(s2 + ': an end was marked as seen while the board was closed');
+          open(w2);
+        }
+        else { stats.reloads++; phones[s2] = null; var nw = await frame(s2 === 'A' ? 'fA' : 'fB', s2); open(nw); phones[s2] = nw; A = phones.A; B = phones.B; }
+        continue;
+      }
+      var any = false; ['A', 'B'].forEach(function (s) { var w = phones[s]; if (w && act(w)) { any = true; acted++; } });
+      if (any) lastAct = Date.now();
+      if (Date.now() - lastAct > 25000 && Date.now() - lastChange > 25000) {
+        fail('stuck: nothing to do for 25 s · shared ' + (d && (d.phase + ' turn ' + d.turn + ' v' + d.v + ' by ' + d.by + ' dice ' + JSON.stringify(d.dice && d.dice.list))) + ' · A: ' + desc(A) + ' · B: ' + desc(B) + '\n    shared history: ' + HIST.join(' | '));
+        stats.reloads++; var s3 = d && d.turn ? d.turn : 'A'; phones[s3] = null; var nw2 = await frame(s3 === 'A' ? 'fA' : 'fB', s3); open(nw2); phones[s3] = nw2; A = phones.A; B = phones.B;
+        lastAct = Date.now();
+      }
+    }
+    log('played ' + stats.games + ' games · ' + JSON.stringify(stats) + ' · turns checked ' + turnsChecked, 'dim');
+  }
+
+  async function rules() {
+    log('Rules: random positions and rolls, the board’s plays against the independent engine', 'h');
+    var w = await frame('fA', 'A'), T = w.__T, n = 0, bad = 0, t0 = Date.now();
+    while (Date.now() - t0 < 25000) {
+      var p = randPos(); if (count(p) !== 15) continue;
+      var a = 1 + rnd(6), b = 1 + rnd(6), vals = a === b ? [a, a, a, a] : [Math.max(a, b), Math.min(a, b)];
+      var ref = refPlays(p, [a, b]);
+      [T.ME, T.TH].forEach(function (side) {
+        var got = {}; T.plays(toApp(p, side, T), side, vals, Infinity).forEach(function (x) { got[key(fromApp(x.S, side, T))] = 1; });
+        var rk = Object.keys(ref).sort().join(';'), gk = Object.keys(got).sort().join(';');
+        if (rk !== gk) { bad++; if (bad <= 3) log('✗ position ' + JSON.stringify(p) + ' roll ' + a + '-' + b + ' (' + (side === T.ME ? 'me' : 'them') + '): engine ' + Object.keys(ref).length + ' plays, board ' + Object.keys(got).length, 'no'); }
+        n++;
+      });
+    }
+    if (bad) fail(bad + ' of ' + n + ' rolls played differently from the independent engine'); else { passes++; log('✓ ' + n + ' random rolls: the board allows exactly the legal plays', 'ok'); }
+  }
+
+  async function bot() {
+    log('Against the Computer: ' + GAMES + ' games', 'h');
+    var w = await frame('fA', 'A'), t0 = Date.now(), lastAct = Date.now(), games = 0, lastPhase = null, lastSc = '';
+    w.BG.open({ id: 'bot', name: 'Computer', ini: 'bot', to: 3, pips: true });
+    while (games < GAMES && Date.now() - t0 < 15 * 60e3) {
+      await wait(60);
+      (w.__errors || []).splice(0).forEach(function (e) { fail('script error: ' + e.slice(0, 300)); });
+      var T = w.__T; if (!T.G || !T.stacks) continue;
+      var S = T.state(), nm = 0, nt = 0; for (var a = 1; a <= 24; a++) { if (S.pts[a] > 0) nm += S.pts[a]; else nt -= S.pts[a]; }
+      if (nm + S.bar.me + S.off.me !== 15 || nt + S.bar.them + S.off.them !== 15) fail('checkers lost: ' + (nm + S.bar.me + S.off.me) + ' / ' + (nt + S.bar.them + S.off.them));
+      if (T.G.phase === 'over' && lastPhase !== 'over') { games++; log('game ' + games + ': ' + $$(w, 'scMe').textContent + '–' + $$(w, 'scThem').textContent, 'dim'); }
+      lastPhase = T.G.phase;
+      var sc = T.G.phase + T.G.turn + JSON.stringify(S);
+      if (act(w) || sc !== lastSc) lastAct = Date.now();
+      lastSc = sc;
+      if (Date.now() - lastAct > 20000) { fail('stuck against the Computer: ' + T.G.phase + ' “' + $$(w, 'status').textContent + '”'); lastAct = Date.now(); }
+    }
+  }
+
+  async function run() {
+    if (/[?&]rules/.test(Q)) await rules();
+    else if (/[?&]bot/.test(Q)) await bot();
+    else await duo();
+    if (!fails) passes++;
+    var keys = Object.keys(problems);
+    if (keys.length) { log('Problems:', 'h'); keys.forEach(function (k) { log(problems[k] + '× ' + k, 'no'); }); }
+    document.getElementById('sum').innerHTML = '<b class="' + (fails ? 'no' : 'ok') + '">' + (fails ? fails + ' problems' : 'No problems') + '</b> · ' + JSON.stringify(stats);
+    window.__result = { fails: fails, problems: problems, stats: stats, turns: turnsChecked };
+  }
+  window.__problems = problems; window.__stats = stats;
+  run().catch(function (e) { log('crashed: ' + (e && e.stack || e), 'no'); window.__result = { crashed: String(e && e.stack || e) }; });
+})();
+</script>

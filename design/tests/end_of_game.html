@@ -34,8 +34,12 @@
     var f = document.getElementById(id);
     return new Promise(function (r) {
       f.onload = function () { setTimeout(function () { r(f.contentWindow); }, 700); };
-      f.src = '../preview.html?mock&t=' + Date.now();
-    }).then(function (w) { w.__seat = seat; return w; });
+      f.src = ((location.search.match(/[?&]app=([\w.-]+)/) || [])[1] || '../preview.html') + '?mock&t=' + Date.now();
+    }).then(function (w) {
+      /* both phones are frames of one tab and would share one history: "back" on one would close the other's board */
+      w.history.pushState = function () {}; w.history.back = function () {};
+      w.__seat = seat; return w;
+    });
   }
   function open(w, extra) { w.BG.open(Object.assign({ id: w.__seat === 'A' ? 'no' : 'qu', gid: GID, seat: w.__seat, seats: SEATS, name: SEATS[w.__seat === 'A' ? 'B' : 'A'].name, ini: 'x', to: 1, pips: true }, extra || {})); }
   function $$(w, id) { return w.document.getElementById(id); }
