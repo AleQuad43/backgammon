@@ -1,0 +1,115 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>End of game tests</title>
+<!-- End of a match between two phones, in one browser: two app frames (seat A = Quad, seat B = Nolf) share the local
+     test store (?mock, localStorage). Serve design/ (python3 -m http.server 8771 --directory design) and open
+     http://localhost:8771/tests/end_of_game.html. Takes about a minute; each line turns green or red. -->
+<style>
+  body { font: 14px/1.4 system-ui, sans-serif; margin: 16px; background: #f4f1ea; color: #222; }
+  #log div { padding: 2px 0; } .ok { color: #17803d; } .no { color: #b3261e; font-weight: 600; } .h { margin-top: 10px; font-weight: 700; }
+  .fr { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; } iframe { width: 760px; height: 380px; border: 1px solid #ccc; background: #fff; }
+</style>
+<div id="sum">Running…</div>
+<div id="log"></div>
+<div class="fr"><iframe id="fA"></iframe><iframe id="fB"></iframe></div>
+<script>
+(function () {
+  var GID = 'test_pair', fails = 0, passes = 0;
+  var SEATS = { A: { name: 'Quad', ini: 'qu' }, B: { name: 'Nolf', ini: 'no' } };
+  function log(t, cls) { var d = document.createElement('div'); d.textContent = t; if (cls) d.className = cls; document.getElementById('log').appendChild(d); }
+  function check(ok, what) { if (ok) passes++; else fails++; log((ok ? '✓ ' : '✗ ') + what, ok ? 'ok' : 'no'); }
+  function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  async function until(fn, ms) { var t = Date.now(); while (Date.now() - t < (ms || 15000)) { try { if (fn()) return true; } catch (e) {} await wait(100); } return false; }
+  function doc() { try { return JSON.parse(localStorage.getItem('mock:games/' + GID)); } catch (e) { return null; } }
+  function clean() { Object.keys(localStorage).forEach(function (k) { if (/^mock:|^bgSeen:|^bgEnd:|^duoSeat/.test(k)) localStorage.removeItem(k); }); }
+  /* Quad (seat A) has one checker left, on his 1-point, and the dice 6–5 to play: only one way to play, so it bears
+     off by itself the moment his board opens, and wins the match. Nolf has five off, ten on Quad's 19–20 points. */
+  function nearEnd(game, to, score, log) {
+    var pts = []; for (var i = 0; i <= 24; i++) pts.push(0); pts[1] = 1; pts[19] = -5; pts[20] = -5;
+    return { v: 10, by: 'B', game: game, round: 0, phase: 'move', turn: 'A', open: { A: null, B: null },
+      board: { pts: pts, bar: { A: 0, B: 0 }, off: { A: 14, B: 5 } }, dice: { by: 'A', n: 'tst' + game, t: null, list: [{ v: 6, used: false }, { v: 5, used: false }] },
+      cube: { v: 1, owner: null }, offerBy: null, score: { A: score[0], B: score[1] }, result: null, to: to, log: log || [], race: null, ro: null, t0: Date.now() - 3600e3, pips: true };
+  }
+  function frame(id, seat) {
+    var f = document.getElementById(id);
+    return new Promise(function (r) {
+      f.onload = function () { setTimeout(function () { r(f.contentWindow); }, 700); };
+      f.src = '../preview.html?mock&t=' + Date.now();
+    }).then(function (w) { w.__seat = seat; return w; });
+  }
+  function open(w, extra) { w.BG.open(Object.assign({ id: w.__seat === 'A' ? 'no' : 'qu', gid: GID, seat: w.__seat, seats: SEATS, name: SEATS[w.__seat === 'A' ? 'B' : 'A'].name, ini: 'x', to: 1, pips: true }, extra || {})); }
+  function $$(w, id) { return w.document.getElementById(id); }
+  function overOn(w) { return !$$(w, 'over').hidden && $$(w, 'over').style.visibility !== 'hidden'; }
+  function status(w) { return $$(w, 'status').textContent; }
+  function blank() { return new Promise(function (r) { ['fA', 'fB'].forEach(function (id) { document.getElementById(id).src = 'about:blank'; }); setTimeout(r, 200); }); }
+
+  async function run() {
+    /* ---------- 1. Watching live: the last turn plays, then the card; the score waits for the card ---------- */
+    log('1. Nolf watches Quad win live', 'h');
+    clean(); localStorage.setItem('mock:games/' + GID, JSON.stringify(nearEnd(1, 1, [0, 0])));
+    var B = await frame('fB', 'B'); open(B);
+    await until(function () { return /Quad/.test(status(B)); }, 8000);
+    var A = await frame('fA', 'A'); open(A);
+    check(await until(function () { var d = doc(); return d && d.phase === 'over'; }, 15000), 'the finished game is saved in the shared store as over');
+    var d = doc();
+    check(d && d.result && d.result.winner === 'A', 'with Quad (A) as the winner');
+    var lastE = d && d.log[d.log.length - 1];
+    check(!!(lastE && lastE.s === 'A' && lastE.m && lastE.pre), 'the winning turn is in the log, with its moves and the board before it');
+    await wait(250);
+    check(!overOn(B), 'Nolf: no end card the instant the result arrives');
+    check($$(B, 'scThem').textContent === '0', 'Nolf: the rail still shows Quad on 0 while the last checker goes off');
+    check(await until(function () { return overOn(B); }, 6000), 'Nolf: the end card comes up after the last move');
+    check($$(B, 'scThem').textContent === '1', 'Nolf: then the score shows 1');
+    check(!!localStorage.getItem('bgEnd:' + GID + '_1:B'), 'Nolf: this phone remembers it has shown the end');
+    check(!!localStorage.getItem('bgEnd:' + GID + '_1:A'), 'Quad: so does the winner’s phone');
+
+    /* ---------- 2. Leaving and coming back: the end is still the end ---------- */
+    log('2. Nolf closes the board and opens it again', 'h');
+    B.BG.close(); await wait(300); open(B);
+    check(await until(function () { return overOn(B); }, 4000), 'Nolf: the end card is back (not a dead board)');
+    check(!!B.document.querySelector('#over [data-to]'), 'Nolf: with the buttons for a new match');
+    await blank();
+    B = await frame('fB', 'B'); open(B);
+    check(await until(function () { return overOn(B); }, 6000), 'Nolf, app reopened: the game opens as finished, card included');
+
+    /* ---------- 3. A new match from home, by the loser; the other phone follows ---------- */
+    log('3. Nolf starts a new match from home (to 3, pip counts off)', 'h');
+    A = await frame('fA', 'A'); open(A);
+    await until(function () { return overOn(A); }, 6000);
+    B.BG.close(); await wait(300); open(B, { newMatch: true, to: 3, pips: false });
+    check(await until(function () { var d = doc(); return d && d.game === 2 && d.phase === 'opening'; }, 6000), 'a new game is saved, in the opening');
+    d = doc();
+    check(d && d.to === 3 && d.pips === false, 'to 3, pip counts off');
+    check(d && d.open && d.open.B && !d.open.A, 'Nolf started it, so Nolf’s die is the one already thrown');
+    check(d && d.prev && d.prev.game === 1 && d.prev.result.winner === 'A', 'the finished match rides along in the new game');
+    check(await until(function () { return /^You rolled \d\. Waiting for Quad to throw\.$/.test(status(B)); }, 6000), 'Nolf reads: “You rolled N. Waiting for Quad to throw.” (' + status(B) + ')');
+    check(await until(function () { return /^Nolf rolled \d\. Throw yours\.$/.test(status(A)); }, 6000), 'Quad reads: “Nolf rolled N. Throw yours.” (' + status(A) + ')');
+    check(!overOn(A), 'Quad: the old end card has gone');
+    check($$(A, 'pipMe').style.display === 'none', 'Quad: pip counts hidden, as Nolf chose');
+
+    /* ---------- 4. Nolf missed the end: Quad already started the next match ---------- */
+    log('4. Quad wins and starts a new match before Nolf has seen the end', 'h');
+    await blank(); clean(); localStorage.setItem('mock:games/' + GID, JSON.stringify(nearEnd(1, 1, [0, 0])));
+    A = await frame('fA', 'A'); open(A);
+    await until(function () { return overOn(A); }, 15000);
+    A.BG.close(); await wait(300); open(A, { newMatch: true, to: 5, pips: true });
+    check(await until(function () { var d = doc(); return d && d.game === 2; }, 6000), 'Quad’s new match is saved');
+    await blank();
+    B = await frame('fB', 'B'); open(B);
+    await wait(1200);
+    check(!overOn(B) && $$(B, 'scThem').textContent === '0', 'Nolf: first his missed turn plays again, the result not shown yet');
+    check(await until(function () { return overOn(B); }, 12000), 'Nolf: then the end card of the match he missed');
+    check(!!B.document.getElementById('again') && !B.document.querySelector('#over [data-to]'), 'Nolf: its button leads on, no second new-match choice');
+    check(!!localStorage.getItem('bgEnd:' + GID + '_1:B'), 'Nolf: the missed end is now marked as seen');
+    B.document.getElementById('again').click();
+    check(await until(function () { return !overOn(B) && /^Quad rolled \d\. Throw yours\.$/.test(status(B)); }, 6000), 'Nolf: on to the new match: “Quad rolled N. Throw yours.” (' + status(B) + ')');
+    await blank(); B = await frame('fB', 'B'); open(B); await wait(1500);
+    check(!overOn(B), 'Nolf, reopened: the old end is not shown a second time');
+
+    clean();
+    document.getElementById('sum').innerHTML = '<b class="' + (fails ? 'no' : 'ok') + '">' + (fails ? fails + ' failed, ' : 'All ') + passes + ' passed</b>';
+    window.__result = { passes: passes, fails: fails };
+  }
+  run().catch(function (e) { log('crashed: ' + (e && e.stack || e), 'no'); window.__result = { crashed: String(e) }; });
+})();
+</script>

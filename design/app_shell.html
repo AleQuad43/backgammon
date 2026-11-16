@@ -425,16 +425,30 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       { winner: 'ra', loser: 'qu', to: 5, score: [5, 2], t0: dd(3, 10, 0), t: dd(3, 11, 26) }
     ];
   })();
+  /* A finished game this phone hasn't shown you yet keeps its secret: the board as it was before the last turn, the score
+     from before it, no result, and its match not yet among the past ones. Once its end card has been on screen here, a
+     decided match leaves the table and a new one can be set up. (The board script marks ends as seen: bgEnd:<game id>:<seat>.) */
+  function endSeen(key, seat) { try { return !!localStorage.getItem('bgEnd:' + key + ':' + seat); } catch (e) { return true; } }
+  function gview(g) {
+    if (!g) return g;
+    if (g.prevKey && !endSeen(g.prevKey, g.seat)) g = Object.assign({}, g, { s: 'yours', sc: g.psc || g.sc });
+    if (g.phase !== 'over' || !g.key) return g;
+    if (!endSeen(g.key, g.seat)) return Object.assign({}, g, { s: 'yours', hidden: true, board: g.pre || g.board, dice: null, sc: g.sc0 || g.sc });
+    return g.decided ? null : g;
+  }
+  function gameOf(id) { return gview(GAMES.filter(function (x) { return x.p === id; })[0]); }
+  function hiddenMatch(m) { return !!m.id && GAMES.some(function (g) { return (g.key === m.id && g.phase === 'over' && !endSeen(g.key, g.seat)) || (g.prevKey === m.id && !endSeen(g.prevKey, g.seat)); }); }
+  function shownMatches() { return MATCHES.filter(function (m) { return !hiddenMatch(m); }); }
   function h2h(id) {
     var me = ME ? ME.id : UID, w = 0, l = 0;
-    MATCHES.forEach(function (m) { if (m.winner === me && m.loser === id) w++; else if (m.winner === id && m.loser === me) l++; });
+    shownMatches().forEach(function (m) { if (m.winner === me && m.loser === id) w++; else if (m.winner === id && m.loser === me) l++; });
     return { w: w, l: l };
   }
   var HIST = [];
   var X = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
   var CHEV = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:.5;flex:0 0 auto"><path d="M9 6l6 6-6 6"/></svg>';
   function updateTitle() {
-    var waiting = GAMES.filter(function (g) { return g.s === 'yours' || g.s === 'req'; }).length;
+    var waiting = GAMES.map(gview).filter(function (g) { return g && (g.s === 'yours' || g.s === 'req'); }).length;
     $('bTitle').textContent = waiting === 1 ? 'One game waits for you' : waiting ? (['', '', 'Two', 'Three', 'Four', 'Five'][waiting] || waiting) + ' games wait for you' : 'Nothing waits for you';
   }
   updateTitle();
@@ -475,7 +489,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
           '<div><div class="label" style="margin:0 4px 8px">For testing</div><div class="tools"><button class="mini" data-act="seat">Who plays on this device</button><button class="mini" data-act="bearoff">Bear-off position</button><button class="mini" data-act="restart">Start the match over</button></div></div>') +
         (HIST.length ? '<div class="label" style="margin:4px 4px 0">Your history</div><div>' + HIST.map(histRow).join('') + '</div>' : '');
     }
-    var p = byId[id], h = h2h(id), g = GAMES.filter(function (x) { return x.p === id; })[0], nm = esc(p.n);
+    var p = byId[id], h = h2h(id), g = gameOf(id), nm = esc(p.n);
     /* who they are: their checker, their name, their Elo and where that puts them among the friends */
     var others = P.filter(function (x) { return !x.bot; }), rank = 1 + others.filter(function (x) { return x.elo > p.elo; }).length;
     var out = '<div class="pc-top">' + av(p) + '<div style="min-width:0"><h4>' + nm + '</h4><p class="num">Elo ' + p.elo.toLocaleString('en') +
@@ -486,8 +500,8 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     /* the game on the table: tap the board to sit down and play; no game, then the way to start one */
     if (g && g.s === 'req') out += gameRow(g);
     else if (g) {
-      var cap = g.phase === 'over' ? 'Game over' : g.s === 'yours' ? '<i class="pip"></i>Your move' : nm + '’s move';
-      out += '<div class="sec live ' + (g.s === 'yours' && g.phase !== 'over' ? 'yours' : '') + '"><div class="label">This match</div>' +
+      var cap = g.hidden ? '<i class="pip"></i>New on the board' : g.phase === 'over' ? 'Game over · next game' : g.s === 'yours' ? '<i class="pip"></i>Your move' : nm + '’s move';
+      out += '<div class="sec live ' + (g.s === 'yours' && (g.hidden || g.phase !== 'over') ? 'yours' : '') + '"><div class="label">This match</div>' +
         '<button class="bd" data-act="board" data-p="' + id + '" aria-label="Open the game with ' + nm + '"><canvas data-mini="' + id + '"></canvas></button>' +
         '<div class="cap"><span>' + cap + '</span><small><b>' + g.sc.join('–') + '</b> · to ' + g.to + (g.cube && g.cube.v > 1 ? ' · cube ' + g.cube.v : '') + '</small></div></div>';
     }
@@ -498,7 +512,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
         '<button class="sw" role="switch" data-act="pips" aria-checked="' + ng.pips + '"><span class="t"><b>Pip counts</b><small>How far each of you still has to go, shown beside your names</small></span><span class="k"></span></button>' +
         '</div><button class="big" data-act="board" data-p="' + id + '">Play with ' + nm + '</button></div>';
     /* every finished match, newest first */
-    var me = ME ? ME.id : UID, ms = MATCHES.filter(function (m) { return (m.winner === me && m.loser === id) || (m.winner === id && m.loser === me); })
+    var me = ME ? ME.id : UID, ms = shownMatches().filter(function (m) { return (m.winner === me && m.loser === id) || (m.winner === id && m.loser === me); })
       .sort(function (a, b) { return (b.t || 0) - (a.t || 0); });
     if (ms.length) out += '<div class="sec"><div class="label">Past matches</div><div class="past">' + ms.map(function (m) { return matchTile(m, me); }).join('') + '</div></div>';
     return out;
@@ -594,7 +608,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   }
   function paintCard() {
     $('cardIn').querySelectorAll('canvas[data-mini]').forEach(function (cv) {
-      var gm = GAMES.filter(function (x) { return x.p === cv.dataset.mini; })[0]; if (gm) drawMini(cv, gm);
+      var gm = gameOf(cv.dataset.mini); if (gm) drawMini(cv, gm);
     });
   }
   /* the open card follows the game: a move, a throw or a finished match shows up while you look */
@@ -630,13 +644,13 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
 
   /* ---------- opening a board ---------- */
   function openGame(pid) {
-    var g = GAMES.filter(function (x) { return x.p === pid; })[0], p = byId[pid];
+    var raw = GAMES.filter(function (x) { return x.p === pid; })[0], g = gview(raw), p = byId[pid];
     closeAll();
     if (p.bot) { window.BG.open({ id: pid, name: p.n, ini: pid, to: ng.to, pips: ng.pips }); return; }
     if (CLOUD) {
       var seat = UID < pid ? 'A' : 'B', seats = {};
       seats[seat] = { name: ME.n, ini: UID }; seats[seat === 'A' ? 'B' : 'A'] = { name: p.n, ini: pid };
-      window.BG.open({ id: pid, gid: [UID, pid].sort().join('_'), seat: seat, seats: seats, name: p.n, ini: pid, to: g ? g.to : ng.to, pips: g ? true : ng.pips });
+      window.BG.open({ id: pid, gid: [UID, pid].sort().join('_'), seat: seat, seats: seats, name: p.n, ini: pid, to: g ? g.to : ng.to, pips: g ? true : ng.pips, newMatch: !!(raw && !g) });
       return;
     }
     window.BG.open({ id: pid, name: p.n, ini: p.i, duo: !!(g && g.duo), to: g ? g.to : ng.to, pips: g ? true : ng.pips, score: g && g.sc ? { me: g.sc[0], them: g.sc[1] } : null });
@@ -793,7 +807,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   }
   function markOrbs() {
     stars.forEach(function (s) {
-      var g = GAMES.filter(function (x) { return x.p === s.p.id; })[0];
+      var g = gameOf(s.p.id);
       var st = s.p === ME || !g ? '' : g.s === 'yours' || g.s === 'req' ? 'yours' : 'them';
       s.el.querySelector('.orb').className = 'orb ck ' + (s.p === ME ? 'me ' : '') + st;
       if (st === 'yours' && !s.el.querySelector('canvas.fl')) { var fc = document.createElement('canvas'); fc.className = 'fl'; fc.width = fc.height = 240; s.el.querySelector('.orb').appendChild(fc); s.fi = -1; }
@@ -1139,23 +1153,33 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       }
     });
 
-    var gameState = function (d, seat) {
+    var gameState = function (d, seat, gid) {
       if (!d || !d.board) return null;
       var other = seat === 'A' ? 'B' : 'A', mine;
+      var by = function (sc) { return [(sc && sc[seat]) || 0, (sc && sc[other]) || 0]; };
+      /* the score and board from before a result this phone hasn't shown yet (see gview) */
+      var before = function (sc, r) { var v = by(sc); if (r) v[r.winner === seat ? 0 : 1] -= r.pts || 0; return v; };
+      var lg = d.log || [], last = lg[lg.length - 1], r = d.result;
+      var pre = d.ro && d.ro.pre ? d.ro.pre : r && !r.dropped && !r.forfeit && last && last.pre ? last.pre : d.board;
+      var pv = d.prev && d.prev.result && d.prev.game !== d.game ? d.prev : null;
       if (d.phase === 'over') mine = true;
       else if (d.phase === 'offered') mine = d.offerBy !== seat;
       else if (d.phase === 'opening' || !d.turn) mine = !(d.open && d.open[seat]);
       else mine = d.turn === seat;
       return { s: mine ? 'yours' : 'them', sc: [(d.score && d.score[seat]) || 0, (d.score && d.score[other]) || 0], to: d.to || 5, when: '',
-        seat: seat, phase: d.phase, board: d.board, dice: d.dice, cube: d.cube };
+        seat: seat, phase: d.phase, board: d.board, dice: d.dice, cube: d.cube,
+        key: gid + '_' + d.game, decided: d.phase === 'over' && Math.max((d.score && d.score.A) || 0, (d.score && d.score.B) || 0) >= (d.to || 5),
+        pre: pre, sc0: d.phase === 'over' ? before(d.score, r) : null,
+        prevKey: pv ? gid + '_' + pv.game : null, psc: pv && Math.max((pv.score && pv.score.A) || 0, (pv.score && pv.score.B) || 0) < (pv.to || 5) ? before(pv.score, pv.result) : null };
     };
     var listenGames = function () {
       P.forEach(function (p) {
         if (p.id === UID || p.bot || GL[p.id]) return;
         var seat = UID < p.id ? 'A' : 'B';
-        GL[p.id] = FS.doc('games/' + [UID, p.id].sort().join('_')).onSnapshot(function (snap) {
+        var gid = [UID, p.id].sort().join('_');
+        GL[p.id] = FS.doc('games/' + gid).onSnapshot(function (snap) {
           var d = null; try { d = snap.exists ? JSON.parse(snap.data().j) : null; } catch (e) {}
-          var g = gameState(d, seat);
+          var g = gameState(d, seat, gid);
           GAMES = GAMES.filter(function (x) { return x.p !== p.id; }); if (g) { g.p = p.id; GAMES.push(g); }
           markOrbs(); updateTitle(); if (OPENP === p.id) refreshCard();
         }, function () {});
@@ -1175,6 +1199,8 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
         el.innerHTML = qs.docs.map(function (d) { var v = d.data(); return '<div><b>' + esc(v.name || '–') + '</b><span>' + esc(v.email || '') + '</span></div>'; }).join('') || 'Nobody yet.';
       }).catch(function () { var el = $('emails'); if (el) el.textContent = 'Couldn’t load the emails.'; });
     };
+    /* the board has just shown the end of a game: home may now tell its result */
+    window.onEndSeen = function () { markOrbs(); updateTitle(); refreshCard(); };
     var starTap = openCard; openCard = function (html, from) { starTap(html, from); if (ADMIN && $('emails')) loadEmails(); };
 
     AUTH.onAuthStateChanged(function (u) {
@@ -1183,7 +1209,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       UID = u.uid; $('auth').hidden = true; $('home').classList.remove('out');
       FS.doc('meta/admin').get().then(function (d) { ADMIN = d.exists && d.data().uid === UID; }).catch(function () {});
       unsubM = FS.collection('matches').where('players', 'array-contains', UID).onSnapshot(function (qs) {
-        MATCHES = qs.docs.map(function (d) { return d.data(); }); refreshCard();
+        MATCHES = qs.docs.map(function (d) { var v = d.data(); v.id = d.id; return v; }); refreshCard();
       }, function () {});
       unsubP = FS.collection('players').onSnapshot(function (qs) {
         P = qs.docs.map(function (d) { var v = d.data(); return { id: d.id, n: v.name || 'Player', i: d.id, elo: v.elo || 1500, d: 0, ck: v.ck || window.Checker.random() }; });

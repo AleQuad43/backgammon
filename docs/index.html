@@ -937,16 +937,30 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       { winner: 'ra', loser: 'qu', to: 5, score: [5, 2], t0: dd(3, 10, 0), t: dd(3, 11, 26) }
     ];
   })();
+  /* A finished game this phone hasn't shown you yet keeps its secret: the board as it was before the last turn, the score
+     from before it, no result, and its match not yet among the past ones. Once its end card has been on screen here, a
+     decided match leaves the table and a new one can be set up. (The board script marks ends as seen: bgEnd:<game id>:<seat>.) */
+  function endSeen(key, seat) { try { return !!localStorage.getItem('bgEnd:' + key + ':' + seat); } catch (e) { return true; } }
+  function gview(g) {
+    if (!g) return g;
+    if (g.prevKey && !endSeen(g.prevKey, g.seat)) g = Object.assign({}, g, { s: 'yours', sc: g.psc || g.sc });
+    if (g.phase !== 'over' || !g.key) return g;
+    if (!endSeen(g.key, g.seat)) return Object.assign({}, g, { s: 'yours', hidden: true, board: g.pre || g.board, dice: null, sc: g.sc0 || g.sc });
+    return g.decided ? null : g;
+  }
+  function gameOf(id) { return gview(GAMES.filter(function (x) { return x.p === id; })[0]); }
+  function hiddenMatch(m) { return !!m.id && GAMES.some(function (g) { return (g.key === m.id && g.phase === 'over' && !endSeen(g.key, g.seat)) || (g.prevKey === m.id && !endSeen(g.prevKey, g.seat)); }); }
+  function shownMatches() { return MATCHES.filter(function (m) { return !hiddenMatch(m); }); }
   function h2h(id) {
     var me = ME ? ME.id : UID, w = 0, l = 0;
-    MATCHES.forEach(function (m) { if (m.winner === me && m.loser === id) w++; else if (m.winner === id && m.loser === me) l++; });
+    shownMatches().forEach(function (m) { if (m.winner === me && m.loser === id) w++; else if (m.winner === id && m.loser === me) l++; });
     return { w: w, l: l };
   }
   var HIST = [];
   var X = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
   var CHEV = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:.5;flex:0 0 auto"><path d="M9 6l6 6-6 6"/></svg>';
   function updateTitle() {
-    var waiting = GAMES.filter(function (g) { return g.s === 'yours' || g.s === 'req'; }).length;
+    var waiting = GAMES.map(gview).filter(function (g) { return g && (g.s === 'yours' || g.s === 'req'); }).length;
     $('bTitle').textContent = waiting === 1 ? 'One game waits for you' : waiting ? (['', '', 'Two', 'Three', 'Four', 'Five'][waiting] || waiting) + ' games wait for you' : 'Nothing waits for you';
   }
   updateTitle();
@@ -987,7 +1001,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
           '<div><div class="label" style="margin:0 4px 8px">For testing</div><div class="tools"><button class="mini" data-act="seat">Who plays on this device</button><button class="mini" data-act="bearoff">Bear-off position</button><button class="mini" data-act="restart">Start the match over</button></div></div>') +
         (HIST.length ? '<div class="label" style="margin:4px 4px 0">Your history</div><div>' + HIST.map(histRow).join('') + '</div>' : '');
     }
-    var p = byId[id], h = h2h(id), g = GAMES.filter(function (x) { return x.p === id; })[0], nm = esc(p.n);
+    var p = byId[id], h = h2h(id), g = gameOf(id), nm = esc(p.n);
     /* who they are: their checker, their name, their Elo and where that puts them among the friends */
     var others = P.filter(function (x) { return !x.bot; }), rank = 1 + others.filter(function (x) { return x.elo > p.elo; }).length;
     var out = '<div class="pc-top">' + av(p) + '<div style="min-width:0"><h4>' + nm + '</h4><p class="num">Elo ' + p.elo.toLocaleString('en') +
@@ -998,8 +1012,8 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     /* the game on the table: tap the board to sit down and play; no game, then the way to start one */
     if (g && g.s === 'req') out += gameRow(g);
     else if (g) {
-      var cap = g.phase === 'over' ? 'Game over' : g.s === 'yours' ? '<i class="pip"></i>Your move' : nm + '’s move';
-      out += '<div class="sec live ' + (g.s === 'yours' && g.phase !== 'over' ? 'yours' : '') + '"><div class="label">This match</div>' +
+      var cap = g.hidden ? '<i class="pip"></i>New on the board' : g.phase === 'over' ? 'Game over · next game' : g.s === 'yours' ? '<i class="pip"></i>Your move' : nm + '’s move';
+      out += '<div class="sec live ' + (g.s === 'yours' && (g.hidden || g.phase !== 'over') ? 'yours' : '') + '"><div class="label">This match</div>' +
         '<button class="bd" data-act="board" data-p="' + id + '" aria-label="Open the game with ' + nm + '"><canvas data-mini="' + id + '"></canvas></button>' +
         '<div class="cap"><span>' + cap + '</span><small><b>' + g.sc.join('–') + '</b> · to ' + g.to + (g.cube && g.cube.v > 1 ? ' · cube ' + g.cube.v : '') + '</small></div></div>';
     }
@@ -1010,7 +1024,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
         '<button class="sw" role="switch" data-act="pips" aria-checked="' + ng.pips + '"><span class="t"><b>Pip counts</b><small>How far each of you still has to go, shown beside your names</small></span><span class="k"></span></button>' +
         '</div><button class="big" data-act="board" data-p="' + id + '">Play with ' + nm + '</button></div>';
     /* every finished match, newest first */
-    var me = ME ? ME.id : UID, ms = MATCHES.filter(function (m) { return (m.winner === me && m.loser === id) || (m.winner === id && m.loser === me); })
+    var me = ME ? ME.id : UID, ms = shownMatches().filter(function (m) { return (m.winner === me && m.loser === id) || (m.winner === id && m.loser === me); })
       .sort(function (a, b) { return (b.t || 0) - (a.t || 0); });
     if (ms.length) out += '<div class="sec"><div class="label">Past matches</div><div class="past">' + ms.map(function (m) { return matchTile(m, me); }).join('') + '</div></div>';
     return out;
@@ -1106,7 +1120,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   }
   function paintCard() {
     $('cardIn').querySelectorAll('canvas[data-mini]').forEach(function (cv) {
-      var gm = GAMES.filter(function (x) { return x.p === cv.dataset.mini; })[0]; if (gm) drawMini(cv, gm);
+      var gm = gameOf(cv.dataset.mini); if (gm) drawMini(cv, gm);
     });
   }
   /* the open card follows the game: a move, a throw or a finished match shows up while you look */
@@ -1142,13 +1156,13 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
 
   /* ---------- opening a board ---------- */
   function openGame(pid) {
-    var g = GAMES.filter(function (x) { return x.p === pid; })[0], p = byId[pid];
+    var raw = GAMES.filter(function (x) { return x.p === pid; })[0], g = gview(raw), p = byId[pid];
     closeAll();
     if (p.bot) { window.BG.open({ id: pid, name: p.n, ini: pid, to: ng.to, pips: ng.pips }); return; }
     if (CLOUD) {
       var seat = UID < pid ? 'A' : 'B', seats = {};
       seats[seat] = { name: ME.n, ini: UID }; seats[seat === 'A' ? 'B' : 'A'] = { name: p.n, ini: pid };
-      window.BG.open({ id: pid, gid: [UID, pid].sort().join('_'), seat: seat, seats: seats, name: p.n, ini: pid, to: g ? g.to : ng.to, pips: g ? true : ng.pips });
+      window.BG.open({ id: pid, gid: [UID, pid].sort().join('_'), seat: seat, seats: seats, name: p.n, ini: pid, to: g ? g.to : ng.to, pips: g ? true : ng.pips, newMatch: !!(raw && !g) });
       return;
     }
     window.BG.open({ id: pid, name: p.n, ini: p.i, duo: !!(g && g.duo), to: g ? g.to : ng.to, pips: g ? true : ng.pips, score: g && g.sc ? { me: g.sc[0], them: g.sc[1] } : null });
@@ -1305,7 +1319,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   }
   function markOrbs() {
     stars.forEach(function (s) {
-      var g = GAMES.filter(function (x) { return x.p === s.p.id; })[0];
+      var g = gameOf(s.p.id);
       var st = s.p === ME || !g ? '' : g.s === 'yours' || g.s === 'req' ? 'yours' : 'them';
       s.el.querySelector('.orb').className = 'orb ck ' + (s.p === ME ? 'me ' : '') + st;
       if (st === 'yours' && !s.el.querySelector('canvas.fl')) { var fc = document.createElement('canvas'); fc.className = 'fl'; fc.width = fc.height = 240; s.el.querySelector('.orb').appendChild(fc); s.fi = -1; }
@@ -1651,23 +1665,33 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       }
     });
 
-    var gameState = function (d, seat) {
+    var gameState = function (d, seat, gid) {
       if (!d || !d.board) return null;
       var other = seat === 'A' ? 'B' : 'A', mine;
+      var by = function (sc) { return [(sc && sc[seat]) || 0, (sc && sc[other]) || 0]; };
+      /* the score and board from before a result this phone hasn't shown yet (see gview) */
+      var before = function (sc, r) { var v = by(sc); if (r) v[r.winner === seat ? 0 : 1] -= r.pts || 0; return v; };
+      var lg = d.log || [], last = lg[lg.length - 1], r = d.result;
+      var pre = d.ro && d.ro.pre ? d.ro.pre : r && !r.dropped && !r.forfeit && last && last.pre ? last.pre : d.board;
+      var pv = d.prev && d.prev.result && d.prev.game !== d.game ? d.prev : null;
       if (d.phase === 'over') mine = true;
       else if (d.phase === 'offered') mine = d.offerBy !== seat;
       else if (d.phase === 'opening' || !d.turn) mine = !(d.open && d.open[seat]);
       else mine = d.turn === seat;
       return { s: mine ? 'yours' : 'them', sc: [(d.score && d.score[seat]) || 0, (d.score && d.score[other]) || 0], to: d.to || 5, when: '',
-        seat: seat, phase: d.phase, board: d.board, dice: d.dice, cube: d.cube };
+        seat: seat, phase: d.phase, board: d.board, dice: d.dice, cube: d.cube,
+        key: gid + '_' + d.game, decided: d.phase === 'over' && Math.max((d.score && d.score.A) || 0, (d.score && d.score.B) || 0) >= (d.to || 5),
+        pre: pre, sc0: d.phase === 'over' ? before(d.score, r) : null,
+        prevKey: pv ? gid + '_' + pv.game : null, psc: pv && Math.max((pv.score && pv.score.A) || 0, (pv.score && pv.score.B) || 0) < (pv.to || 5) ? before(pv.score, pv.result) : null };
     };
     var listenGames = function () {
       P.forEach(function (p) {
         if (p.id === UID || p.bot || GL[p.id]) return;
         var seat = UID < p.id ? 'A' : 'B';
-        GL[p.id] = FS.doc('games/' + [UID, p.id].sort().join('_')).onSnapshot(function (snap) {
+        var gid = [UID, p.id].sort().join('_');
+        GL[p.id] = FS.doc('games/' + gid).onSnapshot(function (snap) {
           var d = null; try { d = snap.exists ? JSON.parse(snap.data().j) : null; } catch (e) {}
-          var g = gameState(d, seat);
+          var g = gameState(d, seat, gid);
           GAMES = GAMES.filter(function (x) { return x.p !== p.id; }); if (g) { g.p = p.id; GAMES.push(g); }
           markOrbs(); updateTitle(); if (OPENP === p.id) refreshCard();
         }, function () {});
@@ -1687,6 +1711,8 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
         el.innerHTML = qs.docs.map(function (d) { var v = d.data(); return '<div><b>' + esc(v.name || '–') + '</b><span>' + esc(v.email || '') + '</span></div>'; }).join('') || 'Nobody yet.';
       }).catch(function () { var el = $('emails'); if (el) el.textContent = 'Couldn’t load the emails.'; });
     };
+    /* the board has just shown the end of a game: home may now tell its result */
+    window.onEndSeen = function () { markOrbs(); updateTitle(); refreshCard(); };
     var starTap = openCard; openCard = function (html, from) { starTap(html, from); if (ADMIN && $('emails')) loadEmails(); };
 
     AUTH.onAuthStateChanged(function (u) {
@@ -1695,7 +1721,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       UID = u.uid; $('auth').hidden = true; $('home').classList.remove('out');
       FS.doc('meta/admin').get().then(function (d) { ADMIN = d.exists && d.data().uid === UID; }).catch(function () {});
       unsubM = FS.collection('matches').where('players', 'array-contains', UID).onSnapshot(function (qs) {
-        MATCHES = qs.docs.map(function (d) { return d.data(); }); refreshCard();
+        MATCHES = qs.docs.map(function (d) { var v = d.data(); v.id = d.id; return v; }); refreshCard();
       }, function () {});
       unsubP = FS.collection('players').onSnapshot(function (qs) {
         P = qs.docs.map(function (d) { var v = d.data(); return { id: d.id, n: v.name || 'Player', i: d.id, elo: v.elo || 1500, d: 0, ck: v.ck || window.Checker.random() }; });
@@ -2041,7 +2067,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     var S = state(), p = { me: 25 * S.bar.me, them: 25 * S.bar.them };
     for (var a = 1; a <= 24; a++) { p.me += own(S, ME, a) * a; p.them += own(S, TH, a) * (25 - a); }
     $('pipMe').textContent = p.me + ' pips'; $('pipThem').textContent = p.them + ' pips';
-    $('pipMe').style.display = $('pipThem').style.display = PIPS ? '' : 'none';
+    $('pipMe').style.display = $('pipThem').style.display = SHOWPIPS ? '' : 'none';
   }
 
   /* ---------- dice ---------- */
@@ -2601,7 +2627,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   /* House rule: no doubling at all while either player is one point from winning the match. */
   var MATCH = 5;
   /* Pip counts beside each player: chosen when the match is set up, the same for both players. */
-  var PIPS = true;
+  var SHOWPIPS = true; /* not PIPS: that name is the dots on the dice */
   function canDouble() { return G.score.me < MATCH - 1 && G.score.them < MATCH - 1 && G.cube.v < 64; }
   /* While a double waits for an answer the day turns 12 hours over; once it's answered it turns back. */
   var DAYF = 0;
@@ -3378,16 +3404,20 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     G.phase = 'roll'; setTurn(ME); say('Your turn. Throw your dice.');
   }
   /* House rule: the first game of a match starts with the opening roll; after that the last game's winner starts. */
-  var LASTW = null;
+  var LASTW = null, NEWM = null; /* NEWM: a new match asked for from home, started once the finished one is on screen */
   function gameOver(winner, dropped, resign) {
     LASTW = winner;
+    /* the winning turn goes into the log like any other, so the other phone can watch it before it is told the result */
+    if (DUO && !dropped && !resign && winner === ME && G.phase === 'move' && G.hist && G.hist.length) pushLog(turnEntry());
     G.phase = 'over'; dayFlip(); G.asking = false; hideNote(); say('');
     /* Single 1, gammon 2 (loser bore off nothing), backgammon 3 (also still on the bar or in the winner's home board).
        Giving up ends the whole match: the winner is given whatever they still needed. */
     var sc = resign ? { gam: false, bg: false, pts: matchPts(winner) } : scoreOf(winner, dropped, resign), gam = sc.gam, bg = sc.bg, pts = sc.pts;
     G.score[winner] += pts; $('scMe').textContent = G.score.me; $('scThem').textContent = G.score.them;
     if (dropped) spinSky();
-    if (DUO) { DUO.overShown = true; save({ phase: 'over', result: { winner: seatOf(winner), pts: pts, dropped: !!dropped, gammon: gam, bg: bg, forfeit: !!resign } }); }
+    /* this phone ignores the echo of its own saves, so the finished game is also kept here as the last one known:
+       coming back to the board, or starting the next match, then starts from the end, not from before the last move */
+    if (DUO) { DUO.overShown = true; var od = buildDoc({ phase: 'over', result: { winner: seatOf(winner), pts: pts, dropped: !!dropped, gammon: gam, bg: bg, forfeit: !!resign } }); DUO.lastDoc = od; put(DUO, { doc: od }); }
     showOver(winner, pts, dropped, gam, bg, !!resign);
   }
   /* Proposal: the end of a game as a note on a café table. The words come from one of five backgammon cultures, picked
@@ -3409,8 +3439,8 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       : (me ? 'You win ' : n + ' wins ') + (bg ? 'a backgammon · three points' : gam ? 'a gammon · two points' : 'one point');
     return { c: c, head: head, what: what };
   }
-  var SPIN = [];
-  function showOver2(winner, pts, dropped, gam, bg, match, forfeit) {
+  var SPINS = []; /* the checkers spinning on the end card (not SPIN, the sky's turn rotation) */
+  function showOver2(winner, pts, dropped, gam, bg, match, forfeit, cont) {
     var o = $('over'), w = overWords(winner, pts, dropped, gam, bg, match, forfeit), mult = G.cube.v > 1 && !match ? ' · cube ×' + G.cube.v : '';
     o.hidden = false;
     o.innerHTML = '<div class="card3"><i class="ring"></i>' +
@@ -3419,18 +3449,18 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       '<div class="duo3"><div class="pc"><canvas class="sp" data-who="me" width="240" height="240"></canvas><span>You</span></div>' +
       '<div class="sc3"><em>' + G.score.me + '</em><small>–</small><em>' + G.score.them + '</em><span>to ' + MATCH + '</span></div>' +
       '<div class="pc"><canvas class="sp" data-who="them" width="240" height="240"></canvas><span>' + NAME.them + '</span></div></div>' +
-      (match ? '<p class="what">New match to</p><div class="lens">' + [1, 3, 5, 7, 9, 11, 15].map(function (n) { return '<button data-to="' + n + '"' + (n === MATCH ? ' class="on"' : '') + '>' + n + '</button>'; }).join('') + '</div>'
+      (match && !cont ? '<p class="what">New match to</p><div class="lens">' + [1, 3, 5, 7, 9, 11, 15].map(function (n) { return '<button data-to="' + n + '"' + (n === MATCH ? ' class="on"' : '') + '>' + n + '</button>'; }).join('') + '</div>'
         : '<button id="again" class="hand">' + w.c.again[0] + '<small>' + w.c.again[1] + '</small></button>') + '</div>';
     startSpins(o);
   }
   function ckFrom(id) { try { return JSON.parse($(id).dataset.ck); } catch (e) { return null; } }
   function startSpins(o) {
-    SPIN = [];
+    SPINS = [];
     if (!window.flipFrame) return;
     Array.prototype.forEach.call(o.querySelectorAll('canvas.sp'), function (cv2) {
       var ck2 = ckFrom(cv2.dataset.who === 'me' ? 'avMe' : 'avThem'); if (!ck2) return;
       var sp = { cv: cv2, ck: ck2, a: Math.random(), w: (Math.random() < 0.5 ? -1 : 1) * (0.8 + Math.random()), next: performance.now() + 1500 + Math.random() * 3000, drag: null, fi: -1 };
-      SPIN.push(sp);
+      SPINS.push(sp);
       cv2.addEventListener('pointerdown', function (e) { e.stopPropagation(); try { cv2.setPointerCapture(e.pointerId); } catch (er) {} sp.drag = { x: e.clientX, t: performance.now(), v: 0 }; sp.w = 0; });
       cv2.addEventListener('pointermove', function (e) {
         if (!sp.drag) return; var now = performance.now(), dx = e.clientX - sp.drag.x, dt = Math.max(1, now - sp.drag.t), da = dx / (cv2.clientWidth * 1.6);
@@ -3441,9 +3471,9 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     });
     var last = performance.now();
     (function tick(now) {
-      if (!SPIN.length || $('over').hidden || !SPIN[0].cv.isConnected) return;
+      if (!SPINS.length || $('over').hidden || !SPINS[0].cv.isConnected) return;
       var dt = Math.min(0.05, (now - last) / 1000); last = now;
-      SPIN.forEach(function (sp) {
+      SPINS.forEach(function (sp) {
         if (!sp.drag) {
           if (now > sp.next) { sp.w += (Math.random() < 0.5 ? -1 : 1) * (0.6 + Math.random() * 1.6); sp.next = now + 2000 + Math.random() * 4500; }
           sp.a += sp.w * dt; sp.w *= Math.exp(-dt * 0.55);
@@ -3462,11 +3492,15 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     var key = (DUO.gid || window.GAMEID || 'duo') + '_' + DUO.game; if (DUO.recorded === key) return; DUO.recorded = key;
     window.onMatchEnd({ id: key, winner: SEATS[seatOf(winner)].ini, loser: SEATS[seatOf(other(winner))].ini, to: MATCH, score: [G.score[winner], G.score[other(winner)]], t0: (DUO.lastDoc && DUO.lastDoc.t0) || null });
   }
-  function showOver(winner, pts, dropped, gam, bg, forfeit) {
+  /* pv: the end of a game the other player has already moved on from: { game, go } — its card leads on to the new game. */
+  function showOver(winner, pts, dropped, gam, bg, forfeit, pv) {
     var o = $('over'); o.hidden = false;
+    $('scMe').textContent = G.score.me; $('scThem').textContent = G.score.them;
+    if (DUO) markEnd(pv ? pv.game : DUO.game);
     if (window.OVER2) {
       var isMatch = G.score[winner] >= MATCH;
-      showOver2(winner, pts, dropped, gam, bg, isMatch, forfeit);
+      showOver2(winner, pts, dropped, gam, bg, isMatch, forfeit, !!pv);
+      if (pv) { $('again').addEventListener('click', pv.go); return; }
       if (isMatch) {
         recordMatch(winner);
         Array.prototype.forEach.call(o.querySelectorAll('[data-to]'), function (b) { b.addEventListener('click', function () { newMatch(+b.getAttribute('data-to')); }); });
@@ -3567,7 +3601,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     var sc = {}, ld = DUO.lastDoc || {}; sc[DUO.seat] = G.score.me; sc[DUO.other] = G.score.them;
     return { v: ++DUO.V, by: DUO.seat, game: DUO.game, round: ld.round || 0, phase: o.phase, turn: o.turn || null, open: { A: null, B: null },
       board: boardToShared(), dice: o.dice !== undefined ? o.dice : diceToShared(), cube: { v: G.cube.v, owner: G.cube.owner ? seatOf(G.cube.owner) : null },
-      offerBy: o.offerBy || null, score: sc, result: o.result || null, to: MATCH, log: DUO.log || [], race: raceToShared(), ro: G.ro || ld.ro || null, t0: ld.t0 || null, pips: PIPS };
+      offerBy: o.offerBy || null, score: sc, result: o.result || null, to: MATCH, log: DUO.log || [], race: raceToShared(), ro: G.ro || ld.ro || null, t0: ld.t0 || null, pips: SHOWPIPS, prev: ld.prev || null };
   }
   function raceToShared() {
     if (!G.race) return null; var o = { A: null, B: null };
@@ -3583,16 +3617,20 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     pts[24] = 2; pts[13] = 5; pts[8] = 3; pts[6] = 5; pts[1] = -2; pts[12] = -5; pts[17] = -3; pts[19] = -5;
     return { pts: pts, bar: { A: 0, B: 0 }, off: { A: 0, B: 0 } };
   }
-  /* A new game (fresh = a new match at 0–0, where Luca challenged you and his die is already rolled). */
+  /* A new game (fresh = a new match at 0–0: whoever starts it has their opening die thrown with the challenge, so the
+     other player sees it waiting and throws theirs). */
   function newGame(fresh) {
-    var sc = { A: 0, B: 0 };
+    var sc = { A: 0, B: 0 }, op = { A: null, B: null };
+    if (fresh) op[DUO.seat] = { v: rnd6(), n: nonce(), t: null };
     if (!fresh) { sc[DUO.seat] = G.score.me; sc[DUO.other] = G.score.them; }
-    var ws = !fresh && DUO.lastDoc && DUO.lastDoc.result ? DUO.lastDoc.result.winner : null;
+    var ld = DUO.lastDoc, ws = !fresh && ld && ld.result ? ld.result.winner : null;
+    /* the game that just ended rides along in the new one, so a phone that never saw its end still gets to */
+    var pv = ld && ld.phase === 'over' && ld.result ? { game: ld.game, result: ld.result, score: ld.score, to: ld.to || MATCH, board: ld.board, cube: ld.cube, log: ld.log || [] } : null;
     var doc = { v: DUO.V + 1, by: DUO.seat, game: Math.max(DUO.game || 0, (DUO.lastDoc && DUO.lastDoc.game) || 0) + 1, round: 0, phase: ws ? 'roll' : 'opening', turn: ws,
-      open: { A: null, B: fresh ? { v: rnd6(), n: nonce(), t: null } : null }, board: startBoard(), dice: null, cube: { v: 1, owner: null },
+      open: op, board: startBoard(), dice: null, cube: { v: 1, owner: null },
       offerBy: null, score: sc, result: null, to: MATCH, log: [], race: null, ro: null,
       /* when this match began (kept through every game of it, saved with the match at the end) */
-      t0: fresh ? Date.now() : ((DUO.lastDoc && DUO.lastDoc.t0) || null), pips: PIPS };
+      t0: fresh ? Date.now() : ((DUO.lastDoc && DUO.lastDoc.t0) || null), pips: SHOWPIPS, prev: pv };
     DUO.V = doc.v; applyShared(doc, true);
     put(DUO, { doc: doc });
   }
@@ -3621,6 +3659,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       while (st.length < w.n && pool[w.side].length) { var id = pool[w.side].pop(); st.push(id); ck[id].loc = isNaN(+k) ? k : +k; ch = true; }
     });
     if (ch) { if (G.turn !== ME) G.hist = []; pips(); }
+    return ch;
   }
   function applyDice(sd, animate) {
     if (!sd || !sd.list || !sd.list.length) { clearDice(); return; }
@@ -3645,10 +3684,21 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     G.deadSaved = false;
     if (d.game !== DUO.game) { resetLocal(d); fresh = true; }
     DUO.lastDoc = d;
+    if (NEWM && d.phase !== 'over') NEWM = null;
+    /* the other player moved on to a new game before this phone showed the end of the last one: that end first */
+    if (d.prev && d.prev.result && d.prev.game !== d.game) {
+      if (DUO.prevShow === d.prev.game) return;
+      if (!endSeen(d.prev.game)) { showPrev(d); return; }
+    }
+    /* their winning turn arrived while their dice were still rolling here: let the dice land first */
+    if (d.phase === 'over' && !fresh && !DUO.overShown && G.rolling) { setTimeout(function () { if (DUO.lastDoc === d && !DUO.overShown) applyShared(d, false); }, 250); return; }
     G.score = { me: (d.score && d.score[DUO.seat]) || 0, them: (d.score && d.score[DUO.other]) || 0 };
-    $('scMe').textContent = G.score.me; $('scThem').textContent = G.score.them;
+    /* until this phone has shown the end of the game, the rail keeps the score from before it */
+    var shown = { me: G.score.me, them: G.score.them };
+    if (d.phase === 'over' && d.result && !DUO.overShown) shown[sideOf(d.result.winner) === ME ? 'me' : 'them'] -= d.result.pts || 0;
+    $('scMe').textContent = shown.me; $('scThem').textContent = shown.them;
     if (d.to) MATCH = d.to; $('scTo').textContent = 'match to ' + MATCH;
-    PIPS = d.pips !== false; $('pipMe').style.display = $('pipThem').style.display = PIPS ? '' : 'none';
+    SHOWPIPS = d.pips !== false; $('pipMe').style.display = $('pipThem').style.display = SHOWPIPS ? '' : 'none';
     G.cube = { v: d.cube.v, owner: d.cube.owner ? sideOf(d.cube.owner) : null };
     var lg = d.log || [], lastE = lg[lg.length - 1], lkey = JSON.stringify(lastE || null), newLog = lkey !== DUO.lkey;
     DUO.log = lg; DUO.lkey = lkey;
@@ -3658,13 +3708,14 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     if (REPL) REPL.stop();
     /* the summary afterwards only tells what this phone hasn't shown you yet */
     var unseen = fresh ? (DUO.repKey === lkey && DUO.repUnseen ? DUO.repUnseen : toReplay(lg, true)) : null;
-    if (fresh && (d.phase === 'roll' || d.phase === 'move') && DUO.repKey !== lkey) {
+    var repOk = d.phase === 'roll' || d.phase === 'move' || (d.phase === 'over' && !DUO.overShown && !(d.ro && d.ro.pre));
+    if (fresh && repOk && DUO.repKey !== lkey) {
       DUO.repKey = lkey; DUO.repUnseen = unseen; var rep = toReplay(lg);
       if (rep.length && W && !reduce) { replayLog(d, rep); return; }
     }
     markSeen(lkey);
     var roReplay = d.phase === 'over' && d.ro && d.ro.pre && d.ro.t && d.ro.t.length && d.result && !d.result.dropped && !DUO.overShown && G.phase !== 'rollout';
-    applyBoard(roReplay ? d.ro.pre : d.board);
+    var moved = applyBoard(roReplay ? d.ro.pre : d.board);
     var prev = G.phase;
     if (roReplay) { DUO.overShown = true; replayRollout(d); return; }
     if (d.phase === 'rollout') { G.asking = false; hideNote(); setTurn(sideOf(d.turn)); G.phase = 'rollout'; applyDice(d.dice, false); say('Rolling out the race…'); cubeUI(); return; }
@@ -3674,14 +3725,21 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     if (d.phase === 'opening') { applyOpening(d, fresh); cubeUI(); return; }
     if (d.phase === 'over') {
       G.phase = 'over'; cubeUI(); say('');
+      /* a new match asked for from home: once this phone has shown how the last one ended, start it */
+      if (NEWM && d.result && matchDone(d) && (DUO.overShown || endSeen(d.game))) { var nw = NEWM; NEWM = null; DUO.overShown = true; SHOWPIPS = nw.pips; newMatch(nw.to); return; }
       if (!DUO.overShown && d.result) {
         DUO.overShown = true; $('cubeFloat').hidden = true; $('cube').classList.remove('dragging');
         if ((d.result.dropped || d.result.forfeit) && prev === 'wait') spinSky();
-        showOver(sideOf(d.result.winner), d.result.pts, d.result.dropped, d.result.gammon, d.result.bg, d.result.forfeit);
-        if (d.result.forfeit && !fresh && !reduce && W && !CASE.a) {
-          var ov = $('over'); ov.style.visibility = 'hidden'; CASE.fresh = false; caseFold(); CASE.until = 0;
-          setTimeout(function () { ov.style.visibility = ''; if (ov.animate && !ov.hidden) ov.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 450, easing: 'ease-out' }); }, 1700);
-        }
+        var showEnd = function () {
+          if (DUO.lastDoc !== d) return;
+          showOver(sideOf(d.result.winner), d.result.pts, d.result.dropped, d.result.gammon, d.result.bg, d.result.forfeit);
+          if (d.result.forfeit && !fresh && !reduce && W && !CASE.a) {
+            var ov = $('over'); ov.style.visibility = 'hidden'; CASE.fresh = false; caseFold(); CASE.until = 0;
+            setTimeout(function () { ov.style.visibility = ''; if (ov.animate && !ov.hidden) ov.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 450, easing: 'ease-out' }); }, 1700);
+          }
+        };
+        /* watching live: the last checker glides home before the card comes up */
+        if (moved && !fresh && !reduce) setTimeout(showEnd, 1100); else showEnd();
       }
       return;
     }
@@ -3724,12 +3782,17 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
      the sky turns to whoever's turn it was, their dice appear, each checker moves in order, with a line on what
      happened. A tap jumps to the end. Turns saved before moves were kept just glide to where they ended. */
   var REPL = null;
-  function seenKey() { return 'bgSeen:' + (DUO.gid || window.GAMEID || 'duo') + ':' + DUO.seat + ':' + DUO.game; }
+  function seenKey(g) { return 'bgSeen:' + (DUO.gid || window.GAMEID || 'duo') + ':' + DUO.seat + ':' + (g == null ? DUO.game : g); }
+  /* The end of each game is remembered once this phone has shown its card (home keeps the result back until then). */
+  function endKey(g) { return 'bgEnd:' + (DUO.gid || window.GAMEID || 'duo') + '_' + g + ':' + DUO.seat; }
+  function markEnd(g) { try { localStorage.setItem(endKey(g), '1'); } catch (e) {} if (window.onEndSeen) window.onEndSeen(); }
+  function endSeen(g) { try { return !!localStorage.getItem(endKey(g)); } catch (e) { return false; } }
+  function matchDone(d) { var sc = d.score || {}; return Math.max(sc.A || 0, sc.B || 0) >= (d.to || MATCH); }
   function markSeen(k) { try { localStorage.setItem(seenKey(), k); } catch (e) {} }
-  function toReplay(lg, all) {
+  function toReplay(lg, all, game) {
     var rep = [];
     for (var i = lg.length - 1; i >= 0; i--) { var e = lg[i]; if (e.s === DUO.seat && !e.x) break; rep.unshift(e); }
-    var seen = null; try { seen = localStorage.getItem(seenKey()); } catch (e2) {}
+    var seen = null; try { seen = localStorage.getItem(seenKey(game)); } catch (e2) {}
     if (seen) for (var j = rep.length - 1; j >= 0; j--) if (JSON.stringify(rep[j]) === seen) { rep = rep.slice(j + 1); break; }
     if (!all) while (rep.length && !rep[0].pre) rep.shift();
     return rep;
@@ -3742,10 +3805,10 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     var w = ['', 'you', 'two of yours', 'three of yours', 'four of yours'];
     return NAME.them + ' rolled ' + dt + (hits ? ' and hit ' + (w[hits] || hits + ' of yours') : '') + '.';
   }
-  function replayLog(d, rep) {
+  function replayLog(d, rep, opt) {
     var i = 0, R = REPL = { stop: function () { if (REPL === R) REPL = null; R.dead = true; } };
-    function alive() { return !R.dead && DUO.lastDoc === d; }
-    function end() { if (!alive()) return; R.stop(); clearDice(); hideNote(); G.phase = 'sync'; applyShared(d, true); }
+    function alive() { return !R.dead && (opt ? opt.alive() : DUO.lastDoc === d); }
+    function end() { if (!alive()) return; R.stop(); clearDice(); hideNote(); if (opt) { opt.fin(); return; } G.phase = 'sync'; applyShared(d, true); }
     R.skip = end;
     G.phase = 'replay'; G.asking = false; hideNote(); clearDice(); cubeUI();
     applyBoard(rep[0].pre);
@@ -3772,6 +3835,27 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
         setTimeout(turn, e.z ? 1700 : 900);
       }, e.z ? 1100 : 800);
     }, 700);
+  }
+  /* The end of the last game, for a phone that missed it because the other player had already started the next one:
+     its last turns play again, then its end card, whose button leads on to the game now on the table. */
+  function showPrev(d) {
+    var p = d.prev, w = sideOf(p.result.winner), pts = p.result.pts || 0;
+    var sc = { me: (p.score && p.score[DUO.seat]) || 0, them: (p.score && p.score[DUO.other]) || 0 };
+    if (REPL) REPL.stop(); DUO.prevShow = p.game;
+    function alive() { return DUO.prevShow === p.game && !!DUO.lastDoc && !!DUO.lastDoc.prev && DUO.lastDoc.prev.game === p.game; }
+    G.phase = 'replay'; G.asking = false; hideNote(); clearDice(); $('over').hidden = true; cubeUI();
+    $('scMe').textContent = sc.me - (w === ME ? pts : 0); $('scThem').textContent = sc.them - (w === TH ? pts : 0);
+    function card() {
+      if (!alive()) return;
+      clearDice(); hideNote(); applyBoard(p.board);
+      G.phase = 'over'; G.score = sc; MATCH = p.to; G.cube = { v: (p.cube && p.cube.v) || 1, owner: null }; $('scTo').textContent = 'match to ' + MATCH;
+      showOver(w, pts, p.result.dropped, p.result.gammon, p.result.bg, p.result.forfeit, { game: p.game, go: function () {
+        if (DUO.prevShow !== p.game) return;
+        DUO.prevShow = null; $('over').hidden = true; G.phase = 'sync'; applyShared(DUO.lastDoc, true);
+      } });
+    }
+    var rep = toReplay(p.log || [], false, p.game);
+    if (rep.length && W && !reduce) { applyBoard(rep[0].pre); replayLog(d, rep, { alive: alive, fin: card }); } else card();
   }
   /* Their throw couldn't be played: it rolls on this board as they threw it, a word on what happened, then it's yours. */
   function watchDead(d) {
@@ -3801,7 +3885,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     }
     if (mine && !dm.length) placeDie(ME, mine.v);
     G.turn = mine ? TH : ME; G.phase = mine ? 'openWait' : 'opening';
-    say(!mine ? (his ? NAME.them + ' rolled ' + his.v + '. Throw yours.' : 'Throw your die to see who starts.') : his ? '' : 'Waiting for ' + NAME.them + ' to throw.');
+    say(!mine ? (his ? NAME.them + ' rolled ' + his.v + '. Throw yours.' : 'Throw your die to see who starts.') : his ? '' : 'You rolled ' + mine.v + '. Waiting for ' + NAME.them + ' to throw.');
     checkOpening();
   }
   function duoOpenThrow(from) {
@@ -3917,7 +4001,11 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
         if (!DB) { PENDING = function () { window.BG.open(o); }; say('Connecting to the shared game…'); return; }
         if (DUO && DUO.gid !== o.gid) { if (DUO.unsub) DUO.unsub(); DUO = null; G = null; }
         CUR = o.id; SEATS.A = o.seats.A; SEATS.B = o.seats.B; OPP = SEATS[o.seat === 'A' ? 'B' : 'A'];
-        if (!DUO) { CASE.fresh = true; MATCH = o.to || 5; PIPS = o.pips !== false; window.GAMEID = o.gid; joinDuo(o.seat); DUO.gid = o.gid; }
+        /* a finished match on the table and "Play" pressed at home: a new one starts as soon as the old end is on screen */
+        NEWM = o.newMatch ? { to: o.to || 5, pips: o.pips !== false } : null;
+        if (!DUO) { CASE.fresh = true; MATCH = o.to || 5; SHOWPIPS = o.pips !== false; window.GAMEID = o.gid; joinDuo(o.seat); DUO.gid = o.gid; }
+        /* back to a game that had ended (its card was closed with the board): show the end again, with its buttons */
+        else if (DUO.lastDoc && G && (G.phase === 'over' || DUO.prevShow) && (NEWM || $('over').hidden)) { DUO.overShown = false; DUO.prevShow = null; applyShared(DUO.lastDoc, true); }
         return;
       }
       if (o.duo && !NODB) {
@@ -3928,7 +4016,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       }
       if (DUO) { if (DUO.unsub) DUO.unsub(); DUO = null; }
       var fresh = CUR !== o.id || !G; CUR = o.id; OPP = o; setNames();
-      if (fresh) { CASE.fresh = true; G = null; PIPS = o.pips !== false; if (o.to) { MATCH = o.to; $('scTo').textContent = 'match to ' + MATCH; } start(); }
+      if (fresh) { CASE.fresh = true; G = null; SHOWPIPS = o.pips !== false; if (o.to) { MATCH = o.to; $('scTo').textContent = 'match to ' + MATCH; } start(); }
     },
     close: function () { if (DAYF) { DAYF = 0; if (window.skyShift) window.skyShift(0, 600); } $('gv').hidden = true; $('over').hidden = true; if (history.state && history.state.bg) try { history.back(); } catch (e) {} },
     seat: function () { CUR = 'duo'; showBoard(); if (DB) pickSeat(); else say('The shared game needs the published page.'); },
