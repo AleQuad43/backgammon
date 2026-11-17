@@ -4,3 +4,4 @@ __pycache__/
 design/preview.html
 design/icon-preview.png
 design/tests/sim_*.html
+design/tests/shots/

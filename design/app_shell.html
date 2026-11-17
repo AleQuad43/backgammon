@@ -439,6 +439,24 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   function gameOf(id) { return gview(GAMES.filter(function (x) { return x.p === id; })[0]); }
   function hiddenMatch(m) { return !!m.id && GAMES.some(function (g) { return (g.key === m.id && g.phase === 'over' && !endSeen(g.key, g.seat)) || (g.prevKey === m.id && !endSeen(g.prevKey, g.seat)); }); }
   function shownMatches() { return MATCHES.filter(function (m) { return !hiddenMatch(m); }); }
+  /* Elo, worked out on each phone from every finished match, in the order they ended (nothing about it is stored, so
+     every phone gets the same numbers). Everyone starts at 1500. The backgammon formula (as on FIBS): the winner takes
+     4·√length × (1 − their chance to win) from the loser, the chance coming from the rating gap, weighed by √length, so
+     longer matches count for more and an upset counts for more. A newcomer's rating moves up to five times as fast
+     until they have played 400 points of matches. A match this phone hasn't shown the end of yet doesn't count yet,
+     so the Elo never gives the result away. */
+  function ratings(ms) {
+    var r = {}, xp = {};
+    ms.slice().sort(function (a, b) { return (a.t || 0) - (b.t || 0); }).forEach(function (m) {
+      var w = m.winner, l = m.loser, n = Math.max(1, m.to || 1); if (!w || !l || w === l) return;
+      var rw = r[w] || 1500, rl = r[l] || 1500, pw = 1 / (1 + Math.pow(10, -(rw - rl) * Math.sqrt(n) / 2000)), k = 4 * Math.sqrt(n) * (1 - pw);
+      var boost = function (id) { return Math.max(1, 5 - (xp[id] || 0) / 100); };
+      r[w] = rw + k * boost(w); r[l] = rl - k * boost(l);
+      xp[w] = (xp[w] || 0) + n; xp[l] = (xp[l] || 0) + n;
+    });
+    return r;
+  }
+  window.__ratings = ratings;
   function h2h(id) {
     var me = ME ? ME.id : UID, w = 0, l = 0;
     shownMatches().forEach(function (m) { if (m.winner === me && m.loser === id) w++; else if (m.winner === id && m.loser === me) l++; });
@@ -798,7 +816,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   function syncStars() {
     stars = stars.filter(function (s) {
       var p = byId[s.p.id]; if (!p) { s.el.remove(); return false; }
-      s.p = p; s.el.querySelector('img').src = ckSrc(p.ck, true); s.el.querySelector('small').innerHTML = starLabel(p);
+      s.p = p; s.el.querySelector('img').src = ckSrc(p.ck, true); s.el.querySelector('small').innerHTML = starLabel(p); s.el.setAttribute('aria-label', p.n + ', Elo ' + p.elo);
       if (FH) s.hy = yOf(p.elo, FH); return true;
     });
     P.forEach(function (p) { if (!stars.some(function (s) { return s.p.id === p.id; })) addStar(p); });
@@ -1184,8 +1202,11 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
         GL[p.id] = FS.doc('games/' + gid).onSnapshot(function (snap) {
           var d = null; try { d = snap.exists ? JSON.parse(snap.data().j) : null; } catch (e) {}
           var g = gameState(d, seat, gid);
+          /* a game's end not yet shown here keeps its match out of the Elo (see ratings) */
+          var shown = function () { return shownMatches().map(function (m) { return m.id; }).join(); }, was = shown();
           GAMES = GAMES.filter(function (x) { return x.p !== p.id; }); if (g) { g.p = p.id; GAMES.push(g); }
           markOrbs(); updateTitle(); if (OPENP === p.id) refreshCard();
+          if (shown() !== was) applyElo();
         }, function () {});
       });
     };
@@ -1204,7 +1225,13 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       }).catch(function () { var el = $('emails'); if (el) el.textContent = 'Couldn’t load the emails.'; });
     };
     /* the board has just shown the end of a game: home may now tell its result */
-    window.onEndSeen = function () { markOrbs(); updateTitle(); refreshCard(); };
+    window.onEndSeen = function () { markOrbs(); updateTitle(); applyElo(); };
+    /* everyone's Elo from the finished matches this phone may tell about (see ratings) */
+    var applyElo = function () {
+      var r = ratings(shownMatches());
+      P.forEach(function (p) { if (!p.bot) p.elo = Math.round(r[p.id] || 1500); });
+      syncStars(); refreshCard();
+    };
     var starTap = openCard; openCard = function (html, from) { starTap(html, from); if (ADMIN && $('emails')) loadEmails(); };
 
     AUTH.onAuthStateChanged(function (u) {
@@ -1212,8 +1239,9 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       if (!u) { UID = null; ME = null; ADMIN = false; P = []; reindex(); syncStars(); window.BG && window.BG.close(); authView('welcome'); return; }
       UID = u.uid; $('auth').hidden = true; $('home').classList.remove('out');
       FS.doc('meta/admin').get().then(function (d) { ADMIN = d.exists && d.data().uid === UID; }).catch(function () {});
-      unsubM = FS.collection('matches').where('players', 'array-contains', UID).onSnapshot(function (qs) {
-        MATCHES = qs.docs.map(function (d) { var v = d.data(); v.id = d.id; return v; }); refreshCard();
+      /* every friend's matches, not only yours: everyone's Elo comes from all of them */
+      unsubM = FS.collection('matches').onSnapshot(function (qs) {
+        MATCHES = qs.docs.map(function (d) { var v = d.data(); v.id = d.id; return v; }); applyElo();
       }, function () {});
       unsubP = FS.collection('players').onSnapshot(function (qs) {
         P = qs.docs.map(function (d) { var v = d.data(); return { id: d.id, n: v.name || 'Player', i: d.id, elo: v.elo || 1500, d: 0, ck: v.ck || window.Checker.random() }; });
@@ -1227,7 +1255,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
           }
           P = P.filter(function (p) { return p.id !== UID; }); reindex();
         }
-        syncStars(); listenGames();
+        applyElo(); listenGames();
       }, function (x) { toast('Can’t reach the friends list (' + (x.code || 'error') + ').'); });
     });
   }

@@ -289,6 +289,9 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     L.mid = H / 2; L.th = L.fh * 0.41; L.r = Math.min(pw * 0.45, L.fh / 13.5); L.ds = Math.round(L.r * 1.55);
     drawStatic();
     if (typeof NOTE !== 'undefined' && NOTE.on) placeNote();
+    /* their double waiting on the board: the cube is placed in screen pixels, so it moves with the board (the double
+       may have arrived while the phone was upright, with the board laid out for that) */
+    if (G && G.phase === 'offered' && !$('cubeFloat').hidden && !cdrag) parkOffer();
   }
   function colX(c) { return c < 6 ? L.lx + c * L.pw : L.rx + (c - 6) * L.pw; }
   function colOf(a) {
@@ -793,6 +796,21 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   /* ---------- drawing ---------- */
   /* The board's set is the workshop's "Classic" material: white and black, dished face, brand new. */
   var CKS = {};
+  /* A phone can wipe the pictures a page keeps aside (the checkers above, the board behind them) while the app is in
+     the background, without saying so. Everything drawn fresh each frame (the dice) comes back by itself, but a
+     wiped checker picture would leave every checker invisible. So the kept pictures are checked now and then, and
+     whenever the app comes back to the screen, and made again if they've gone blank. */
+  function opaqueAt(c, x, y) { try { return c.getContext('2d').getImageData(x, y, 1, 1).data[3] > 0; } catch (e) { return true; } }
+  function cachesOk() {
+    if (bg.width && !opaqueAt(bg, Math.round(L.lx * DPR + 6), Math.round(L.mid * DPR))) return false;
+    for (var k in CKS) { var c = CKS[k]; if (c.width && !opaqueAt(c, c.width >> 1, c.height >> 1)) return false; }
+    return true;
+  }
+  function freshCaches() { CKS = {}; if (window.Checker && window.Checker.reset) window.Checker.reset(); if (W && L) drawStatic(); }
+  function checkCaches() { if (W && L && !cachesOk()) freshCaches(); }
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') checkCaches(); });
+  window.addEventListener('pageshow', checkCaches);
+  cv.addEventListener('contextrestored', freshCaches);
   function ckSprite(side) {
     var C = window.Checker, R = L.r, key = side + Math.round(R * DPR);
     if (!C || !C.MAT.classic) return null;
@@ -870,7 +888,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
      turning sideways, a toolbar sliding away) report a size mid-change, and a board measured then would stay squashed.
      The browser tells us whenever the board's box really changes size, and twice a second the frame checks it anyway.
      Both only re-draw when the size actually differs, so they cost nothing the rest of the time. */
-  var sizeT = 0;
+  var sizeT = 0, cacheT = 0;
   function sizeCheck() {
     var wr = $('wrap'), w = wr.clientWidth, h = wr.clientHeight;
     if (w > 0 && h > 0 && (w !== W || h !== H || (window.devicePixelRatio || 1) !== DPR)) layout();
@@ -878,6 +896,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   if (window.ResizeObserver) try { new ResizeObserver(function () { sizeCheck(); }).observe($('wrap')); } catch (e) {}
   function frame(now) {
     if (now - sizeT > 500) { sizeT = now; try { sizeCheck(); } catch (e) {} }
+    if (now - cacheT > 2000) { cacheT = now; try { checkCaches(); } catch (e) {} }
     var last0 = last, dt = Math.min(0.033, (now - last) / 1000); last = now; ghostT += dt; nowT = now / 1000;
     /* one bad frame must never stop the board from being drawn */
     try { if (W && G && stacks) drawFrame(now, last0, dt); } catch (e) { console.error(e); }
@@ -1773,6 +1792,13 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     sh.animate([{ opacity: 0.3, transform: 'scale(0.6) translateY(30px)' }, { opacity: 0.25, transform: 'scale(0.8) translateY(40px)', offset: 0.35 }, { opacity: 1, transform: 'scale(1)', offset: 0.62 }, { opacity: 1, transform: 'scale(1)' }], { duration: T });
     if (navigator.vibrate) setTimeout(function () { try { navigator.vibrate([14, 60, 8]); } catch (e) {} }, T * 0.62);
   }
+  function parkOffer() {
+    var fl = $('cubeFloat'), op = offerPos(), bpt = cvClient(op[0], op[1]), b = devPos(bpt[0], bpt[1]);
+    if (!isFinite(b[0]) || !isFinite(b[1])) return;
+    offerGone(); $('floatDie').getAnimations().forEach(function (x) { x.cancel(); });
+    fl.style.left = (b[0] - 25) + 'px'; fl.style.top = (b[1] - 25) + 'px';
+    $('floatDie').style.transform = oriStr(dori(G.cube.v * 2)); $('cfIn').style.transform = 'scale(1.45)';
+  }
   function offerGone() { var fl = $('cubeFloat'); fl.getAnimations().forEach(function (x) { x.cancel(); }); $('cfIn').getAnimations().forEach(function (x) { x.cancel(); }); }
   /* Demo for the preview (?demo=double): you double and they take, then they double you and you take, 3 s to answer, on a loop. */
   function demoDouble() {
@@ -2526,14 +2552,19 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   $('seatBtn').addEventListener('click', pickSeat);
   /* Local testing only: two tabs on this computer share a fake store through localStorage (add ?mock&seat=A). */
   function mockDb() {
-    var subs = [];
-    function read(p) { try { return JSON.parse(localStorage.getItem('mock:' + p)); } catch (e) { return null; } }
+    var subs = [], LOCAL = {}, ECHO = /[?&]echo/.test(location.search);
+    /* ?echo: like Firebase, this phone sees its own write at once; the other phone only after it has gone out */
+    function read(p) { if (p in LOCAL) return JSON.parse(LOCAL[p]); try { return JSON.parse(localStorage.getItem('mock:' + p)); } catch (e) { return null; } }
     function snap(p) { var v = read(p); return { exists: !!v, data: function () { return v; }, metadata: {} }; }
     function emit(p) { subs.forEach(function (s) { if (s.p === p) s.fn(snap(p)); }); }
     window.addEventListener('storage', function (e) { if (e.key && e.key.indexOf('mock:') === 0) emit(e.key.slice(5)); });
     function merge(a, b) { Object.keys(b).forEach(function (k) { if (b[k] && typeof b[k] === 'object' && !Array.isArray(b[k]) && a[k] && typeof a[k] === 'object') merge(a[k], b[k]); else a[k] = b[k]; }); return a; }
     return { doc: function (p) { return {
-      set: function (d) { return new Promise(function (r) { setTimeout(function () { localStorage.setItem('mock:' + p, JSON.stringify(d)); emit(p); r(); }, 120); }); },
+      set: function (d) {
+        var j = JSON.stringify(d);
+        if (ECHO) { LOCAL[p] = j; setTimeout(function () { emit(p); }, 0); }
+        return new Promise(function (r) { setTimeout(function () { if (LOCAL[p] === j) delete LOCAL[p]; localStorage.setItem('mock:' + p, j); if (!ECHO) emit(p); r(); }, ECHO ? 300 + Math.random() * 900 : 120); });
+      },
       update: function (d) { return new Promise(function (r, j) { setTimeout(function () { var v = read(p); if (!v) { j({ code: 'invalid_argument' }); return; } localStorage.setItem('mock:' + p, JSON.stringify(merge(v, d))); emit(p); r(); }, 120); }); },
       onSnapshot: function (fn) { var s = { p: p, fn: fn }; subs.push(s); setTimeout(function () { fn(snap(p)); }, 60); return function () { subs = subs.filter(function (x) { return x !== s; }); }; }
     }; } };

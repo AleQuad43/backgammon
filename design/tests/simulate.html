@@ -8,6 +8,7 @@
         ?rules        only the rules check: random positions, every possible play compared with an independent engine
         ?bot          you against the Computer, on one phone
         ?games=N      how many games to play (default 12);  ?speed=K timers K times faster (default 4)
+        ?echo         the test store behaves like Firebase: a phone sees its own write at once, the other phone later
         ?reduce       both phones ask for reduced motion;  ?app=sim_base.html  another build (see make_sim.py)
         Headless:     python3 design/tests/run_headless.py "tests/simulate.html?games=8"
      Seat A and seat B each run in a frame and share the local test store (?mock). Each phone throws, moves (picking
@@ -15,11 +16,15 @@
      question, gives up once in a while, closes and reopens the board, or reloads the whole app.
      Checked all the time: 15 checkers a side in the shared game; every finished turn (from the turn log) is legal and
      uses as many dice as it must, by an engine written separately here; both phones show the board and score of the
-     shared game once things are quiet; no script errors; nothing ever gets stuck. -->
+     shared game once things are quiet; no script errors; nothing ever gets stuck. And what each phone shows
+     (window.__screen, see make_sim.py): all 30 checkers drawn where they belong, the dice on the board, their double's
+     cube where it can be tapped, no faded cube or end card left behind, no catch-up or roll-out stopping half-way.
+     Real-phone conditions (turning the phone, the app in the background, two separate phones) are in scenarios.py. -->
 <style>
   body { font: 13px/1.4 system-ui, sans-serif; margin: 12px; background: #f4f1ea; color: #222; }
   #log { max-height: 46vh; overflow: auto; } #log div { padding: 1px 0; white-space: pre-wrap; } .ok { color: #17803d; } .no { color: #b3261e; font-weight: 600; } .h { margin-top: 6px; font-weight: 700; } .dim { color: #777; }
-  .fr { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; } iframe { width: 640px; height: 320px; border: 1px solid #ccc; background: #fff; }
+  /* both phones stay in view at the top: a frame scrolled out of view is no longer drawn by the browser */
+  body { padding-top: 340px; } .fr { position: fixed; top: 0; left: 0; right: 0; display: flex; gap: 8px; padding: 8px; background: #f4f1ea; z-index: 1; } iframe { width: 640px; height: 320px; border: 1px solid #ccc; background: #fff; }
 </style>
 <div id="sum">Running…</div>
 <div id="log"></div>
@@ -111,7 +116,7 @@
     var f = document.getElementById(id);
     return new Promise(function (r) {
       f.onload = function () { setTimeout(function () { r(f.contentWindow); }, 500); };
-      f.src = APP + '?mock&speed=' + SPEED + (/[?&]reduce/.test(Q) ? '&reduce' : '') + (extra || '') + '&t=' + Date.now();
+      f.src = APP + '?mock&speed=' + SPEED + (/[?&]reduce/.test(Q) ? '&reduce' : '') + (/[?&]echo/.test(Q) ? '&echo' : '') + (extra || '') + '&t=' + Date.now();
     }).then(function (w) { w.__seat = seat; return w; });
   }
   function open(w) { w.BG.open({ id: w.__seat === 'A' ? 'no' : 'qu', gid: GID, seat: w.__seat, seats: SEATS, name: SEATS[w.__seat === 'A' ? 'B' : 'A'].name, ini: 'x', to: 3, pips: true }); }
@@ -265,6 +270,20 @@
       });
       /* both phones settled for a while: they must agree with the shared game */
       if (d && Date.now() - lastChange > 2500 && quietDone !== j) { quietDone = j; checkQuiet(A, d); checkQuiet(B, d); }
+      /* what each phone shows: every 1.5 s a light check, and once things are quiet a full one (everything at rest) */
+      ['A', 'B'].forEach(function (s) {
+        var w = phones[s]; if (!w || !w.__screen) return;
+        var quiet = Date.now() - lastChange > 2500 && Date.now() - (w.__lastAct || 0) > 2500;
+        if (Date.now() - (w.__scrT || 0) < 1500) return; w.__scrT = Date.now();
+        (w.__screen(quiet) || []).forEach(function (pr) { fail(s + ' screen: ' + pr); });
+        /* a catch-up or roll-out that stops half-way: the same moment on screen for 20 s */
+        var T = w.__T, G = T && T.G;
+        if (G && T.stacks && ['replay', 'rollout', 'watch', 'sync', 'auto'].indexOf(G.phase) >= 0 && !$$(w, 'gv').hidden) {
+          var snap = G.phase + JSON.stringify(T.state()) + $$(w, 'status').textContent + T.D.length;
+          if (snap !== w.__stuckSnap) { w.__stuckSnap = snap; w.__stuckT = Date.now(); }
+          else if (Date.now() - w.__stuckT > 20000) { fail(s + ': stuck half-way in ' + G.phase + ' (“' + $$(w, 'status').textContent + '”) · ' + desc(w)); w.__stuckT = Date.now() + 1e9; }
+        } else w.__stuckSnap = null;
+      });
       /* now and then a phone leaves the board, or the whole app is reloaded */
       if (Math.random() < 0.004) {
         var s2 = pick(['A', 'B']), w2 = phones[s2];
@@ -278,7 +297,7 @@
         else { stats.reloads++; phones[s2] = null; var nw = await frame(s2 === 'A' ? 'fA' : 'fB', s2); open(nw); phones[s2] = nw; A = phones.A; B = phones.B; }
         continue;
       }
-      var any = false; ['A', 'B'].forEach(function (s) { var w = phones[s]; if (w && act(w)) { any = true; acted++; } });
+      var any = false; ['A', 'B'].forEach(function (s) { var w = phones[s]; if (w && act(w)) { any = true; acted++; w.__lastAct = Date.now(); } });
       if (any) lastAct = Date.now();
       if (Date.now() - lastAct > 25000 && Date.now() - lastChange > 25000) {
         fail('stuck: nothing to do for 25 s · shared ' + (d && (d.phase + ' turn ' + d.turn + ' v' + d.v + ' by ' + d.by + ' dice ' + JSON.stringify(d.dice && d.dice.list))) + ' · A: ' + desc(A) + ' · B: ' + desc(B) + '\n    shared history: ' + HIST.join(' | '));

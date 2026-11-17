@@ -809,7 +809,9 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   var AGES = [[0, 'New'], [0.15, 'Gently used'], [0.35, 'Well played'], [0.55, 'Seasoned'], [0.75, 'Worn'], [0.9, 'Heirloom']];
   function ageName(a) { var n = AGES[0][1]; AGES.forEach(function (x) { if (a >= x[0]) n = x[1]; }); return n; }
   function randomChecker() { var ks = Object.keys(MAT).filter(function (k) { return k !== 'classic'; }), m = ks[Math.random() * ks.length | 0]; return { m: m, t: Math.random() * MAT[m].tones.length | 0, f: FACES[Math.random() * 5 | 0][0], i: Math.random() < 0.7 ? 'none' : INLAYS[1 + (Math.random() * 2 | 0)][0], a: Math.round(Math.pow(Math.random(), 1.4) * 100) / 100, s: 1 + (Math.random() * 99999 | 0) }; }
-  window.Checker = { MAT: MAT, FACES: FACES, INLAYS: INLAYS, AGES: AGES, ageName: ageName, random: randomChecker, EDGE: EDGE, top: drawTop, tilt: drawTilt, texture: texture, chips: chipsFor, frac: fracColour, THICK: THICK };
+  window.Checker = { MAT: MAT, FACES: FACES, INLAYS: INLAYS, AGES: AGES, ageName: ageName, random: randomChecker, EDGE: EDGE, top: drawTop, tilt: drawTilt, texture: texture, chips: chipsFor, frac: fracColour, THICK: THICK,
+    /* drop the textures made so far (the phone may have wiped them, see freshCaches in the board) */
+    reset: function () { TEX = {}; DIRT = {}; } };
 })();
 </script>
 
@@ -951,6 +953,24 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   function gameOf(id) { return gview(GAMES.filter(function (x) { return x.p === id; })[0]); }
   function hiddenMatch(m) { return !!m.id && GAMES.some(function (g) { return (g.key === m.id && g.phase === 'over' && !endSeen(g.key, g.seat)) || (g.prevKey === m.id && !endSeen(g.prevKey, g.seat)); }); }
   function shownMatches() { return MATCHES.filter(function (m) { return !hiddenMatch(m); }); }
+  /* Elo, worked out on each phone from every finished match, in the order they ended (nothing about it is stored, so
+     every phone gets the same numbers). Everyone starts at 1500. The backgammon formula (as on FIBS): the winner takes
+     4·√length × (1 − their chance to win) from the loser, the chance coming from the rating gap, weighed by √length, so
+     longer matches count for more and an upset counts for more. A newcomer's rating moves up to five times as fast
+     until they have played 400 points of matches. A match this phone hasn't shown the end of yet doesn't count yet,
+     so the Elo never gives the result away. */
+  function ratings(ms) {
+    var r = {}, xp = {};
+    ms.slice().sort(function (a, b) { return (a.t || 0) - (b.t || 0); }).forEach(function (m) {
+      var w = m.winner, l = m.loser, n = Math.max(1, m.to || 1); if (!w || !l || w === l) return;
+      var rw = r[w] || 1500, rl = r[l] || 1500, pw = 1 / (1 + Math.pow(10, -(rw - rl) * Math.sqrt(n) / 2000)), k = 4 * Math.sqrt(n) * (1 - pw);
+      var boost = function (id) { return Math.max(1, 5 - (xp[id] || 0) / 100); };
+      r[w] = rw + k * boost(w); r[l] = rl - k * boost(l);
+      xp[w] = (xp[w] || 0) + n; xp[l] = (xp[l] || 0) + n;
+    });
+    return r;
+  }
+  window.__ratings = ratings;
   function h2h(id) {
     var me = ME ? ME.id : UID, w = 0, l = 0;
     shownMatches().forEach(function (m) { if (m.winner === me && m.loser === id) w++; else if (m.winner === id && m.loser === me) l++; });
@@ -1310,7 +1330,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   function syncStars() {
     stars = stars.filter(function (s) {
       var p = byId[s.p.id]; if (!p) { s.el.remove(); return false; }
-      s.p = p; s.el.querySelector('img').src = ckSrc(p.ck, true); s.el.querySelector('small').innerHTML = starLabel(p);
+      s.p = p; s.el.querySelector('img').src = ckSrc(p.ck, true); s.el.querySelector('small').innerHTML = starLabel(p); s.el.setAttribute('aria-label', p.n + ', Elo ' + p.elo);
       if (FH) s.hy = yOf(p.elo, FH); return true;
     });
     P.forEach(function (p) { if (!stars.some(function (s) { return s.p.id === p.id; })) addStar(p); });
@@ -1696,8 +1716,11 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
         GL[p.id] = FS.doc('games/' + gid).onSnapshot(function (snap) {
           var d = null; try { d = snap.exists ? JSON.parse(snap.data().j) : null; } catch (e) {}
           var g = gameState(d, seat, gid);
+          /* a game's end not yet shown here keeps its match out of the Elo (see ratings) */
+          var shown = function () { return shownMatches().map(function (m) { return m.id; }).join(); }, was = shown();
           GAMES = GAMES.filter(function (x) { return x.p !== p.id; }); if (g) { g.p = p.id; GAMES.push(g); }
           markOrbs(); updateTitle(); if (OPENP === p.id) refreshCard();
+          if (shown() !== was) applyElo();
         }, function () {});
       });
     };
@@ -1716,7 +1739,13 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       }).catch(function () { var el = $('emails'); if (el) el.textContent = 'Couldn’t load the emails.'; });
     };
     /* the board has just shown the end of a game: home may now tell its result */
-    window.onEndSeen = function () { markOrbs(); updateTitle(); refreshCard(); };
+    window.onEndSeen = function () { markOrbs(); updateTitle(); applyElo(); };
+    /* everyone's Elo from the finished matches this phone may tell about (see ratings) */
+    var applyElo = function () {
+      var r = ratings(shownMatches());
+      P.forEach(function (p) { if (!p.bot) p.elo = Math.round(r[p.id] || 1500); });
+      syncStars(); refreshCard();
+    };
     var starTap = openCard; openCard = function (html, from) { starTap(html, from); if (ADMIN && $('emails')) loadEmails(); };
 
     AUTH.onAuthStateChanged(function (u) {
@@ -1724,8 +1753,9 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       if (!u) { UID = null; ME = null; ADMIN = false; P = []; reindex(); syncStars(); window.BG && window.BG.close(); authView('welcome'); return; }
       UID = u.uid; $('auth').hidden = true; $('home').classList.remove('out');
       FS.doc('meta/admin').get().then(function (d) { ADMIN = d.exists && d.data().uid === UID; }).catch(function () {});
-      unsubM = FS.collection('matches').where('players', 'array-contains', UID).onSnapshot(function (qs) {
-        MATCHES = qs.docs.map(function (d) { var v = d.data(); v.id = d.id; return v; }); refreshCard();
+      /* every friend's matches, not only yours: everyone's Elo comes from all of them */
+      unsubM = FS.collection('matches').onSnapshot(function (qs) {
+        MATCHES = qs.docs.map(function (d) { var v = d.data(); v.id = d.id; return v; }); applyElo();
       }, function () {});
       unsubP = FS.collection('players').onSnapshot(function (qs) {
         P = qs.docs.map(function (d) { var v = d.data(); return { id: d.id, n: v.name || 'Player', i: d.id, elo: v.elo || 1500, d: 0, ck: v.ck || window.Checker.random() }; });
@@ -1739,7 +1769,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
           }
           P = P.filter(function (p) { return p.id !== UID; }); reindex();
         }
-        syncStars(); listenGames();
+        applyElo(); listenGames();
       }, function (x) { toast('Can’t reach the friends list (' + (x.code || 'error') + ').'); });
     });
   }
@@ -1774,6 +1804,9 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     L.mid = H / 2; L.th = L.fh * 0.41; L.r = Math.min(pw * 0.45, L.fh / 13.5); L.ds = Math.round(L.r * 1.55);
     drawStatic();
     if (typeof NOTE !== 'undefined' && NOTE.on) placeNote();
+    /* their double waiting on the board: the cube is placed in screen pixels, so it moves with the board (the double
+       may have arrived while the phone was upright, with the board laid out for that) */
+    if (G && G.phase === 'offered' && !$('cubeFloat').hidden && !cdrag) parkOffer();
   }
   function colX(c) { return c < 6 ? L.lx + c * L.pw : L.rx + (c - 6) * L.pw; }
   function colOf(a) {
@@ -2278,6 +2311,21 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   /* ---------- drawing ---------- */
   /* The board's set is the workshop's "Classic" material: white and black, dished face, brand new. */
   var CKS = {};
+  /* A phone can wipe the pictures a page keeps aside (the checkers above, the board behind them) while the app is in
+     the background, without saying so. Everything drawn fresh each frame (the dice) comes back by itself, but a
+     wiped checker picture would leave every checker invisible. So the kept pictures are checked now and then, and
+     whenever the app comes back to the screen, and made again if they've gone blank. */
+  function opaqueAt(c, x, y) { try { return c.getContext('2d').getImageData(x, y, 1, 1).data[3] > 0; } catch (e) { return true; } }
+  function cachesOk() {
+    if (bg.width && !opaqueAt(bg, Math.round(L.lx * DPR + 6), Math.round(L.mid * DPR))) return false;
+    for (var k in CKS) { var c = CKS[k]; if (c.width && !opaqueAt(c, c.width >> 1, c.height >> 1)) return false; }
+    return true;
+  }
+  function freshCaches() { CKS = {}; if (window.Checker && window.Checker.reset) window.Checker.reset(); if (W && L) drawStatic(); }
+  function checkCaches() { if (W && L && !cachesOk()) freshCaches(); }
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') checkCaches(); });
+  window.addEventListener('pageshow', checkCaches);
+  cv.addEventListener('contextrestored', freshCaches);
   function ckSprite(side) {
     var C = window.Checker, R = L.r, key = side + Math.round(R * DPR);
     if (!C || !C.MAT.classic) return null;
@@ -2355,7 +2403,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
      turning sideways, a toolbar sliding away) report a size mid-change, and a board measured then would stay squashed.
      The browser tells us whenever the board's box really changes size, and twice a second the frame checks it anyway.
      Both only re-draw when the size actually differs, so they cost nothing the rest of the time. */
-  var sizeT = 0;
+  var sizeT = 0, cacheT = 0;
   function sizeCheck() {
     var wr = $('wrap'), w = wr.clientWidth, h = wr.clientHeight;
     if (w > 0 && h > 0 && (w !== W || h !== H || (window.devicePixelRatio || 1) !== DPR)) layout();
@@ -2363,6 +2411,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   if (window.ResizeObserver) try { new ResizeObserver(function () { sizeCheck(); }).observe($('wrap')); } catch (e) {}
   function frame(now) {
     if (now - sizeT > 500) { sizeT = now; try { sizeCheck(); } catch (e) {} }
+    if (now - cacheT > 2000) { cacheT = now; try { checkCaches(); } catch (e) {} }
     var last0 = last, dt = Math.min(0.033, (now - last) / 1000); last = now; ghostT += dt; nowT = now / 1000;
     /* one bad frame must never stop the board from being drawn */
     try { if (W && G && stacks) drawFrame(now, last0, dt); } catch (e) { console.error(e); }
@@ -3256,6 +3305,13 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     sh.animate([{ opacity: 0.3, transform: 'scale(0.6) translateY(30px)' }, { opacity: 0.25, transform: 'scale(0.8) translateY(40px)', offset: 0.35 }, { opacity: 1, transform: 'scale(1)', offset: 0.62 }, { opacity: 1, transform: 'scale(1)' }], { duration: T });
     if (navigator.vibrate) setTimeout(function () { try { navigator.vibrate([14, 60, 8]); } catch (e) {} }, T * 0.62);
   }
+  function parkOffer() {
+    var fl = $('cubeFloat'), op = offerPos(), bpt = cvClient(op[0], op[1]), b = devPos(bpt[0], bpt[1]);
+    if (!isFinite(b[0]) || !isFinite(b[1])) return;
+    offerGone(); $('floatDie').getAnimations().forEach(function (x) { x.cancel(); });
+    fl.style.left = (b[0] - 25) + 'px'; fl.style.top = (b[1] - 25) + 'px';
+    $('floatDie').style.transform = oriStr(dori(G.cube.v * 2)); $('cfIn').style.transform = 'scale(1.45)';
+  }
   function offerGone() { var fl = $('cubeFloat'); fl.getAnimations().forEach(function (x) { x.cancel(); }); $('cfIn').getAnimations().forEach(function (x) { x.cancel(); }); }
   /* Demo for the preview (?demo=double): you double and they take, then they double you and you take, 3 s to answer, on a loop. */
   function demoDouble() {
@@ -4003,14 +4059,19 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   }
   /* Local testing only: two tabs on this computer share a fake store through localStorage (add ?mock&seat=A). */
   function mockDb() {
-    var subs = [];
-    function read(p) { try { return JSON.parse(localStorage.getItem('mock:' + p)); } catch (e) { return null; } }
+    var subs = [], LOCAL = {}, ECHO = /[?&]echo/.test(location.search);
+    /* ?echo: like Firebase, this phone sees its own write at once; the other phone only after it has gone out */
+    function read(p) { if (p in LOCAL) return JSON.parse(LOCAL[p]); try { return JSON.parse(localStorage.getItem('mock:' + p)); } catch (e) { return null; } }
     function snap(p) { var v = read(p); return { exists: !!v, data: function () { return v; }, metadata: {} }; }
     function emit(p) { subs.forEach(function (s) { if (s.p === p) s.fn(snap(p)); }); }
     window.addEventListener('storage', function (e) { if (e.key && e.key.indexOf('mock:') === 0) emit(e.key.slice(5)); });
     function merge(a, b) { Object.keys(b).forEach(function (k) { if (b[k] && typeof b[k] === 'object' && !Array.isArray(b[k]) && a[k] && typeof a[k] === 'object') merge(a[k], b[k]); else a[k] = b[k]; }); return a; }
     return { doc: function (p) { return {
-      set: function (d) { return new Promise(function (r) { setTimeout(function () { localStorage.setItem('mock:' + p, JSON.stringify(d)); emit(p); r(); }, 120); }); },
+      set: function (d) {
+        var j = JSON.stringify(d);
+        if (ECHO) { LOCAL[p] = j; setTimeout(function () { emit(p); }, 0); }
+        return new Promise(function (r) { setTimeout(function () { if (LOCAL[p] === j) delete LOCAL[p]; localStorage.setItem('mock:' + p, j); if (!ECHO) emit(p); r(); }, ECHO ? 300 + Math.random() * 900 : 120); });
+      },
       update: function (d) { return new Promise(function (r, j) { setTimeout(function () { var v = read(p); if (!v) { j({ code: 'invalid_argument' }); return; } localStorage.setItem('mock:' + p, JSON.stringify(merge(v, d))); emit(p); r(); }, 120); }); },
       onSnapshot: function (fn) { var s = { p: p, fn: fn }; subs.push(s); setTimeout(function () { fn(snap(p)); }, 60); return function () { subs = subs.filter(function (x) { return x !== s; }); }; }
     }; } };
