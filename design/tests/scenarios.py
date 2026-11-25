@@ -211,7 +211,7 @@ def elo_after_match(r):
             'games/ua_ub': {'j': json.dumps(near), 't': 1}}
     def phone(uid):
         p = r.c.tab('about:blank'); p.size(True)
-        p.ws.call('Page.navigate', url='http://localhost:8771/tests/' + os.environ.get('CLOUD_APP', 'sim_cloud.html') + '?as=%s&t=%d' % (uid, time.time() * 1000))
+        p.ws.call('Page.navigate', url=os.environ.get('BASE', 'http://localhost:8771/') + 'tests/' + os.environ.get('CLOUD_APP', 'sim_cloud.html') + '?as=%s&t=%d' % (uid, time.time() * 1000))
         r.until(p, "document.readyState === 'complete' && !!window.BG", 10)
         return p
     a = phone('ua')
@@ -243,7 +243,63 @@ def elo_after_match(r):
     for p in (a, b): p.ws.call('Page.close')
 
 
-SCENARIOS = [elo_after_match,offer_upright, offer_rotate_twice, open_variants, reopen_variants, wiped_pictures, rollout_variants]
+def cloud_phone(r, uid):
+    p = r.c.tab('about:blank'); p.size(True)
+    p.ws.call('Page.navigate', url=os.environ.get('BASE', 'http://localhost:8771/') + 'tests/' + os.environ.get('CLOUD_APP', 'sim_cloud.html') + '?as=%s&t=%d' % (uid, time.time() * 1000))
+    r.until(p, "document.readyState === 'complete' && !!window.BG", 10)
+    return p
+
+
+def invite_new_match(r):
+    """With accounts: Quad and Nolf have never played. Quad opens Nolf's card and taps Play. Nolf's phone must show the
+    challenge (his turn), open it, see Quad's opening die, and throw his own. Also times how long each step takes to
+    reach the other phone."""
+    ck = {'m': 'bone', 't': 2, 'f': 'rosette', 'i': 'brass', 'a': 0.2, 's': 4242}
+    seed = {'players/ua': {'name': 'Quad', 'ck': ck, 'elo': 1500, 't': 1}, 'players/ub': {'name': 'Nolf', 'ck': ck, 'elo': 1500, 't': 2}}
+    a = cloud_phone(r, 'ua')
+    a.js("Object.keys(localStorage).forEach(function(k){ if (/^fb:|^bgEnd:|^bgSeen:|^newMatch/.test(k)) localStorage.removeItem(k); });" +
+         ''.join("localStorage.setItem('fb:%s', %s);" % (k, json.dumps(json.dumps(v))) for k, v in seed.items()) + "location.reload()")
+    time.sleep(1); r.until(a, "!!window.BG && document.querySelectorAll('.star').length >= 2", 10)
+    b = cloud_phone(r, 'ub'); r.until(b, "document.querySelectorAll('.star').length >= 2", 10)
+    tap_star = "(function(n){var s=[].filter.call(document.querySelectorAll('.star'),function(x){return (x.getAttribute('aria-label')||'').indexOf(n+',')===0})[0]; if(!s) return false; var o={bubbles:true,pointerId:1,clientX:0,clientY:0}; s.dispatchEvent(new PointerEvent('pointerdown',o)); s.dispatchEvent(new PointerEvent('pointerup',o)); return true;})"
+    r.check(a.js(tap_star + "('Nolf')"), 'Quad taps Nolf on home', a)
+    r.check(r.until(a, "!!document.querySelector('#card.open [data-act=board]')", 5), 'Nolf’s card shows a Play button', a)
+    r.check(r.until(a, "document.querySelectorAll('#card.open .cpick canvas').length === 2", 5), 'the card offers the white and black checkers', a)
+    a.js("(function(){var b=document.querySelector('#card.open .cpick[data-c=\"1\"]'); b.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerId:3,clientX:5})); b.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,pointerId:3,clientX:5}));})()")
+    r.check('black' in (a.js("document.getElementById('colHint').textContent") or '').split(',')[0], 'Quad taps black: %s' % a.js("document.getElementById('colHint').textContent"), a)
+    a.size(False)
+    a.js("document.querySelector('#card.open .big[data-act=board]').click()")
+    t0 = time.time()
+    r.check(r.until(a, "!!localStorage.getItem('fb:games/ua_ub')", 10), 'the new match is saved (games/ua_ub)', a)
+    d = json.loads(json.loads(a.js("localStorage.getItem('fb:games/ua_ub')") or 'null')['j']) if a.js("localStorage.getItem('fb:games/ua_ub')") else {}
+    r.check(d.get('phase') == 'opening' and (d.get('open') or {}).get('A'), 'it is the opening, with Quad’s die thrown (%s)' % [d.get('phase'), d.get('open')])
+    r.check(d.get('col') == {'A': 1, 'B': 0}, 'Quad is black, Nolf white, in the shared game (%s)' % d.get('col'))
+    r.check(r.until(a, "__T.TONE && __T.TONE.me === 1 && __T.TONE.them === 0", 5), 'Quad’s board draws him black (%s)' % a.js("JSON.stringify(__T.TONE)"), a)
+    yours = "(function(){var s=[].filter.call(document.querySelectorAll('.star'),function(x){return (x.getAttribute('aria-label')||'').indexOf('Quad,')===0})[0]; return !!s && /yours/.test(s.querySelector('.orb').className);})()"
+    ok = r.until(b, yours, 10)
+    r.check(ok, 'Nolf’s home shows Quad waiting for him after %.1f s (%s)' % (time.time() - t0, b.js("[].map.call(document.querySelectorAll('.star'),function(x){return x.getAttribute('aria-label')+' '+x.className}).join(' | ')")), b)
+    b.size(False)
+    b.js("BG.open({id: 'ua', gid: 'ua_ub', seat: 'B', seats: {A: {name: 'Quad', ini: 'ua'}, B: {name: 'Nolf', ini: 'ub'}}, name: 'Quad', ini: 'ua', to: 5, pips: true, newMatch: false})")
+    r.check(r.until(b, "__T.G && __T.G.phase === 'invite' && !!document.querySelector('#over .card3.inv')", 10), 'Nolf sees the invitation card (%s)' % b.js("__T.G && __T.G.phase"), b)
+    time.sleep(1.5); b.shot(os.path.join(SHOTS, 'invite_card.png'))
+    r.check(not b.js("__T.canThrow()"), 'he can’t throw before accepting')
+    r.check(b.js("document.querySelector('#over .pc.on').dataset.t") == '0', 'the card offers him white (Quad picked black)')
+    b.js("(function(){var c=document.querySelector('#over .pc[data-t=\"1\"] canvas'); c.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerId:4,clientX:5})); c.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,pointerId:4,clientX:5}));})()")
+    r.check(b.js("document.querySelector('#over .pc.on').dataset.t") == '1', 'he taps black: it is his now', b)
+    b.js("document.getElementById('again').click()")
+    r.check(r.until(b, "document.getElementById('over').hidden && __T.G.phase === 'opening'", 5), 'he accepts: the card goes, his throw is next', b)
+    r.check(r.until(a, "__T.TONE && __T.TONE.me === 0", 8), 'Quad’s board turns him white (%s)' % a.js("JSON.stringify(__T.TONE)"), a)
+    d = json.loads(json.loads(a.js("localStorage.getItem('fb:games/ua_ub')"))['j'])
+    r.check(d.get('col') == {'A': 0, 'B': 1} and not d.get('inv'), 'the shared game: Quad white, Nolf black, accepted (%s, inv %s)' % (d.get('col'), d.get('inv')))
+    r.check(b.js("__T.TONE.me === 1 && __T.TONE.them === 0"), 'Nolf’s board draws him black (%s)' % b.js("JSON.stringify(__T.TONE)"), b)
+    r.check(r.until(b, "__T.canThrow()", 5), 'Nolf can throw his opening die', b)
+    b.js("__T.myThrow()")
+    t1 = time.time()
+    r.check(r.until(a, "__T.G && ['move','remote','roll'].indexOf(__T.G.phase) >= 0", 15), 'Quad’s phone learns who starts after %.1f s (%s)' % (time.time() - t1, a.js("__T.G && __T.G.phase")), a)
+    for p in (a, b): p.ws.call('Page.close')
+
+
+SCENARIOS = [invite_new_match, elo_after_match,offer_upright, offer_rotate_twice, open_variants, reopen_variants, wiped_pictures, rollout_variants]
 
 if __name__ == '__main__':
     want = sys.argv[1:]

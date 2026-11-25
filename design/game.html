@@ -147,6 +147,12 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
 .over .card3 .sc3 span { grid-column: 1 / -1; justify-self: center; font-size: 10px; color: #8A6A48; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; max-width: none; }
 .over .card3 #again { margin-top: 4px; background: #3B2A1E; color: #F8EEDB; border-radius: 24px; height: auto; padding: 4px 22px 6px; font-size: 26px; display: flex; flex-direction: column; align-items: center; line-height: 1.05; }
 .over .card3 #again small { font-family: 'Figtree', sans-serif; font-size: 11px; font-weight: 600; opacity: .75; }
+.over .card3.inv .duo3 { gap: 30px; margin: 4px 0 0; }
+.over .card3.inv .pc canvas.sp { transform: scale(.74); transition: transform .6s cubic-bezier(.2,.8,.2,1); }
+.over .card3.inv .pc.on canvas.sp { transform: none; }
+.over .card3.inv .pc span { color: #8A6A48; font-weight: 600; transition: color .4s ease; }
+.over .card3.inv .pc.on span { color: #2E1F14; font-weight: 700; }
+.over .card3.inv .hint3 { font-size: 11px; font-weight: 600; color: #8A6A48; margin: 2px 0 4px; }
 .over .card3 .lens { margin-top: 4px; } .over .card3 .lens button { background: #3B2A1E; color: #F8EEDB; border-radius: 18px; min-width: 40px; height: 36px; padding: 0 10px; }
 .over { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
 .over div { pointer-events: auto; background: var(--glass-strong); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); padding: 18px 24px; border-radius: 22px; text-align: center; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 16px 40px rgba(8,12,22,0.25); }
@@ -225,14 +231,14 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   <div class="notes">
     <div>
       <h1>The board, first mock</h1>
-      <p>You are ivory and move toward the bottom right. Luca challenged you and already rolled his die when he sent the challenge.</p>
+      <p>You move toward the bottom right, in the colour picked when the match was set up (white or black; whoever starts a match picks). Luca challenged you and already rolled his die when he sent the challenge.</p>
       <div class="ctrl"><button id="goFull">Play full screen</button><button id="flip">Move the rail to the other side</button><button id="restart">Start over</button><button id="bearoff">Try a bear-off position</button></div>
       <label for="spinDur" style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;font-weight:600">Turn change: sky rotation time <output id="spinOut" style="color:var(--muted);font-weight:500"></output><input id="spinDur" type="range" min="0.2" max="3" step="0.1" style="grid-column:1/-1;width:100%;accent-color:var(--accent)"></label>
       <div class="ctrl"><button id="spinTry">Try the rotation</button></div>
       <label for="holdMs" style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;font-weight:600">Hold time before the slide <output id="holdOut" style="color:var(--muted);font-weight:500"></output><input id="holdMs" type="range" min="0.2" max="1.5" step="0.05" style="grid-column:1/-1;width:100%;accent-color:var(--accent)"></label>
       <div class="ctrl"><button id="aiDbl">Let Luca double you on his next turn</button></div>
       <h2>Two devices</h2>
-      <p id="duoNote">Open this page on your phone and on the computer, and pick a different side on each: one plays you, the other plays Luca. Moves, throws and doubles show up on the other screen as they happen. Each screen shows its own player at the bottom, in ivory.</p>
+      <p id="duoNote">Open this page on your phone and on the computer, and pick a different side on each: one plays you, the other plays Luca. Moves, throws and doubles show up on the other screen as they happen. Each screen shows its own player at the bottom; each player keeps their colour on both screens.</p>
       <div class="ctrl"><button id="seatBtn" hidden>Choose who plays on this device</button></div>
     </div>
     <div>
@@ -243,7 +249,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
         <li>Changed your mind? Drag a moved checker back to where it started: its point lights in the second sky colour, and the move is undone. If it used both dice, you can also drop it on the point where it stopped in between: only the second die is undone. Or double tap it to send it straight back.</li>
         <li>Try a bear-off position: all your checkers are home and it's your throw, with Luca still bringing his last ones in.</li>
         <li>When you have no dice left to play, pick up your dice and flick them across toward Luca (left or up): they slide over to his side and the turn passes. Carrying them over the bar to his side and letting go there passes too, however slowly. A tap, a short drag on your own side or a flick the other way puts them back.</li>
-        <li>Playing a friend: when your turn ends with them on the bar, their dice are thrown at once. If they can't come in, it's your turn again straight away. When you open the game, everything you missed since your last turn plays again on the board, move by move, with a line for each turn; a tap jumps to the end.</li>
+        <li>Playing a friend: turns go one for one; even from the bar, each player throws their own dice. When you open the game, everything you missed since your last turn plays again on the board, move by move, with a line for each turn; a tap jumps to the end.</li>
         <li>To give up the match, put two fingers at the two ends of the board and bring them together: each half lifts with its own finger and the board closes like a case. Once it is shut it asks whether you really want to give up the whole match; Play on opens it again. Giving up hands Luca the match, whatever the score.</li>
         <li>Drag a checker: a point lights up only when you can land there, with one die or both. Points just next to a good one get a dull warning; dropping there pulls the checker back onto the good point.</li>
         <li>To double: before you roll, drag the red cube from the rail onto the board. It turns over as it goes in; once it is fully inside the playing area it shows ×2, and letting go offers the double.</li>
@@ -679,7 +685,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(d.a); ctx.scale(sc, sc);
     ctx.globalAlpha = ghost ? 0.62 : d.fade != null ? Math.max(0, d.fade) : d.held ? 1 : d.used ? (READY && d.side === ME ? 0.6 : 0.32) : 1;
     ctx.shadowColor = 'rgba(30,15,5,0.35)'; ctx.shadowBlur = low ? 4 : 10; ctx.shadowOffsetY = low ? 2 : 6;
-    var ivory = d.side === ME;
+    var ivory = tone(d.side) === 0;
     rrect(ctx, -s / 2, -s / 2, s, s, s * 0.22); ctx.fillStyle = ivory ? '#F6F0E4' : '#2D3940'; ctx.fill();
     ctx.shadowColor = 'transparent';
     ctx.strokeStyle = ivory ? 'rgba(60,40,20,0.18)' : 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1; ctx.stroke();
@@ -812,16 +818,16 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   window.addEventListener('pageshow', checkCaches);
   cv.addEventListener('contextrestored', freshCaches);
   function ckSprite(side) {
-    var C = window.Checker, R = L.r, key = side + Math.round(R * DPR);
+    var C = window.Checker, R = L.r, t = tone(side), key = t + ':' + Math.round(R * DPR);
     if (!C || !C.MAT.classic) return null;
     if (CKS[key]) return CKS[key];
     var n = Math.ceil(R * 2.2 * DPR), cv2 = document.createElement('canvas'); cv2.width = cv2.height = n;
     var g = cv2.getContext('2d'); g.translate(n / 2, n / 2); g.scale(DPR, DPR);
-    C.top(g, { m: 'classic', t: side === ME ? 0 : 1, f: 'dish', i: 'none', a: 0, s: 7 }, R, { noShadow: true, noChips: true });
+    C.top(g, { m: 'classic', t: t, f: 'dish', i: 'none', a: 0, s: 7 }, R, { noShadow: true, noChips: true });
     return (CKS[key] = cv2);
   }
   function drawChecker(c, x, y, lift) {
-    var r = L.r * (lift ? 1.12 : 1), iv = c.side === ME, sp = ckSprite(c.side);
+    var r = L.r * (lift ? 1.12 : 1), iv = tone(c.side) === 0, sp = ckSprite(c.side);
     if (sp) {
       var w = sp.width / DPR * (lift ? 1.12 : 1);
       ctx.save();
@@ -838,7 +844,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     ctx.restore();
   }
   function drawSlice(c, x, y) {
-    ctx.fillStyle = c.side === ME ? '#F3ECDF' : '#2F3B42';
+    ctx.fillStyle = tone(c.side) === 0 ? '#F3ECDF' : '#2F3B42';
     rrect(ctx, x - L.tw / 2 + 4, y - 3, L.tw - 8, 6, 2); ctx.fill();
     ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 0.6; ctx.stroke();
   }
@@ -1166,6 +1172,12 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   var MATCH = 5;
   /* Pip counts beside each player: chosen when the match is set up, the same for both players. */
   var SHOWPIPS = true; /* not PIPS: that name is the dots on the dice */
+  /* Colours: each player keeps one colour for the whole match, the same on both phones (0 = white, 1 = black). Whoever
+     starts a match picks theirs; the other player gets the other one. Kept in the shared game as col: { A, B }; games
+     saved before there was a choice are white for seat A. NEWCOL: the colour picked for the next new match. */
+  var TONE = { me: 0, them: 1 }, NEWCOL = 0;
+  function tone(side) { return side === ME ? TONE.me : TONE.them; }
+  function coloursOf(d) { return d && d.col && (d.col.A === 0 || d.col.A === 1) ? d.col : { A: 0, B: 1 }; }
   function canDouble() { return G.score.me < MATCH - 1 && G.score.them < MATCH - 1 && G.cube.v < 64; }
   /* While a double waits for an answer the day turns 12 hours over; once it's answered it turns back. */
   var DAYF = 0;
@@ -1194,8 +1206,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   }
   /* ---------- Turns that play themselves ----------
      A roll with only one possible outcome (or none) plays by itself: the checkers glide after a moment and the turn
-     passes. On the bar against a closed board there is nothing to decide at all, so the dice are thrown for you too:
-     against a friend, their device throws for you as soon as they finish, so the game never waits on you for that. */
+     passes. */
   function dtx(d) { return Math.max(d[0], d[1]) + '\u2060–\u2060' + Math.min(d[0], d[1]); }
   function autoPlay(path) {
     G.auto = true;
@@ -1209,98 +1220,10 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     }, 900);
   }
   function liveVals(side) { return D.filter(function (d) { return d.live && d.side === side; }).slice(0, 2).map(function (d) { return d.v; }); }
-  function danceMe() {
-    G.phase = 'auto'; hideNote();
-    throwDice(ME, 2, null, function () {
-      var v = liveVals(ME);
-      if (DUO) pushLog({ s: DUO.seat, d: v, h: 0, z: true, m: '', pre: boardToShared() });
-      say('You couldn’t come in with ' + dtx(v) + '.');
-      setTimeout(function () {
-        if (G.phase !== 'auto') return;
-        spawnPass(null); clearDice();
-        if (DUO) { var a = passShared(null); if (a) { showAuto(a); return; } G.phase = 'remote'; setTurn(TH); say(NAME.them + '’s turn.'); }
-        else { G.phase = 'ai'; setTurn(TH); say(NAME.them + ' is playing.'); setTimeout(aiRoll, 900); }
-      }, 1600);
-    });
-  }
-  /* ---------- On the bar: their dice are thrown at once ----------
-     When your turn ends with the other player on the bar, their dice are thrown right away, on this device, in the
-     same save that passes the turn (so nothing waits on this phone). If they can't come in, it's straight back to you;
-     if they can, it's their move with the dice already thrown. On both screens the throw rolls in from their side
-     with a line saying what happened. (Both players shut out at once would bounce for ever, so then nothing is thrown.) */
-  function thStarts() {
-    var R = region(TH), out = [];
-    for (var i = 0; i < 2; i++) out.push({ x: R.x0 + 24, y: L.y0 + 30 + i * 40, vx: 650 + Math.random() * 350, vy: -(180 + Math.random() * 260) * (i ? 0.6 : 1) });
-    return out;
-  }
-  function passShared(myDice) {
-    var S = state();
-    if (S.bar.them && !(closedOut(S, ME) && closedOut(S, TH))) {
-      var v1 = rnd6(), v2 = rnd6(), vals = v1 === v2 ? [v1, v1, v1, v1] : [v1, v2], ps = plays(S, TH, vals, 2);
-      var a = { d: [v1, v2], dead: ps.length === 1 && !ps[0].path.length, n: nonce(), st: thStarts() };
-      var sd = { by: DUO.other, n: a.n, t: a.st.map(vecOf), list: vals.map(function (v) { return { v: v, used: false }; }), auto: true };
-      if (myDice && myDice.dead) sd.pz = [myDice.list[0].v, myDice.list[myDice.list.length - 1].v];
-      DUO.diceN = a.n; DUO.diceT = sd.t;
-      if (a.dead) { sd.dead = true; pushLog({ s: DUO.other, d: a.d, h: 0, z: true, x: 1, m: '', pre: boardToShared() }); save({ phase: 'roll', turn: DUO.seat, dice: sd }); }
-      else save({ phase: 'move', turn: DUO.other, dice: sd });
-      return a;
-    }
-    save({ phase: 'roll', turn: DUO.other, dice: myDice || null });
-    return null;
-  }
-  /* On this screen: their dice roll in from their side; then either it's your turn again or theirs to move. */
-  function showAuto(a) {
-    G.phase = 'auto'; setTurn(TH); clearDice(); hideNote();
-    function after() {
-      if (G.phase !== 'auto') return;
-      if (a.d[0] === a.d[1] && D.length === 2) for (var i = 0; i < 2; i++) { var c = newDie(TH, a.d[0], D[1].x, D[1].y, 0, 0); c.settled = true; c.face = c.v; D.push(c); }
-      D.forEach(function (x) { x.tidy = true; });
-      if (a.dead) {
-        var t = NAME.them + ' is on the bar: their dice were thrown at once, ' + dtx(a.d) + '. No way in.';
-        say(t); showNote(esc(t));
-        setTimeout(function () {
-          if (G.phase !== 'auto') return;
-          hideNote(); handIn(); G.phase = 'roll'; setTurn(ME); say(NAME.them + ' couldn’t come in with ' + dtx(a.d) + '. Your turn.'); cubeUI();
-        }, 2200);
-      } else {
-        G.phase = 'remote';
-        var t2 = NAME.them + ' is on the bar: their dice were thrown at once, ' + dtx(a.d) + '. Their move.';
-        say(t2); showNote(esc(t2)); NOTE.tm2 = setTimeout(function () { if (G.phase === 'remote') hideNote(); }, 3000);
-      }
-    }
-    if (reduce || !W) { a.d.forEach(function (v) { placeDie(TH, v); }); after(); return; }
-    a.st.forEach(function (q, i) { D.push(newDie(TH, a.d[i], q.x, q.y, q.vx, q.vy)); });
-    G.throwCb = after; G.rolling = true;
-  }
-  /* The other side of it, on the screen of the player who was on the bar: their own dice roll in as thrown (after, if
-     the other player's throw before couldn't be played, a moment showing that), with a line saying what happened. */
-  function autoMine(d) {
-    var sd = d.dice, dead = !!sd.dead, v2 = [sd.list[0].v, sd.list[sd.list.length - 1].v], vals = sd.list.slice(0, 2).map(function (x) { return x.v; });
-    G.phase = 'watch'; clearDice(); hideNote(); DUO.diceN = sd.n; DUO.diceT = sd.t || null;
-    function alive() { return DUO.lastDoc === d && G.phase === 'watch'; }
-    function go() {
-      if (!alive()) return;
-      clearDice(); if (!dead) setTurn(ME);
-      var msg = 'You’re on the bar, so your dice were thrown for you: ' + dtx(v2) + '.';
-      function landed() {
-        if (!alive()) return;
-        if (dead) {
-          D.forEach(function (x) { x.tidy = true; });
-          showNote(esc(msg + ' No way in.'), TH); say('You couldn’t come in with ' + dtx(v2) + '.');
-          setTimeout(function () {
-            if (!alive()) return;
-            hideNote(); spawnPass(null); clearDice(); G.phase = 'remote'; setTurn(TH); say(NAME.them + '’s turn to throw.'); cubeUI();
-          }, 2400);
-        } else { rolled(ME); showNote(esc(msg), TH); NOTE.tm2 = setTimeout(function () { if (G.phase === 'move') hideNote(); }, 3500); }
-      }
-      if (sd.t && sd.t.length && !reduce) throwVec(ME, vals, sd.t, landed); else { vals.forEach(function (v) { placeDie(ME, v); }); landed(); }
-    }
-    if (sd.pz) {
-      setTurn(TH); sd.pz.forEach(function (v) { placeDie(TH, v); });
-      say(NAME.them + (state().bar.them ? ' couldn’t come in with ' : ' couldn’t move with ') + dtx(sd.pz) + '.');
-      setTimeout(go, 1500);
-    } else go();
-  }
+  /* ---------- Passing the turn ----------
+     Turns alternate one for one: the other player always throws their own dice, even from the bar or shut out.
+     The one exception to alternating is the race roll-out. */
+  function passShared(myDice) { save({ phase: 'roll', turn: DUO.other, dice: myDice || null }); }
   /* What happened in a turn, kept in the shared game (the last 8 turns) so the other player can catch up. */
   function turnEntry() {
     var ts = G.turnStart, d = ts ? ts.d : liveVals(ME);
@@ -1313,21 +1236,15 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     DUO.log = (DUO.log || []).concat([e]).slice(-8);
     markSeen(JSON.stringify(e)); /* this phone wrote it, so it has seen it */
   }
-  /* The note when you open a game: what you hadn't seen yet, in the order it happened, in at most three short sentences
-     (several throws of yours in a row that couldn't come in make one sentence). */
-  function noteFor(log, d) {
-    var out = [], nm = NAME.them, words = ['', 'you', 'two of yours', 'three of yours', 'four of yours'], mine = [];
-    function flush() { if (mine.length) out.push('You couldn’t come in with ' + mine.join(', then ') + '.'); mine = []; }
+  /* The note when you open a game: what the other player did that you hadn't seen yet, in at most three short sentences. */
+  function noteFor(log) {
+    var out = [], nm = NAME.them, words = ['', 'you', 'two of yours', 'three of yours', 'four of yours'];
     (log || []).forEach(function (e) {
-      if (e.s === DUO.seat) { if (e.x) mine.push(dtx(e.d)); return; }
-      flush();
+      if (e.s === DUO.seat) return;
       var onBar = e.pre && e.pre.bar && e.pre.bar[e.s] > 0;
       if (e.z) out.push(nm + (onBar ? ' couldn’t come in with ' : ' couldn’t move with ') + dtx(e.d) + '.');
       else out.push(nm + ' played ' + dtx(e.d) + (e.h ? ' and hit ' + (words[e.h] || e.h + ' of yours') : '') + '.');
     });
-    flush();
-    if (d && d.phase === 'move' && d.turn === DUO.seat && d.dice && d.dice.auto && d.dice.by === DUO.seat && !d.dice.list.some(function (x) { return x.used; }))
-      out.push('You’re on the bar, so your dice were thrown for you: ' + dtx([d.dice.list[0].v, d.dice.list[d.dice.list.length - 1].v]) + '.');
     return out.slice(-3).join(' ');
   }
   var NOTE = { on: false, tm: null };
@@ -1442,23 +1359,18 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   function turnHooks() {
     if (!G || !stacks || G.phase === 'demo') return;
     var mine = G.turn === ME && G.phase === 'roll' && !G.rolling;
-    if (mine && !G.danceT) {
-      var S = state();
-      if (closedOut(S, ME) && !closedOut(S, TH)) G.danceT = setTimeout(function () { G.danceT = null; if (G.turn === ME && G.phase === 'roll' && !G.rolling && closedOut(state(), ME)) danceMe(); }, 1400);
-    }
     var ask = mine && raceOpen();
     if (ask && !G.asking) askRace(); else if (!ask && G.asking) { G.asking = false; hideNote(); }
   }
   function finishTurn() {
     if (G.turn !== ME || G.phase !== 'move') return;
     G.auto = false;
-    var entry = turnEntry(), saved = DUO && G.deadSaved; G.deadSaved = false; /* already passed with the throw */
+    var entry = turnEntry(), saved = DUO && G.deadSaved; G.deadSaved = false; /* a dead throw: already passed with the throw */
     G.hist = []; G.turnStart = null;
     D.forEach(function (d) { d.live = false; });
     if (DUO) {
-      var a = saved ? saved.auto : (pushLog(entry), passShared(null));
+      if (!saved) { pushLog(entry); passShared(null); }
       D = [];
-      if (a) { showAuto(a); return; }
       G.phase = 'remote'; setTurn(TH); say(NAME.them + '’s turn.'); return;
     }
     D = []; G.phase = 'ai'; setTurn(TH); say('Luca is playing.');
@@ -1535,7 +1447,6 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     if (hold) { var hd = hold; hold = null; if (hd.slide) skyBack(2 * Math.PI * ease(hd.k)); }
     drag = null; hover = null; flick = null; BH = null; PRIM = null; $('slide').hidden = true;
     if (lastTap) { clearTimeout(lastTap.tm); lastTap = null; }
-    if (G.danceT) { clearTimeout(G.danceT); G.danceT = null; } /* no throw-for-you under a closed board; set again on Play on */
     var hinge = L.barX + L.bw / 2, el = document.createElement('div');
     el.className = 'case fold';
     el.innerHTML = '<div class="lleaf"><canvas class="lh"></canvas><i class="shade"></i><div class="bk bl"><b></b><i class="shade"></i></div></div>' +
@@ -1648,7 +1559,6 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   function forfeit() {
     if (G.phase === 'offered') { offerGone(); $('cubeFloat').hidden = true; $('cube').classList.remove('dragging'); spinSky(); clearDice(); gameOver(TH, false, true); return; }
     if (lastTap) { clearTimeout(lastTap.tm); lastTap = null; }
-    if (G.danceT) { clearTimeout(G.danceT); G.danceT = null; }
     /* moves made in this unfinished turn don't count */
     if (G.hist && G.hist.length) {
       stacks = JSON.parse(G.hist[0].st);
@@ -1904,12 +1814,12 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
       var sd = { by: DUO.seat, n: DUO.diceN, t: DUO.diceT, list: vals.map(function (v) { return { v: v, used: false }; }) };
       /* A throw that can't be played at all passes the turn in the same save as the throw itself, so nothing is left
          waiting on this phone (closed, locked, offline) and the other player can go on at once. Their device replays
-         the throw, then it's their turn (or, if they're on the bar, their dice are thrown at once: see passShared). */
+         the throw, then it's their turn to throw. */
       var S0 = state(), ps = plays(S0, ME, vals, 2);
       G.deadSaved = false;
       if (ps.length === 1 && !ps[0].path.length) {
         pushLog({ s: DUO.seat, d: [nd[0].v, nd[1].v], h: 0, z: true, m: '', pre: boardToShared() });
-        sd.dead = true; G.deadSaved = { auto: passShared(sd) };
+        sd.dead = true; passShared(sd); G.deadSaved = true;
       } else save({ phase: 'move', turn: DUO.seat, dice: sd });
     }
   }
@@ -1994,11 +1904,11 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
      at random each time, with a small translation; both players' checkers sit on the paper and spin like coins on a
      table: a nudge now and then in a random direction, and you can flick them yourself. */
   var CULT = [
-    { n: 'Turkish', win: ['Helal olsun!', 'well deserved'], lose: ['Bir dahaki sefere', 'next time'], gam: ['Mars!', 'gammon'], again: ['Hadi, bir el daha', 'come on, one more hand'] },
-    { n: 'Levantine Arabic', win: ['Mabrouk!', 'congratulations'], lose: ['Ma’alesh…', 'never mind'], gam: ['Mars!', 'gammon'], again: ['Yalla, kamaan wahad', 'come on, one more'] },
-    { n: 'Persian', win: ['Ahsant!', 'bravo'], lose: ['Eshkal nadare', 'no problem'], gam: ['Mars!', 'gammon'], again: ['Yek dast-e dige?', 'another hand?'] },
-    { n: 'Greek', win: ['Opa!', 'bravo'], lose: ['Den peirazei', 'it doesn’t matter'], gam: ['Diplo!', 'a double'], again: ['Ela, allo ena', 'come on, another'] },
-    { n: 'Hebrew', win: ['Kol hakavod!', 'well done'], lose: ['Pa’am haba’a', 'next time'], gam: ['Mars!', 'gammon'], again: ['Yalla, od ahat', 'come on, one more'] }
+    { n: 'Turkish', win: ['Helal olsun!', 'well deserved'], lose: ['Bir dahaki sefere', 'next time'], gam: ['Mars!', 'gammon'], again: ['Hadi, bir el daha', 'come on, one more hand'], hi: ['Buyurun!', 'please, take a seat'], go: ['Hadi başlayalım', 'let’s begin'] },
+    { n: 'Levantine Arabic', win: ['Mabrouk!', 'congratulations'], lose: ['Ma’alesh…', 'never mind'], gam: ['Mars!', 'gammon'], again: ['Yalla, kamaan wahad', 'come on, one more'], hi: ['Tfaddal!', 'please, go ahead'], go: ['Yalla, nil’ab', 'come on, let’s play'] },
+    { n: 'Persian', win: ['Ahsant!', 'bravo'], lose: ['Eshkal nadare', 'no problem'], gam: ['Mars!', 'gammon'], again: ['Yek dast-e dige?', 'another hand?'], hi: ['Befarmā!', 'be my guest'], go: ['Bezan berim', 'let’s go'] },
+    { n: 'Greek', win: ['Opa!', 'bravo'], lose: ['Den peirazei', 'it doesn’t matter'], gam: ['Diplo!', 'a double'], again: ['Ela, allo ena', 'come on, another'], hi: ['Kalós írthes!', 'welcome'], go: ['Páme!', 'let’s go'] },
+    { n: 'Hebrew', win: ['Kol hakavod!', 'well done'], lose: ['Pa’am haba’a', 'next time'], gam: ['Mars!', 'gammon'], again: ['Yalla, od ahat', 'come on, one more'], hi: ['Ahlan!', 'welcome'], go: ['Yalla, beh’nu', 'come on, let’s go'] }
   ];
   function overWords(winner, pts, dropped, gam, bg, match, forfeit) {
     var me = winner === ME, n = NAME.them, c = CULT[Math.random() * CULT.length | 0];
@@ -2024,19 +1934,27 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     startSpins(o);
   }
   function ckFrom(id) { try { return JSON.parse($(id).dataset.ck); } catch (e) { return null; } }
-  function startSpins(o) {
+  /* onTap(sp): a tap (no spin) on one of them. A canvas may name its checker itself (data-ck); otherwise it is the
+     player's own avatar. */
+  function startSpins(o, onTap) {
     SPINS = [];
     if (!window.flipFrame) return;
     Array.prototype.forEach.call(o.querySelectorAll('canvas.sp'), function (cv2) {
-      var ck2 = ckFrom(cv2.dataset.who === 'me' ? 'avMe' : 'avThem'); if (!ck2) return;
+      var ck2 = cv2.dataset.ck ? JSON.parse(cv2.dataset.ck) : ckFrom(cv2.dataset.who === 'me' ? 'avMe' : 'avThem'); if (!ck2) return;
       var sp = { cv: cv2, ck: ck2, a: Math.random(), w: (Math.random() < 0.5 ? -1 : 1) * (0.8 + Math.random()), next: performance.now() + 1500 + Math.random() * 3000, drag: null, fi: -1 };
       SPINS.push(sp);
-      cv2.addEventListener('pointerdown', function (e) { e.stopPropagation(); try { cv2.setPointerCapture(e.pointerId); } catch (er) {} sp.drag = { x: e.clientX, t: performance.now(), v: 0 }; sp.w = 0; });
+      cv2.addEventListener('pointerdown', function (e) { e.stopPropagation(); try { cv2.setPointerCapture(e.pointerId); } catch (er) {} sp.drag = { x: e.clientX, x0: e.clientX, t: performance.now(), v: 0, w0: sp.w, moved: false }; });
       cv2.addEventListener('pointermove', function (e) {
         if (!sp.drag) return; var now = performance.now(), dx = e.clientX - sp.drag.x, dt = Math.max(1, now - sp.drag.t), da = dx / (cv2.clientWidth * 1.6);
+        if (!sp.drag.moved && Math.abs(e.clientX - sp.drag.x0) > 6) { sp.drag.moved = true; sp.w = 0; }
+        if (!sp.drag.moved) return;
         sp.a += da; sp.drag.v = 0.6 * (da / dt * 1000) + 0.4 * sp.drag.v; sp.drag.x = e.clientX; sp.drag.t = now;
       });
-      var up = function () { if (!sp.drag) return; sp.w = Math.max(-6, Math.min(6, sp.drag.v)); sp.drag = null; sp.next = performance.now() + 3000 + Math.random() * 3000; };
+      var up = function (e) {
+        var d = sp.drag; if (!d) return; sp.drag = null;
+        if (!d.moved) { if (e.type === 'pointerup' && onTap) onTap(sp); return; }
+        sp.w = Math.max(-6, Math.min(6, d.v)); sp.next = performance.now() + 3000 + Math.random() * 3000;
+      };
       cv2.addEventListener('pointerup', up); cv2.addEventListener('pointercancel', up);
     });
     var last = performance.now();
@@ -2047,6 +1965,8 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
         if (!sp.drag) {
           if (now > sp.next) { sp.w += (Math.random() < 0.5 ? -1 : 1) * (0.6 + Math.random() * 1.6); sp.next = now + 2000 + Math.random() * 4500; }
           sp.a += sp.w * dt; sp.w *= Math.exp(-dt * 0.55);
+          /* slowing down, a checker settles face up (either face), never left standing on its edge */
+          if (Math.abs(sp.w) < 0.45) { var tg = Math.round(sp.a * 2) / 2; sp.a += (tg - sp.a) * (1 - Math.exp(-dt * 2.2)); }
         }
         var NFr = window.FLIP_NF, i = ((Math.round(sp.a * NFr) % NFr) + NFr) % NFr;
         if (i !== sp.fi) { sp.fi = i; var fr = window.flipFrame(sp.ck, i), g = sp.cv.getContext('2d'); g.clearRect(0, 0, 240, 240); g.drawImage(fr.cv, 0, 0);
@@ -2054,6 +1974,42 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
       });
       requestAnimationFrame(tick);
     })(last);
+  }
+  /* ---------- An invitation ----------
+     A new match starts as an invitation: whoever starts it has picked a colour and thrown their opening die. The friend
+     sees this note first: who is asking, the match length, and the two checkers of the board's set turning on the paper.
+     They may tap the other checker to swap colours, once, before they accept; after that the colours stay for the whole
+     match. Accepting is the only way on (no "no" button: a match nobody plays just waits). */
+  var CLASSIC = [{ m: 'classic', t: 0, f: 'dish', i: 'none', a: 0, s: 7 }, { m: 'classic', t: 1, f: 'dish', i: 'none', a: 0, s: 7 }];
+  function showInvite(d) {
+    var o = $('over'), c = CULT[(d.t0 || 0) % CULT.length], mine = coloursOf(d)[DUO.seat], pick = mine;
+    o.hidden = false;
+    o.innerHTML = '<div class="card3 inv"><i class="ring"></i>' +
+      '<b class="hand">' + c.hi[0] + '</b><small class="tr">' + c.n + ' · “' + c.hi[1] + '”</small>' +
+      '<p class="what">' + esc(NAME.them) + ' challenges you · first to ' + (d.to || MATCH) + '</p>' +
+      '<div class="duo3">' + [0, 1].map(function (t) {
+        return '<div class="pc" data-t="' + t + '"><canvas class="sp" width="240" height="240" data-ck=\'' + JSON.stringify(CLASSIC[t]) + '\' aria-label="' + (t ? 'Black' : 'White') + '"></canvas><span></span></div>';
+      }).join('') + '</div>' +
+      '<small class="hint3">Tap a checker to swap. Once you play, the colours stay.</small>' +
+      '<button id="again" class="hand">' + c.go[0] + '<small>' + c.go[1] + '</small></button></div>';
+    function paint() {
+      Array.prototype.forEach.call(o.querySelectorAll('.card3.inv .pc'), function (pc) {
+        var t = +pc.dataset.t, on = t === pick; pc.classList.toggle('on', on); pc.querySelector('span').textContent = on ? 'You' : NAME.them;
+      });
+    }
+    paint();
+    startSpins(o, function (sp) {
+      var t = sp.ck.t; if (t === pick) return;
+      pick = t; paint(); if (!reduce) sp.w = (sp.w < 0 ? -1 : 1) * 5.5;
+    });
+    $('again').addEventListener('click', function () {
+      var ld = DUO.lastDoc; if (!ld || ld.phase !== 'opening' || !ld.inv) return;
+      var col = {}; col[DUO.seat] = pick; col[DUO.other] = 1 - pick;
+      ld.inv = null; ld.col = col; TONE = { me: pick, them: 1 - pick };
+      o.hidden = true; DUO.invShown = null;
+      put(DUO, { up: { by: DUO.seat, inv: null, col: col } });
+      applyOpening(ld, false);
+    });
   }
   /* A finished match is kept once: both devices show the end, so it is filed under this game's own id and number,
      and whichever device files it second finds it already there. */
@@ -2121,7 +2077,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
 
   /* ---------- Two devices ----------
      One shared record, games/duo, holds the whole game from seat A's side (A = you, B = Luca): points as signed
-     counts (+A, −B), bar, off, dice, cube, score. Each device draws its own seat at the bottom in ivory, so seat B
+     counts (+A, −B), bar, off, dice, cube, score. Each device draws its own seat at the bottom (in that seat's colour, col), so seat B
      reads every point mirrored (25 − a). The device whose turn it is writes after each throw, move, undo, offer and
      answer; the other replays it: board changes glide checker by checker, throws are replayed from the same start
      and speed, mirrored. During the opening roll both devices only merge their own die in, so neither overwrites the other. */
@@ -2129,36 +2085,22 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   function nonce() { return Math.random().toString(36).slice(2, 9); }
   function seatOf(side) { return side === ME ? DUO.seat : DUO.other; }
   function sideOf(seat) { return seat === DUO.seat ? ME : TH; }
-  /* Writing the shared game. Each write is made up the moment it is asked for and stays tied to the game it was made
-     in, even if you open another game before it has gone out. Writes leave one at a time, in order; a whole-game write
-     still waiting is replaced by a newer one (the newer one holds everything). A write that fails is tried again after
-     2, 4, 8… s (at most 30 s) until it gets through, unless a newer whole-game write has taken its place; one the
-     server refuses outright is reported and dropped. While a write has been waiting over 3 s, "saving…" shows beside
-     the match length, so nobody closes the app thinking their move has gone. */
+  /* Writing the shared game: every change goes out the moment it is made. Firebase keeps one phone's writes in order
+     and retries them by itself while the connection is down, so nothing here waits for one write before sending the
+     next. A write the server refuses outright (no permission) is reported. While a write has been unconfirmed for over
+     3 s, "saving…" shows beside the match length, so nobody closes the app thinking their move has gone. */
   function put(me, job) {
-    var q = me.q, last = q[q.length - 1];
-    if (job.doc && last && last.doc && !last.busy) q[q.length - 1] = job; else q.push(job);
-    pump(me);
-  }
-  function pump(me) {
-    savingMark(me);
-    if (me.busy || !me.q.length) return;
-    var job = me.q[0]; me.busy = job; job.busy = true;
+    me.out = (me.out || 0) + 1; savingMark(me);
     Promise.resolve().then(function () { return job.doc ? me.ref.set(job.doc) : me.ref.update(job.up); }).then(function () {
-      me.q.shift(); me.busy = null; me.fails = 0; pump(me);
+      me.out--; savingMark(me);
     }, function (e) {
-      console.warn('save failed', e);
-      job.busy = false; me.busy = null;
-      var code = e && e.code ? String(e.code) : '', hard = /permission|invalid|not.found|unauthenticated/.test(code);
-      if (DUO === me) say('Couldn’t save to the shared game' + (code ? ' (' + code + ')' : '') + (hard ? '.' : '. Trying again…'));
-      if (hard || (job.doc && me.q.slice(1).some(function (j) { return j.doc; }))) { me.q.shift(); pump(me); return; }
-      me.fails = (me.fails || 0) + 1;
-      setTimeout(function () { pump(me); }, Math.min(30000, 1000 * Math.pow(2, me.fails)));
+      me.out--; savingMark(me); console.warn('save failed', e);
+      if (DUO === me) say('Couldn’t save to the shared game' + (e && e.code ? ' (' + e.code + ')' : '') + '.');
     });
   }
   function savingMark(me) {
-    if (!me.q.length) { clearTimeout(me.markT); me.markT = null; if (DUO === me) $('scTo').classList.remove('saving'); return; }
-    if (!me.markT) me.markT = setTimeout(function () { if (DUO === me && me.q.length) $('scTo').classList.add('saving'); }, 3000);
+    if (!me.out) { clearTimeout(me.markT); me.markT = null; if (DUO === me) $('scTo').classList.remove('saving'); return; }
+    if (!me.markT) me.markT = setTimeout(function () { me.markT = null; if (DUO === me && me.out) $('scTo').classList.add('saving'); }, 3000);
   }
   function save(o) { put(DUO, { doc: buildDoc(o) }); }
   function boardToShared(S) {
@@ -2176,14 +2118,15 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     var sc = {}, ld = DUO.lastDoc || {}; sc[DUO.seat] = G.score.me; sc[DUO.other] = G.score.them;
     return { v: ++DUO.V, by: DUO.seat, game: DUO.game, round: ld.round || 0, phase: o.phase, turn: o.turn || null, open: { A: null, B: null },
       board: boardToShared(), dice: o.dice !== undefined ? o.dice : diceToShared(), cube: { v: G.cube.v, owner: G.cube.owner ? seatOf(G.cube.owner) : null },
-      offerBy: o.offerBy || null, score: sc, result: o.result || null, to: MATCH, log: DUO.log || [], race: raceToShared(), ro: G.ro || ld.ro || null, t0: ld.t0 || null, pips: SHOWPIPS, prev: ld.prev || null };
+      offerBy: o.offerBy || null, score: sc, result: o.result || null, to: MATCH, log: DUO.log || [], race: raceToShared(), ro: G.ro || ld.ro || null, t0: ld.t0 || null, pips: SHOWPIPS, prev: ld.prev || null, col: coloursOf(ld) };
   }
   function raceToShared() {
     if (!G.race) return null; var o = { A: null, B: null };
     o[DUO.seat] = G.race.me == null ? null : G.race.me; o[DUO.other] = G.race.them == null ? null : G.race.them; return o;
   }
-  /* A new match at 0–0, to however many points you pick. */
-  function newMatch(n) {
+  /* A new match at 0–0, to however many points you pick (col: your colour in it; left out, you keep the one you had). */
+  function newMatch(n, col) {
+    NEWCOL = col === 0 || col === 1 ? col : TONE.me;
     MATCH = n; $('scTo').textContent = 'match to ' + MATCH; LASTW = null;
     if (DUO) newGame(true); else { G.score = { me: 0, them: 0 }; start(); }
   }
@@ -2197,15 +2140,17 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   function newGame(fresh) {
     var sc = { A: 0, B: 0 }, op = { A: null, B: null };
     if (fresh) op[DUO.seat] = { v: rnd6(), n: nonce(), t: null };
+    /* a new match: the colour picked by whoever starts it; the next game of a match keeps the colours */
+    var col = coloursOf(DUO.lastDoc); if (fresh) { col = {}; col[DUO.seat] = NEWCOL; col[DUO.other] = 1 - NEWCOL; }
     if (!fresh) { sc[DUO.seat] = G.score.me; sc[DUO.other] = G.score.them; }
     var ld = DUO.lastDoc, ws = !fresh && ld && ld.result ? ld.result.winner : null;
     /* the game that just ended rides along in the new one, so a phone that never saw its end still gets to */
-    var pv = ld && ld.phase === 'over' && ld.result ? { game: ld.game, result: ld.result, score: ld.score, to: ld.to || MATCH, board: ld.board, cube: ld.cube, log: ld.log || [] } : null;
+    var pv = ld && ld.phase === 'over' && ld.result ? { game: ld.game, result: ld.result, score: ld.score, to: ld.to || MATCH, board: ld.board, cube: ld.cube, log: ld.log || [], col: coloursOf(ld) } : null;
     var doc = { v: DUO.V + 1, by: DUO.seat, game: Math.max(DUO.game || 0, (DUO.lastDoc && DUO.lastDoc.game) || 0) + 1, round: 0, phase: ws ? 'roll' : 'opening', turn: ws,
       open: op, board: startBoard(), dice: null, cube: { v: 1, owner: null },
       offerBy: null, score: sc, result: null, to: MATCH, log: [], race: null, ro: null,
       /* when this match began (kept through every game of it, saved with the match at the end) */
-      t0: fresh ? Date.now() : ((DUO.lastDoc && DUO.lastDoc.t0) || null), pips: SHOWPIPS, prev: pv };
+      t0: fresh ? Date.now() : ((DUO.lastDoc && DUO.lastDoc.t0) || null), pips: SHOWPIPS, prev: pv, col: col, inv: fresh ? DUO.seat : null };
     DUO.V = doc.v; applyShared(doc, true);
     put(DUO, { doc: doc });
   }
@@ -2259,6 +2204,9 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     G.deadSaved = false;
     if (d.game !== DUO.game) { resetLocal(d); fresh = true; }
     DUO.lastDoc = d;
+    /* a turn playing itself here (a throw with only one way, or none) ends once the game is anywhere but this player's move */
+    if (!(d.phase === 'move' && d.turn === DUO.seat)) G.auto = false;
+    var cl = coloursOf(d); TONE = { me: cl[DUO.seat], them: cl[DUO.other] };
     if (NEWM && d.phase !== 'over') NEWM = null;
     /* the other player moved on to a new game before this phone showed the end of the last one: that end first */
     if (d.prev && d.prev.result && d.prev.game !== d.game) {
@@ -2295,13 +2243,13 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     if (roReplay) { DUO.overShown = true; replayRollout(d); return; }
     if (d.phase === 'rollout') { G.asking = false; hideNote(); setTurn(sideOf(d.turn)); G.phase = 'rollout'; applyDice(d.dice, false); say('Rolling out the race…'); cubeUI(); return; }
     if (fresh && (d.phase === 'roll' || d.phase === 'move')) {
-      setTimeout(function () { if (DUO.lastDoc === d) info(noteFor(unseen, d)); }, 900);
+      setTimeout(function () { if (DUO.lastDoc === d) info(noteFor(unseen)); }, 900);
     }
     if (d.phase === 'opening') { applyOpening(d, fresh); cubeUI(); return; }
     if (d.phase === 'over') {
       G.phase = 'over'; cubeUI(); say('');
       /* a new match asked for from home: once this phone has shown how the last one ended, start it */
-      if (NEWM && d.result && matchDone(d) && (DUO.overShown || endSeen(d.game))) { var nw = NEWM; NEWM = null; DUO.overShown = true; SHOWPIPS = nw.pips; newMatch(nw.to); return; }
+      if (NEWM && d.result && matchDone(d) && (DUO.overShown || endSeen(d.game))) { var nw = NEWM; NEWM = null; DUO.overShown = true; SHOWPIPS = nw.pips; newMatch(nw.to, nw.col); return; }
       if (!DUO.overShown && d.result) {
         DUO.overShown = true; $('cubeFloat').hidden = true; $('cube').classList.remove('dragging');
         if ((d.result.dropped || d.result.forfeit) && prev === 'wait') spinSky();
@@ -2328,8 +2276,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     }
     var t = sideOf(d.turn);
     if (t === ME) {
-      if (d.phase === 'roll' && d.dice && d.dice.dead && !d.dice.auto && prev === 'remote' && !fresh && d.dice.n !== DUO.diceN) { watchDead(d); cubeUI(); return; }
-      if (d.phase === 'move' && d.dice && d.dice.auto && d.dice.by === DUO.seat && !fresh && d.dice.n !== DUO.diceN) { autoMine(d); cubeUI(); return; }
+      if (d.phase === 'roll' && d.dice && d.dice.dead && prev === 'remote' && !fresh && d.dice.n !== DUO.diceN) { watchDead(d); cubeUI(); return; }
       if (d.phase === 'roll') {
         if (prev === 'remote' && !fresh) handIn(); else clearDice();
         G.phase = 'roll'; setTurn(ME);
@@ -2347,7 +2294,6 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
         if (fresh && ps0 && ps0.length === 1) autoPlay(ps0[0].path);
       }
     } else {
-      if (d.phase === 'roll' && d.dice && d.dice.auto && d.dice.dead && d.dice.by === DUO.seat && !fresh && d.dice.n !== DUO.diceN) { autoMine(d); cubeUI(); return; }
       setTurn(TH); G.phase = 'remote';
       if (d.phase === 'roll') { clearDice(); say(fresh && !lg.length ? NAME.them + ' won the last game, so they start.' : NAME.them + '’s turn to throw.'); }
       else { applyDice(d.dice, !fresh); say(NAME.them + ' is playing.'); }
@@ -2355,8 +2301,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     cubeUI();
   }
   /* ---------- Catching up ----------
-     What you haven't seen yet: the turns since your own last one (theirs, and your dice thrown for you while you were
-     on the bar), minus what this phone already showed you (remembered per game). Each turn plays again on the board:
+     What you haven't seen yet: the turns since your own last one (theirs), minus what this phone already showed you (remembered per game). Each turn plays again on the board:
      the sky turns to whoever's turn it was, their dice appear, each checker moves in order, with a line on what
      happened. A tap jumps to the end. Turns saved before moves were kept just glide to where they ended. */
   var REPL = null;
@@ -2369,7 +2314,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   function markSeen(k) { try { localStorage.setItem(seenKey(), k); } catch (e) {} }
   function toReplay(lg, all, game) {
     var rep = [];
-    for (var i = lg.length - 1; i >= 0; i--) { var e = lg[i]; if (e.s === DUO.seat && !e.x) break; rep.unshift(e); }
+    for (var i = lg.length - 1; i >= 0; i--) { var e = lg[i]; if (e.s === DUO.seat) break; rep.unshift(e); }
     var seen = null; try { seen = localStorage.getItem(seenKey(game)); } catch (e2) {}
     if (seen) for (var j = rep.length - 1; j >= 0; j--) if (JSON.stringify(rep[j]) === seen) { rep = rep.slice(j + 1); break; }
     /* a turn without its starting board can't be played again (it is still told in the summary) */
@@ -2378,8 +2323,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   }
   function capFor(e, side, hits, bar0, done) {
     var dt = dtx(e.d);
-    if (side === ME) return e.x ? 'You were on the bar, so your dice were thrown for you: ' + dt + '.' + (done && e.z ? ' No way in.' : '') : 'You rolled ' + dt + '.';
-    if (e.x) return NAME.them + ' was on the bar: their dice were thrown at once, ' + dt + '.' + (done && e.z ? ' No way in.' : '');
+    if (side === ME) return 'You rolled ' + dt + '.';
     if (done && e.z) return NAME.them + (bar0 ? ' couldn’t come in with ' : ' couldn’t move with ') + dt + '.';
     var w = ['', 'you', 'two of yours', 'three of yours', 'four of yours'];
     return NAME.them + ' rolled ' + dt + (hits ? ' and hit ' + (w[hits] || hits + ' of yours') : '') + '.';
@@ -2419,7 +2363,8 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   /* The end of the last game, for a phone that missed it because the other player had already started the next one:
      its last turns play again, then its end card, whose button leads on to the game now on the table. */
   function showPrev(d) {
-    var p = d.prev, w = sideOf(p.result.winner), pts = p.result.pts || 0;
+    var p = d.prev, w = sideOf(p.result.winner), pts = p.result.pts || 0, pc = coloursOf(p);
+    TONE = { me: pc[DUO.seat], them: pc[DUO.other] };
     var sc = { me: (p.score && p.score[DUO.seat]) || 0, them: (p.score && p.score[DUO.other]) || 0 };
     if (REPL) REPL.stop(); DUO.prevShow = p.game;
     function alive() { return !!DUO && DUO.prevShow === p.game && !!DUO.lastDoc && !!DUO.lastDoc.prev && DUO.lastDoc.prev.game === p.game; }
@@ -2455,6 +2400,14 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   /* Opening roll: each device throws its own die and merges it in. Once both dice have landed, the higher one
      starts; that device writes the start. On a tie, your device (seat A) clears both for another throw. */
   function applyOpening(d, fresh) {
+    /* a match still waiting to be accepted: the friend sees the invitation first (their die waits until they accept) */
+    if (d.inv && d.inv !== DUO.seat) {
+      clearDice(); placeDie(TH, (d.open && d.open[DUO.other] && d.open[DUO.other].v) || 1); D.forEach(function (x) { x.tidy = true; });
+      G.turn = ME; G.phase = 'invite'; say(''); cubeUI();
+      var key = d.game + ':' + d.t0;
+      if (DUO.invShown !== key || $('over').hidden) { DUO.invShown = key; showInvite(d); }
+      return;
+    }
     var mine = (d.open && d.open[DUO.seat]) || (DUO.myOpen && DUO.myOpen.round === (d.round || 0) ? DUO.myOpen : null), his = d.open && d.open[DUO.other];
     var dm = D.filter(function (x) { return x.live && x.side === ME; }), dh = D.filter(function (x) { return x.live && x.side === TH; });
     if (!mine && dm.length) { dm.forEach(function (x) { x.live = false; }); D = D.filter(function (x) { return x.live; }); dm = []; }
@@ -2465,7 +2418,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     }
     if (mine && !dm.length) placeDie(ME, mine.v);
     G.turn = mine ? TH : ME; G.phase = mine ? 'openWait' : 'opening';
-    say(!mine ? (his ? NAME.them + ' rolled ' + his.v + '. Throw yours.' : 'Throw your die to see who starts.') : his ? '' : 'You rolled ' + mine.v + '. Waiting for ' + NAME.them + ' to throw.');
+    say(!mine ? (his ? NAME.them + ' rolled ' + his.v + '. Throw yours.' : 'Throw your die to see who starts.') : his ? '' : 'You rolled ' + mine.v + '. Waiting for ' + NAME.them + (d.inv ? ' to accept.' : ' to throw.'));
     checkOpening();
   }
   function duoOpenThrow(from) {
@@ -2512,7 +2465,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   }
   function joinDuo(seat) {
     if (DUO && DUO.unsub) DUO.unsub();
-    DUO = { seat: seat, other: seat === 'A' ? 'B' : 'A', ref: DB.doc('games/duo'), V: 0, q: [], busy: null, game: null, openN: {}, first: true, lastDoc: null };
+    DUO = { seat: seat, other: seat === 'A' ? 'B' : 'A', ref: DB.doc('games/duo'), V: 0, out: 0, game: null, openN: {}, first: true, lastDoc: null };
     setNames(); resetLocal({ game: null }); say('Joining the shared game…'); $('scTo').classList.remove('saving');
     var me = DUO, timer = setTimeout(function () { if (DUO === me) say('Can’t reach the shared game yet.'); }, 10000);
     me.unsub = me.ref.onSnapshot(function (snap) {
@@ -2552,7 +2505,7 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
   $('seatBtn').addEventListener('click', pickSeat);
   /* Local testing only: two tabs on this computer share a fake store through localStorage (add ?mock&seat=A). */
   function mockDb() {
-    var subs = [], LOCAL = {}, ECHO = /[?&]echo/.test(location.search);
+    var subs = [], LOCAL = {}, CHAIN = {}, ECHO = /[?&]echo/.test(location.search);
     /* ?echo: like Firebase, this phone sees its own write at once; the other phone only after it has gone out */
     function read(p) { if (p in LOCAL) return JSON.parse(LOCAL[p]); try { return JSON.parse(localStorage.getItem('mock:' + p)); } catch (e) { return null; } }
     function snap(p) { var v = read(p); return { exists: !!v, data: function () { return v; }, metadata: {} }; }
@@ -2560,10 +2513,11 @@ body.full .device { position: fixed; inset: 0; width: 100vw; height: 100vh; bord
     window.addEventListener('storage', function (e) { if (e.key && e.key.indexOf('mock:') === 0) emit(e.key.slice(5)); });
     function merge(a, b) { Object.keys(b).forEach(function (k) { if (b[k] && typeof b[k] === 'object' && !Array.isArray(b[k]) && a[k] && typeof a[k] === 'object') merge(a[k], b[k]); else a[k] = b[k]; }); return a; }
     return { doc: function (p) { return {
+      /* like Firebase, one phone's writes land in the order they were made */
       set: function (d) {
         var j = JSON.stringify(d);
         if (ECHO) { LOCAL[p] = j; setTimeout(function () { emit(p); }, 0); }
-        return new Promise(function (r) { setTimeout(function () { if (LOCAL[p] === j) delete LOCAL[p]; localStorage.setItem('mock:' + p, j); if (!ECHO) emit(p); r(); }, ECHO ? 300 + Math.random() * 900 : 120); });
+        return (CHAIN[p] = (CHAIN[p] || Promise.resolve()).then(function () { return new Promise(function (r) { setTimeout(function () { if (LOCAL[p] === j) delete LOCAL[p]; localStorage.setItem('mock:' + p, j); if (!ECHO) emit(p); r(); }, ECHO ? 150 + Math.random() * 450 : 120); }); }));
       },
       update: function (d) { return new Promise(function (r, j) { setTimeout(function () { var v = read(p); if (!v) { j({ code: 'invalid_argument' }); return; } localStorage.setItem('mock:' + p, JSON.stringify(merge(v, d))); emit(p); r(); }, 120); }); },
       onSnapshot: function (fn) { var s = { p: p, fn: fn }; subs.push(s); setTimeout(function () { fn(snap(p)); }, 60); return function () { subs = subs.filter(function (x) { return x !== s; }); }; }

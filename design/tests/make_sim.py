@@ -22,7 +22,7 @@ window.addEventListener('error', function (e) { window.__errors.push(String(e.me
 </script>
 """
 hook = """
-  window.__T = { get G() { return G; }, get D() { return D; }, get DUO() { return DUO; }, get stacks() { return stacks; }, get REPL() { return REPL; }, get FOLD() { return FOLD; },
+  window.__T = { get G() { return G; }, get D() { return D; }, get DUO() { return DUO; }, get stacks() { return stacks; }, get REPL() { return REPL; }, get FOLD() { return FOLD; }, get TONE() { return typeof TONE === 'undefined' ? null : TONE; },
     ME: ME, TH: TH, state: state, plays: plays, legal: legal, remaining: remaining, anyMove: anyMove, canThrow: canThrow, canPass: canPass, canForfeit: canForfeit,
     myThrow: myThrow, stepMove: stepMove, afterMyMove: afterMyMove, handOver: handOver, takeDouble: takeDouble, dropDouble: dropDouble, offerMine: offerMine,
     undoFrom: undoFrom, stepsOf: stepsOf, forfeit: forfeit, canDouble: canDouble, isRace: isRace, closedOut: closedOut, tapMove: tapMove,

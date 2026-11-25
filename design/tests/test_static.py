@@ -36,13 +36,18 @@ def scopes(src):
     return out
 
 
+FUNCS = []
+
+
 def own_vars(body):
     """var names declared directly in this function body (nested functions removed)."""
     # blank out nested function bodies
     out, i, n = [], 0, len(body)
     while i < n:
-        m = re.compile(r'function\s*[\w$]*\s*\([^()]*\)\s*\{').match(body, i)
+        m = re.compile(r'function\s*([\w$]*)\s*\([^()]*\)\s*\{').match(body, i)
         if m:
+            if m.group(1) and (i == 0 or not re.match(r'[\w$.]', body[i - 1])) and not re.search(r'[=(:,]\s*$', body[max(0, i - 40):i]):
+                FUNCS.append(m.group(1))
             d, j = 1, m.end()
             while j < n and d:
                 d += {'{': 1, '}': -1}.get(body[j], 0)
@@ -76,7 +81,13 @@ for name in ('game.html', 'app.html'):
     html = (HERE / name).read_text()
     for js in re.findall(r'<script>(.*?)</script>', html, re.S):
         for s, body in scopes(js):
+            del FUNCS[:]
             vs = own_vars(body)
+            fs = list(FUNCS)
+            # the same function name declared twice in one scope: the second silently replaces the first everywhere
+            fd = sorted({f for f in fs if fs.count(f) > 1} | (set(fs) & set(vs)))
+            if fd:
+                fails.append('%s: function declared twice (or also as a var) in one scope: %s' % (name, ', '.join(fd)))
             dup = sorted({v for v in vs if vs.count(v) > 1})
             # loop counters (i, j, k…) and short temporaries are re-declared on purpose all over; only flag real names
             dup = [v for v in dup if len(v) > 2 and not v.islower()]
@@ -92,4 +103,4 @@ if 'if (fresh) op[DUO.seat] =' not in game:
 if fails:
     print('FAIL\n' + '\n'.join(sorted(set(fails))))
     sys.exit(1)
-print('ok: no clashing declarations; the opening die belongs to whoever starts')
+print('ok: no clashing declarations or function names; the opening die belongs to whoever starts')

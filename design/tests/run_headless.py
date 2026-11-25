@@ -7,7 +7,8 @@ import base64, json, os, shutil, socket, struct, subprocess, sys, tempfile, time
 
 CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 PORT = int(os.environ.get('CDP_PORT', 9333))
-url = 'http://localhost:8771/' + (sys.argv[1] if len(sys.argv) > 1 else 'tests/simulate.html')
+BASE = os.environ.get('BASE', 'http://localhost:8771/')
+url = BASE + (sys.argv[1] if len(sys.argv) > 1 else 'tests/simulate.html')
 limit = float(sys.argv[2]) if len(sys.argv) > 2 else 1800
 
 prof = tempfile.mkdtemp(prefix='bgsim')

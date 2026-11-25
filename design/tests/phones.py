@@ -6,7 +6,7 @@ Used by scenarios.py. Needs the design server on port 8771 and Google Chrome. St
 import base64, json, os, shutil, socket, struct, subprocess, tempfile, time, urllib.request
 
 CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-BASE = 'http://localhost:8771/'
+BASE = os.environ.get('BASE', 'http://localhost:8771/')
 
 
 class WS:

@@ -4,7 +4,7 @@
    Sign in by URL: ?as=<uid>. matches/* can only be created, never overwritten (like the real rules). */
 (function () {
   var Q = location.search, AS = (Q.match(/[?&]as=([\w-]+)/) || [])[1] || null;
-  var subs = [];
+  var subs = [], CHAIN = {};
   function key(p) { return 'fb:' + p; }
   function read(p) { try { var j = localStorage.getItem(key(p)); return j == null ? null : JSON.parse(j); } catch (e) { return null; } }
   function later(f) { setTimeout(f, 30 + Math.random() * 60); }
@@ -23,9 +23,10 @@
     return {
       id: p.split('/').pop(), path: p,
       get: function () { return new Promise(function (r) { later(function () { r(snapOf(p)); }); }); },
+      /* one phone's writes land in the order they were made, as in Firebase */
       set: function (d, o) {
         if (/^matches\//.test(p) && read(p) != null) return denied();
-        return new Promise(function (r) { later(function () { write(p, o && o.merge ? merge(read(p) || {}, d) : d); r(); }); });
+        return (CHAIN[p] = (CHAIN[p] || Promise.resolve()).then(function () { return new Promise(function (r) { later(function () { write(p, o && o.merge ? merge(read(p) || {}, d) : d); r(); }); }); }));
       },
       update: function (d) { return new Promise(function (r, j) { later(function () { var v = read(p); if (v == null) { j({ code: 'not-found' }); return; } write(p, merge(v, d)); r(); }); }); },
       onSnapshot: function (fn) {

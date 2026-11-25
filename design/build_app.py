@@ -81,8 +81,8 @@ api = r"""
         if (DUO && (DUO.gid !== o.gid || DUO.seat !== o.seat)) { if (DUO.unsub) DUO.unsub(); DUO = null; G = null; }
         CUR = o.id; SEATS.A = o.seats.A; SEATS.B = o.seats.B; OPP = SEATS[o.seat === 'A' ? 'B' : 'A'];
         /* a finished match on the table and "Play" pressed at home: a new one starts as soon as the old end is on screen */
-        NEWM = o.newMatch ? { to: o.to || 5, pips: o.pips !== false } : null;
-        if (!DUO) { CASE.fresh = true; MATCH = o.to || 5; SHOWPIPS = o.pips !== false; window.GAMEID = o.gid; joinDuo(o.seat); DUO.gid = o.gid; }
+        NEWM = o.newMatch ? { to: o.to || 5, pips: o.pips !== false, col: o.col } : null;
+        if (!DUO) { CASE.fresh = true; MATCH = o.to || 5; SHOWPIPS = o.pips !== false; NEWCOL = o.col === 1 ? 1 : 0; window.GAMEID = o.gid; joinDuo(o.seat); DUO.gid = o.gid; }
         /* back to the board: what came in while it was put away plays now, as missed turns */
         else if (comeBack()) {}
         /* back to a game that had ended (its card was closed with the board): show the end again, with its buttons */
@@ -99,7 +99,7 @@ api = r"""
       if (REPL) REPL.stop();
       if (DUO) { if (DUO.unsub) DUO.unsub(); DUO = null; }
       var fresh = CUR !== o.id || !G; CUR = o.id; OPP = o; setNames();
-      if (fresh) { CASE.fresh = true; G = null; SHOWPIPS = o.pips !== false; if (o.to) { MATCH = o.to; $('scTo').textContent = 'match to ' + MATCH; } start(); }
+      if (fresh) { CASE.fresh = true; G = null; SHOWPIPS = o.pips !== false; TONE = o.col === 1 ? { me: 1, them: 0 } : { me: 0, them: 1 }; if (o.to) { MATCH = o.to; $('scTo').textContent = 'match to ' + MATCH; } start(); }
     },
     close: function () {
       if (DAYF) { DAYF = 0; if (window.skyShift) window.skyShift(0, 600); }

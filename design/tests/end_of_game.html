@@ -86,9 +86,12 @@
     check(d && d.to === 3 && d.pips === false, 'to 3, pip counts off');
     check(d && d.open && d.open.B && !d.open.A, 'Nolf started it, so Nolf’s die is the one already thrown');
     check(d && d.prev && d.prev.game === 1 && d.prev.result.winner === 'A', 'the finished match rides along in the new game');
+    check(await until(function () { return /^You rolled \d\. Waiting for Quad to accept\.$/.test(status(B)); }, 6000), 'Nolf reads: “You rolled N. Waiting for Quad to accept.” (' + status(B) + ')');
+    check(await until(function () { return !!A.document.querySelector('#over .card3.inv'); }, 6000), 'Quad: the old end card gives way to Nolf’s invitation');
+    A.document.getElementById('again').click();
+    check(await until(function () { return /^Nolf rolled \d\. Throw yours\.$/.test(status(A)); }, 6000), 'Quad accepts and reads: “Nolf rolled N. Throw yours.” (' + status(A) + ')');
+    check(!overOn(A), 'Quad: no card left over the board');
     check(await until(function () { return /^You rolled \d\. Waiting for Quad to throw\.$/.test(status(B)); }, 6000), 'Nolf reads: “You rolled N. Waiting for Quad to throw.” (' + status(B) + ')');
-    check(await until(function () { return /^Nolf rolled \d\. Throw yours\.$/.test(status(A)); }, 6000), 'Quad reads: “Nolf rolled N. Throw yours.” (' + status(A) + ')');
-    check(!overOn(A), 'Quad: the old end card has gone');
     check($$(A, 'pipMe').style.display === 'none', 'Quad: pip counts hidden, as Nolf chose');
 
     /* ---------- 4. Nolf missed the end: Quad already started the next match ---------- */
@@ -106,9 +109,12 @@
     check(!!B.document.getElementById('again') && !B.document.querySelector('#over [data-to]'), 'Nolf: its button leads on, no second new-match choice');
     check(!!localStorage.getItem('bgEnd:' + GID + '_1:B'), 'Nolf: the missed end is now marked as seen');
     B.document.getElementById('again').click();
-    check(await until(function () { return !overOn(B) && /^Quad rolled \d\. Throw yours\.$/.test(status(B)); }, 6000), 'Nolf: on to the new match: “Quad rolled N. Throw yours.” (' + status(B) + ')');
+    check(await until(function () { return !!B.document.querySelector('#over .card3.inv'); }, 6000), 'Nolf: on to the new match: Quad’s invitation');
     await blank(); B = await frame('fB', 'B'); open(B); await wait(1500);
-    check(!overOn(B), 'Nolf, reopened: the old end is not shown a second time');
+    check(!B.document.querySelector('#over .card3:not(.inv)'), 'Nolf, reopened: the old end is not shown a second time');
+    check(!!B.document.querySelector('#over .card3.inv'), 'Nolf, reopened: the invitation is still waiting for him');
+    B.document.getElementById('again').click();
+    check(await until(function () { return !overOn(B) && /^Quad rolled \d\. Throw yours\.$/.test(status(B)); }, 6000), 'Nolf accepts: “Quad rolled N. Throw yours.” (' + status(B) + ')');
 
     clean();
     document.getElementById('sum').innerHTML = '<b class="' + (fails ? 'no' : 'ok') + '">' + (fails ? fails + ' failed, ' : 'All ') + passes + ' passed</b>';

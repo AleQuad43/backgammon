@@ -121,6 +121,21 @@
     A.BG.close(); A.__seat = 'B'; open(A); await wait(1500);
     check(A.__T.DUO && A.__T.DUO.seat === 'B', 'the board now plays seat B (' + (A.__T.DUO && A.__T.DUO.seat) + ')');
 
+    /* ---------- 6 ---------- */
+    log('6. Hitting the opponent: they throw their own dice from the bar, nothing is thrown for them', 'h');
+    await blank(); clean();
+    put(base({ to: 5, phase: 'move', turn: 'A', board: { pts: pts({ 10: 1, 7: 0, 19: -5, 20: -5 }), bar: { A: 0, B: 0 }, off: { A: 14, B: 4 } }, dice: { by: 'A', n: 'h1', t: null, list: [{ v: 3, used: false }, { v: 1, used: false }] } }));
+    var d6 = doc(); d6.board.pts[7] = -1; put(d6);
+    A = await frame('fA', 'A'); open(A); await wait(2500);
+    A.__T.stepMove(10, 7, 3); A.__T.stepMove(7, 6, 1); A.__T.afterMyMove(); await wait(600); A.__T.handOver(null);
+    check(await until(function () { var d = doc(); return d && d.turn === 'B'; }, 15000), 'Quad hits and passes the turn (' + JSON.stringify(doc() && [doc().phase, doc().turn]) + ')');
+    d6 = doc();
+    check(d6 && d6.board.bar.B === 1, 'Nolf is on the bar');
+    check(d6 && d6.phase === 'roll' && !d6.dice, 'and it is simply his turn to throw: no dice thrown for him (' + JSON.stringify(d6 && [d6.phase, d6.dice && d6.dice.auto]) + ')');
+    B = await frame('fB', 'B'); open(B);
+    check(await until(function () { return B.__T.G && B.__T.G.phase === 'roll'; }, 15000), 'on his phone, after seeing Quad’s turn, he throws his own dice (' + B.__T.G.phase + ')');
+    check(!errs(A).length && !errs(B).length, 'no script errors ' + errs(A).concat(errs(B)).join(' / '));
+
     clean();
     document.getElementById('sum').innerHTML = '<b class="' + (fails ? 'no' : 'ok') + '">' + (fails ? fails + ' failed, ' : 'All ') + passes + ' passed</b>';
     window.__result = { passes: passes, fails: fails };

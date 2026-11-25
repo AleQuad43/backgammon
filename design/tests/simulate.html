@@ -196,7 +196,7 @@
     if (key(fromApp(T.state(), T.ME, T)) !== key(fromShared(d.board, w.__seat))) fail(w.__seat + ': the board on screen is not the shared board (phase ' + d.phase + ', local ' + G.phase + ')');
     var sm = +$$(w, 'scMe').textContent, st = +$$(w, 'scThem').textContent, o = w.__seat === 'A' ? 'B' : 'A';
     if (sm !== (d.score[w.__seat] || 0) || st !== (d.score[o] || 0)) fail(w.__seat + ': rail score ' + sm + '–' + st + ' but shared ' + d.score[w.__seat] + '–' + d.score[o]);
-    var want = { opening: ['opening', 'openWait'], roll: ['roll', 'remote'], move: ['move', 'remote'], offered: ['offered', 'wait'], over: ['over'] }[d.phase];
+    var want = { opening: ['opening', 'openWait', 'invite'], roll: ['roll', 'remote'], move: ['move', 'remote'], offered: ['offered', 'wait'], over: ['over'] }[d.phase];
     if (want && want.indexOf(G.phase) < 0 && !(d.phase === 'opening' && (G.phase === 'move' || G.phase === 'remote'))) fail(w.__seat + ': shared phase ' + d.phase + ' but this phone is in ' + G.phase);
   }
 
@@ -205,7 +205,7 @@
     var G = T.G;
     return G.phase + ' turn ' + G.turn + (G.auto ? ' auto' : '') + (G.rolling ? ' rolling' : '') + (G.asking ? ' asking' : '') + (T.REPL ? ' replay' : '') + (T.FOLD ? ' fold' : '') + (overOn(w) ? ' card' : '') +
       ' dice ' + JSON.stringify(T.D.map(function (x) { return x.v + (x.used ? 'u' : '') + (x.live ? '' : 'x') + (x.settled ? '' : '~') + x.side[0]; })) + ' hist ' + (G.hist ? G.hist.length : '-') + (T.canThrow() ? ' canThrow' : '') + ($$(w, 'gv').hidden ? ' BOARD-HIDDEN' : '') +
-      (T.DUO ? ' V' + T.DUO.V + ' q' + T.DUO.q.length + (T.DUO.busy ? ' busy' : '') + (T.DUO.away ? ' away' : '') + ' last v' + (T.DUO.lastDoc && T.DUO.lastDoc.v) : '') + ' “' + $$(w, 'status').textContent + '”';
+      (T.DUO ? ' V' + T.DUO.V + ' out' + (T.DUO.out || 0) + (T.DUO.away ? ' away' : '') + ' last v' + (T.DUO.lastDoc && T.DUO.lastDoc.v) : '') + ' “' + $$(w, 'status').textContent + '”';
   }
   /* ---------- one phone's decisions ---------- */
   var acted = 0, stats = { throws: 0, steps: 0, undos: 0, doubles: 0, takes: 0, drops: 0, giveups: 0, races: 0, reloads: 0, reopens: 0, games: 0, matches: 0 };
@@ -222,6 +222,8 @@
       if (lens.length) { var b = [].filter.call(lens, function (x) { return +x.dataset.to <= 3; }); pick(b).click(); stats.matches++; return true; }
       return false;
     }
+    /* an invitation: sometimes swap the colours, then accept */
+    if (G.phase === 'invite') { var inv = w.document.querySelector('#over .card3.inv'); if (!inv) return false; if (Math.random() < 0.5) { var off = inv.querySelector('.pc:not(.on) canvas'); off.dispatchEvent(new w.PointerEvent('pointerdown', { bubbles: true, pointerId: 9, clientX: 1 })); off.dispatchEvent(new w.PointerEvent('pointerup', { bubbles: true, pointerId: 9, clientX: 1 })); } stats.invites = (stats.invites || 0) + 1; w.document.getElementById('again').click(); return true; }
     if (G.asking) { var btn = w.document.querySelector('#note button[data-a="' + (Math.random() < 0.6 ? 1 : 0) + '"]'); if (btn) { stats.races++; btn.click(); return true; } return false; }
     if (T.REPL && Math.random() < 0.3) { T.REPL.skip && T.REPL.skip(); return true; }
     if (G.auto || G.rolling) return false;

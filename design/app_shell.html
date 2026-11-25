@@ -191,6 +191,20 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
 .seg button { position: relative; height: 40px; border: none; background: none; padding: 0; font-size: 16px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; transition: color .35s ease; }
 .seg button[aria-pressed="true"] { color: var(--ink); font-weight: 700; }
 .setup .hint { margin: 8px 4px 10px; font-size: 13px; color: var(--muted); }
+/* your colour: the board's white and black checkers turning like coins on a strip of the board's light wood; the one you
+   take sits forward, the other a step back */
+.cols { display: flex; justify-content: center; gap: 34px; margin: 2px 0 0; padding: 4px 0 10px; border-radius: 18px;
+  background: repeating-linear-gradient(93deg, rgba(110,70,30,.07) 0 2px, transparent 2px 11px), linear-gradient(180deg, #DDC39A, #CBAB7C);
+  box-shadow: inset 0 1px 0 rgba(255,250,235,.45), inset 0 -3px 8px rgba(80,48,18,.22); }
+.cpick { display: flex; flex-direction: column; align-items: center; border: none; background: none; padding: 0; touch-action: none; cursor: grab; --foot: 1; --lift: 0; }
+.cpick i { position: relative; display: block; width: 104px; height: 104px; transform: scale(.76); transition: transform .6s cubic-bezier(.2,.8,.2,1); }
+.cpick.on i { transform: none; }
+.cpick i::before { content: ""; position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px; border-radius: 50%; background: rgba(60,32,10,.38);
+  transform: translate(calc(var(--lift) * 6px + 2px), calc(var(--lift) * 8px + 4px)) scaleX(var(--foot)); filter: blur(calc(4px + var(--lift) * 8px)); opacity: calc(1 - var(--lift) * 0.8); }
+.cpick canvas { position: relative; width: 104px; height: 104px; pointer-events: none; }
+.cpick span { margin-top: -14px; font-size: 13px; font-weight: 600; color: #7A5C40; max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: color .4s ease; }
+.cpick.on span { color: #2E1C0E; font-weight: 700; }
+#colHint { text-align: center; margin: 8px 4px 10px; }
 .sw { display: flex; align-items: center; gap: 14px; width: 100%; border: none; border-top: 1px solid var(--line); background: none; padding: 12px 4px 10px; text-align: left; }
 .sw .t { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
 .sw .t b { font-size: 15px; font-weight: 600; }
@@ -499,13 +513,20 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   }
   function playerCard(id) {
     if (id === ME.id) {
-      return '<div class="card-top"><button class="av-btn" data-act="edit" aria-label="Change your checker" style="border:none;background:none;padding:0">' + av(ME, 'me') + '</button><div><h4>' + ME.n + '</h4><p class="num">Elo ' + ME.elo.toLocaleString('en') + '</p></div><button class="x" data-act="close" aria-label="Close">' + X + '</button></div>' +
-        '<button class="big" data-act="edit">Change your checker</button>' +
-        '<div class="tiles"><div class="tile"><small>Matches</small><b>' + HIST.length + '</b></div><div class="tile"><small>Won</small><b>–</b></div><div class="tile"><small>Gammons</small><b>0</b></div></div>' +
-        (ADMIN ? '<div><div class="label" style="margin:0 4px 8px">Friends’ emails · only you see this</div><div class="emails" id="emails">Loading…</div></div>' : '') +
-        (CLOUD ? '<div class="tools"><button class="mini" data-act="signout">Sign out</button></div>' :
-          '<div><div class="label" style="margin:0 4px 8px">For testing</div><div class="tools"><button class="mini" data-act="seat">Who plays on this device</button><button class="mini" data-act="bearoff">Bear-off position</button><button class="mini" data-act="restart">Start the match over</button></div></div>') +
-        (HIST.length ? '<div class="label" style="margin:4px 4px 0">Your history</div><div>' + HIST.map(histRow).join('') + '</div>' : '');
+      /* the same card as a friend's: checker (tap it to change it), name, Elo and rank; your record in matches; past matches */
+      var me0 = ME.id, mine = shownMatches().filter(function (m) { return m.winner === me0 || m.loser === me0; }).sort(function (a, b) { return (b.t || 0) - (a.t || 0); });
+      var won = mine.filter(function (m) { return m.winner === me0; }).length, lost = mine.length - won;
+      var oth0 = P.filter(function (x) { return !x.bot; }), rk = 1 + oth0.filter(function (x) { return x.elo > ME.elo; }).length;
+      var o = '<div class="pc-top"><button class="av-btn" data-act="edit" aria-label="Change your checker" style="border:none;background:none;padding:0">' + av(ME, 'me') + '</button><div style="min-width:0"><h4>' + esc(ME.n) + '</h4><p class="num">Elo ' + ME.elo.toLocaleString('en') +
+        (oth0.length < 2 ? '' : ' · ' + ordinal(rk) + ' of ' + oth0.length) + '</p></div><button class="x" data-act="close" aria-label="Close">' + X + '</button></div>';
+      o += mine.length ? '<div class="rec" aria-label="You won ' + won + ' matches and lost ' + lost + '"><div><b>' + won + '</b><small>Won</small></div><i></i><div><b>' + lost + '</b><small>Lost</small></div></div>'
+        : '<p class="quiet">You haven’t finished a match yet.</p>';
+      o += '<p class="quiet" style="margin-top:-6px">Tap your checker to change it.</p>';
+      if (mine.length) o += '<div class="sec"><div class="label">Past matches</div><div class="past">' + mine.map(function (m) { return matchTile(m, me0, true); }).join('') + '</div></div>';
+      if (ADMIN) o += '<div><div class="label" style="margin:0 4px 8px">Friends’ emails · only you see this</div><div class="emails" id="emails">Loading…</div></div>';
+      o += CLOUD ? '<div class="tools"><button class="mini" data-act="signout">Sign out</button></div>' :
+        '<div><div class="label" style="margin:0 4px 8px">For testing</div><div class="tools"><button class="mini" data-act="seat">Who plays on this device</button><button class="mini" data-act="bearoff">Bear-off position</button><button class="mini" data-act="restart">Start the match over</button></div></div>';
+      return o;
     }
     var p = byId[id], h = h2h(id), g = gameOf(id), nm = esc(p.n);
     /* who they are: their checker, their name, their Elo and where that puts them among the friends */
@@ -518,7 +539,8 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     /* the game on the table: tap the board to sit down and play; no game, then the way to start one */
     if (g && g.s === 'req') out += gameRow(g);
     else if (g) {
-      var cap = g.hidden ? '<i class="pip"></i>New on the board' : g.phase === 'over' ? 'Game over · next game' : g.s === 'yours' ? '<i class="pip"></i>Your move' : nm + '’s move';
+      var cap = g.hidden ? '<i class="pip"></i>New on the board' : g.inv && g.inv !== g.seat ? '<i class="pip"></i>' + nm + ' challenges you' : g.inv ? 'Waiting for ' + nm + ' to accept'
+        : g.phase === 'over' ? 'Game over · next game' : g.s === 'yours' ? '<i class="pip"></i>Your move' : nm + '’s move';
       out += '<div class="sec live ' + (g.s === 'yours' && (g.hidden || g.phase !== 'over') ? 'yours' : '') + '"><div class="label">This match</div>' +
         '<button class="bd" data-act="board" data-p="' + id + '" aria-label="Open the game with ' + nm + '"><canvas data-mini="' + id + '"></canvas></button>' +
         '<div class="cap"><span>' + cap + '</span><small><b>' + g.sc.join('–') + '</b> · to ' + g.to + (g.cube && g.cube.v > 1 ? ' · cube ' + g.cube.v : '') + '</small></div></div>';
@@ -526,7 +548,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     else out += '<div class="sec"><div class="label">A new match</div><div class="setup">' +
         '<div class="seg" role="group" aria-label="Points to win" style="--k:' + Math.max(0, LENS.indexOf(ng.to)) + '"><i></i>' +
         LENS.map(function (n) { return '<button data-act="cto" data-n="' + n + '" aria-pressed="' + (ng.to === n) + '">' + n + '</button>'; }).join('') + '</div>' +
-        '<p class="hint" id="toHint">' + toHint(ng.to) + '</p>' +
+        '<p class="hint" id="toHint">' + toHint(ng.to) + '</p>' + colourRow(p.n) +
         '<button class="sw" role="switch" data-act="pips" aria-checked="' + ng.pips + '"><span class="t"><b>Pip counts</b><small>How far each of you still has to go, shown beside your names</small></span><span class="k"></span></button>' +
         '</div><button class="big" data-act="board" data-p="' + id + '">Play with ' + nm + '</button></div>';
     /* every finished match, newest first */
@@ -539,14 +561,14 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   /* When a match ran: "Wed 12 Nov / 21:40 – 23:05" on one day, "Wed 12 Nov 21:40 / → Fri 14 Nov 09:12" across days (times a shade darker). */
   function dDay(t) { var d = new Date(t), o = { weekday: 'short', day: 'numeric', month: 'short' }; if (d.getFullYear() !== new Date().getFullYear()) o.year = 'numeric'; return d.toLocaleDateString('en-GB', o); }
   function dTime(t) { return new Date(t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); }
-  function matchTile(m, me) {
+  function matchTile(m, me, withName) {
     var won = m.winner === me, sc = m.score || [0, 0], mine = won ? sc[0] : sc[1], theirs = won ? sc[1] : sc[0], a, b, T = function (t) { return '<em>' + dTime(t) + '</em>'; };
     if (!m.t0) { a = dDay(m.t); b = 'ended ' + T(m.t); }
     else if (dDay(m.t0) === dDay(m.t)) { a = dDay(m.t); b = T(m.t0) + ' – ' + T(m.t); }
     else { a = dDay(m.t0) + ' ' + T(m.t0); b = '→ ' + dDay(m.t) + ' ' + T(m.t); }
     var said = (a + ', ' + b).replace(/<\/?em>/g, '').replace('→', 'until');
-    return '<div class="mt ' + (won ? 'W' : 'L') + '" role="img" aria-label="' + (won ? 'Won ' : 'Lost ') + mine + ' to ' + theirs + ', match to ' + m.to + ', ' + said + '">' +
-      '<div class="sc"><b>' + mine + '–' + theirs + '</b><small>to ' + m.to + '</small></div><span>' + a + '</span><span>' + b + '</span></div>';
+    return '<div class="mt ' + (won ? 'W' : 'L') + '" role="img" aria-label="' + (won ? 'Won ' : 'Lost ') + mine + ' to ' + theirs + (withName ? ' against ' + ((byId[won ? m.loser : m.winner] || {}).n || '') : '') + ', match to ' + m.to + ', ' + said + '">' +
+      '<div class="sc"><b>' + mine + '–' + theirs + '</b><small>to ' + m.to + '</small></div>' + (withName ? '<span><em>vs ' + esc((byId[won ? m.loser : m.winner] || {}).n || '?') + '</em></span>' : '') + '<span>' + a + '</span><span>' + b + '</span></div>';
   }
 
   /* ---------- the board in a friend's card: the real position, drawn small, on the same wood ---------- */
@@ -587,8 +609,10 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     g.fillStyle = '#5B3D25'; g.fillRect(barX, 0, bw, H); miniGrain(g, barX, 0, bw, H, '#24150A', 8, 0.15);
     g.fillStyle = '#4C321E'; g.fillRect(trayX, y0, tw, fh);
     g.strokeStyle = 'rgba(0,0,0,0.22)'; g.lineWidth = 1.2; g.strokeRect(lx, y0, 6 * pw, fh); g.strokeRect(rx, y0, 6 * pw, fh); g.strokeRect(trayX, y0, tw, fh);
-    /* checkers, seen from your seat: yours ivory, moving to your home at the bottom right */
+    /* checkers, seen from your seat: moving to your home at the bottom right */
     var b = gm.board, sA = gm.seat !== 'B', oth = sA ? 'B' : 'A', seat = sA ? 'A' : 'B';
+    /* each player's own colour (games from before colours were picked: seat A white) */
+    var mt = gm.col && (gm.col[seat] === 0 || gm.col[seat] === 1) ? gm.col[seat] : sA ? 0 : 1, WHITE = '#F3ECDF', BLACK = '#2F3B42';
     function ck(t, x, y) {
       var sp = miniCk(t, r, dpr), w = sp.width / dpr;
       g.save(); g.shadowColor = 'rgba(25,12,4,0.34)'; g.shadowBlur = 3; g.shadowOffsetX = 0.6; g.shadowOffsetY = 1.6;
@@ -598,28 +622,28 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       var v = sA ? b.pts[a] : -b.pts[25 - a]; if (!v) continue;
       var top = a >= 13, col = top ? a - 13 : 12 - a, n = Math.abs(v), x = colX(col) + pw / 2;
       var sp = n > 1 ? Math.min(2 * r, (fh / 2 - 2 * r - 3) / (n - 1)) : 0;
-      for (var k = 0; k < n; k++) ck(v > 0 ? 0 : 1, x, top ? y0 + r + 1 + k * sp : y0 + fh - r - 1 - k * sp);
+      for (var k = 0; k < n; k++) ck(v > 0 ? mt : 1 - mt, x, top ? y0 + r + 1 + k * sp : y0 + fh - r - 1 - k * sp);
     }
     /* on the bar: theirs above the middle, yours below */
     var bx = barX + bw / 2, br = Math.min(r, bw * 0.46);
-    for (k = 0; k < ((b.bar && b.bar[oth]) || 0); k++) ck(1, bx, mid - br - 3 - k * br * 1.4);
-    for (k = 0; k < ((b.bar && b.bar[seat]) || 0); k++) ck(0, bx, mid + br + 3 + k * br * 1.4);
+    for (k = 0; k < ((b.bar && b.bar[oth]) || 0); k++) ck(1 - mt, bx, mid - br - 3 - k * br * 1.4);
+    for (k = 0; k < ((b.bar && b.bar[seat]) || 0); k++) ck(mt, bx, mid + br + 3 + k * br * 1.4);
     /* borne off: thin slices in the tray, theirs from the top, yours from the bottom */
     function slices(cnt, mine) {
       for (var i = 0; i < cnt; i++) {
         var yy = mine ? y0 + fh - 4 - i * 4.2 : y0 + 2 + i * 4.2;
-        g.fillStyle = mine ? '#F3ECDF' : '#2F3B42'; g.fillRect(trayX + 3, yy, tw - 6, 3);
+        g.fillStyle = (mine ? mt : 1 - mt) ? BLACK : WHITE; g.fillRect(trayX + 3, yy, tw - 6, 3);
       }
     }
     slices((b.off && b.off[oth]) || 0, false); slices((b.off && b.off[seat]) || 0, true);
     /* thrown dice lie in the thrower's half: yours on the right, theirs on the left */
     var dl = gm.dice && gm.dice.list; if (!dl || !dl.length) return;
-    var mineD = gm.dice.by === seat, s = Math.round(r * 1.5), x0 = (mineD ? rx : lx) + 3 * pw - (dl.length * (s + 6) - 6) / 2 + s / 2;
+    var mineD = gm.dice.by === seat, wD = (mineD ? mt : 1 - mt) === 0, s = Math.round(r * 1.5), x0 = (mineD ? rx : lx) + 3 * pw - (dl.length * (s + 6) - 6) / 2 + s / 2;
     dl.forEach(function (d, i) {
       g.save(); g.translate(x0 + i * (s + 6), mid); g.rotate((i ? 0.12 : -0.09)); g.globalAlpha = d.used ? 0.45 : 1;
       g.shadowColor = 'rgba(25,12,4,0.3)'; g.shadowBlur = 3; g.shadowOffsetY = 1.5;
-      g.beginPath(); g.roundRect ? g.roundRect(-s / 2, -s / 2, s, s, s * 0.22) : g.rect(-s / 2, -s / 2, s, s); g.fillStyle = mineD ? '#F6F0E4' : '#2D3940'; g.fill();
-      g.shadowColor = 'transparent'; g.fillStyle = mineD ? '#2B2A28' : '#F1EADC';
+      g.beginPath(); g.roundRect ? g.roundRect(-s / 2, -s / 2, s, s, s * 0.22) : g.rect(-s / 2, -s / 2, s, s); g.fillStyle = wD ? '#F6F0E4' : '#2D3940'; g.fill();
+      g.shadowColor = 'transparent'; g.fillStyle = wD ? '#2B2A28' : '#F1EADC';
       (MPIPS[d.v] || []).forEach(function (q) { g.beginPath(); g.arc(q[0] * s * 0.26, q[1] * s * 0.26, s * 0.09, 0, 6.283); g.fill(); });
       g.restore();
     });
@@ -628,6 +652,72 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     $('cardIn').querySelectorAll('canvas[data-mini]').forEach(function (cv) {
       var gm = gameOf(cv.dataset.mini); if (gm) drawMini(cv, gm);
     });
+    colourSpins();
+  }
+
+  /* ---------- your colour for a new match ----------
+     Whoever starts a match picks a colour; the friend gets the other. The two checkers of the board's own set stand side
+     by side and turn like coins on a table: a nudge now and then, a finger across one spins it, and they always settle
+     face up. They never leave their place. Tap one to take it: it comes forward with a little whirl. */
+  var CSET = [{ m: 'classic', t: 0, f: 'dish', i: 'none', a: 0, s: 7 }, { m: 'classic', t: 1, f: 'dish', i: 'none', a: 0, s: 7 }];
+  var CST = [{ a: 0, w: 1.1, next: 0 }, { a: 0.5, w: -0.9, next: 0 }], CGEN = 0;   /* kept across redraws of the card */
+  function colourHint(nm) { return 'You play ' + (ng.col ? 'black' : 'white') + ', ' + nm + ' plays ' + (ng.col ? 'white' : 'black'); }
+  function colourRow(name) {
+    var nm = esc(name);
+    return '<div class="cols" role="radiogroup" aria-label="Your colour" data-nm="' + nm + '">' + [0, 1].map(function (c) {
+      var on = ng.col === c;
+      return '<button class="cpick' + (on ? ' on' : '') + '" role="radio" aria-checked="' + on + '" aria-label="' + (c ? 'Black' : 'White') + '" data-c="' + c + '"><i><canvas width="240" height="240"></canvas></i><span>' + (on ? 'You' : nm) + '</span></button>';
+    }).join('') + '</div><p class="hint" id="colHint">' + colourHint(nm) + '</p>';
+  }
+  function pickColour(c) {
+    var row = $('cardIn').querySelector('.cols'); if (!row) return;
+    var nm = row.dataset.nm, was = ng.col; ng.col = c; saveNg();
+    row.querySelectorAll('.cpick').forEach(function (b) { var on = +b.dataset.c === c; b.classList.toggle('on', on); b.setAttribute('aria-checked', on); b.querySelector('span').textContent = on ? 'You' : nm; });
+    $('colHint').textContent = colourHint(nm);
+    if (was !== c && !reduce) { var st = CST[c]; st.w = (st.w < 0 ? -1 : 1) * 5.5; st.next = performance.now() + 4000; }
+  }
+  function colourSpins() {
+    var bs = $('cardIn').querySelectorAll('.cpick'), gen = ++CGEN, sps = [];
+    if (!bs.length || !window.flipFrame) return;
+    bs.forEach(function (b) {
+      var c = +b.dataset.c, st = CST[c], sp = { b: b, cv: b.querySelector('canvas'), c: c, st: st, drag: null, fi: -1 };
+      if (!st.next) st.next = performance.now() + 1500 + Math.random() * 2500;
+      sps.push(sp);
+      b.addEventListener('pointerdown', function (e) { e.stopPropagation(); try { b.setPointerCapture(e.pointerId); } catch (er) {} sp.drag = { x: e.clientX, x0: e.clientX, t: performance.now(), v: 0, moved: false }; });
+      b.addEventListener('pointermove', function (e) {
+        var d = sp.drag; if (!d) return;
+        if (!d.moved && Math.abs(e.clientX - d.x0) > 6) { d.moved = true; st.w = 0; }
+        if (!d.moved) return;
+        var now = performance.now(), da = (e.clientX - d.x) / (sp.cv.clientWidth * 1.6), dt = Math.max(1, now - d.t);
+        st.a += da; d.v = 0.6 * (da / dt * 1000) + 0.4 * d.v; d.x = e.clientX; d.t = now;
+      });
+      var up = function (e) {
+        var d = sp.drag; if (!d) return; sp.drag = null;
+        if (d.moved) { st.w = Math.max(-7, Math.min(7, d.v)); st.next = performance.now() + 3000 + Math.random() * 3000; }
+        else if (e.type === 'pointerup') pickColour(c);
+      };
+      b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up);
+      b.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pickColour(c); } });
+    });
+    var last = performance.now();
+    (function tick(now) {
+      if (gen !== CGEN || !sps[0].cv.isConnected) return;
+      var dt = Math.min(0.05, (now - last) / 1000); last = now;
+      sps.forEach(function (sp) {
+        var st = sp.st;
+        if (!sp.drag && !reduce) {
+          if (now > st.next) { st.w += (Math.random() < 0.5 ? -1 : 1) * (0.7 + Math.random() * 1.3); st.next = now + 2500 + Math.random() * 5000; }
+          st.a += st.w * dt; st.w *= Math.exp(-dt * 0.6);
+          /* slowing down, it settles face up (either face) */
+          if (Math.abs(st.w) < 0.45) { var tg = Math.round(st.a * 2) / 2; st.a += (tg - st.a) * (1 - Math.exp(-dt * 2.2)); }
+        }
+        var NFr = window.FLIP_NF, i = reduce && !sp.drag ? 0 : ((Math.round(st.a * NFr) % NFr) + NFr) % NFr;
+        if (i === sp.fi) return; sp.fi = i;
+        var fr = window.flipFrame(CSET[sp.c], i), g = sp.cv.getContext('2d'); g.clearRect(0, 0, 240, 240); g.drawImage(fr.cv, 0, 0);
+        sp.b.style.setProperty('--foot', fr.foot.toFixed(3)); sp.b.style.setProperty('--lift', fr.lift.toFixed(3));
+      });
+      requestAnimationFrame(tick);
+    })(last);
   }
   /* the open card follows the game: a move, a throw or a finished match shows up while you look */
   var OPENP = null;
@@ -639,10 +729,10 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
 
   /* ---------- new game sheet ---------- */
   var LENS = [1, 3, 5, 7, 9, 11, 15];
-  var ng = { p: 'no', to: 5, cube: true, pips: true };
+  var ng = { p: 'no', to: 5, cube: true, pips: true, col: 0 };
   /* the last choices are remembered on this phone for the next match you set up */
-  try { var ngs = JSON.parse(localStorage.getItem('newMatch')); if (ngs) { if (LENS.indexOf(ngs.to) >= 0) ng.to = ngs.to; if (typeof ngs.pips === 'boolean') ng.pips = ngs.pips; } } catch (e) {}
-  function saveNg() { try { localStorage.setItem('newMatch', JSON.stringify({ to: ng.to, pips: ng.pips })); } catch (e) {} }
+  try { var ngs = JSON.parse(localStorage.getItem('newMatch')); if (ngs) { if (LENS.indexOf(ngs.to) >= 0) ng.to = ngs.to; if (typeof ngs.pips === 'boolean') ng.pips = ngs.pips; if (ngs.col === 0 || ngs.col === 1) ng.col = ngs.col; } } catch (e) {}
+  function saveNg() { try { localStorage.setItem('newMatch', JSON.stringify({ to: ng.to, pips: ng.pips, col: ng.col })); } catch (e) {} }
   function toHint(n) { return n === 1 ? 'A single game decides it' : 'The first to ' + n + ' points wins'; }
   function sheetHTML() {
     return '<div class="grab"></div><h4>New game</h4><div class="label" style="margin:6px 0 4px">Against</div><div class="pick">' +
@@ -664,14 +754,14 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   function openGame(pid) {
     var raw = GAMES.filter(function (x) { return x.p === pid; })[0], g = gview(raw), p = byId[pid];
     closeAll();
-    if (p.bot) { window.BG.open({ id: pid, name: p.n, ini: pid, to: ng.to, pips: ng.pips }); return; }
+    if (p.bot) { window.BG.open({ id: pid, name: p.n, ini: pid, to: ng.to, pips: ng.pips, col: ng.col }); return; }
     if (CLOUD) {
       var seat = UID < pid ? 'A' : 'B', seats = {};
       seats[seat] = { name: ME.n, ini: UID }; seats[seat === 'A' ? 'B' : 'A'] = { name: p.n, ini: pid };
-      window.BG.open({ id: pid, gid: [UID, pid].sort().join('_'), seat: seat, seats: seats, name: p.n, ini: pid, to: g ? g.to : ng.to, pips: g ? true : ng.pips, newMatch: !!(raw && !g) });
+      window.BG.open({ id: pid, gid: [UID, pid].sort().join('_'), seat: seat, seats: seats, name: p.n, ini: pid, to: g ? g.to : ng.to, pips: g ? true : ng.pips, col: ng.col, newMatch: !!(raw && !g) });
       return;
     }
-    window.BG.open({ id: pid, name: p.n, ini: p.i, duo: !!(g && g.duo), to: g ? g.to : ng.to, pips: g ? true : ng.pips, score: g && g.sc ? { me: g.sc[0], them: g.sc[1] } : null });
+    window.BG.open({ id: pid, name: p.n, ini: p.i, duo: !!(g && g.duo), to: g ? g.to : ng.to, pips: g ? true : ng.pips, col: ng.col, score: g && g.sc ? { me: g.sc[0], them: g.sc[1] } : null });
   }
   function firstOther() { var o = P.filter(function (p) { return p !== ME; })[0]; return o ? o.id : 'no'; }
   function whenBoard(fn, n) { n = n || 0; if (window.BG.ready() || n > 30) fn(); else setTimeout(function () { whenBoard(fn, n + 1); }, 300); }
@@ -973,7 +1063,11 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     var e = u0 - a * x0 - c2 * y0, f = v0 - b * x0 - d2 * y0;
     var cx = (u0 + u1 + u2) / 3, cy = (v0 + v1 + v2) / 3;
     g.save(); g.beginPath();
-    [[u0, v0], [u1, v1], [u2, v2]].forEach(function (p, k) { var px = p[0] + (p[0] - cx) * 0.06, py = p[1] + (p[1] - cy) * 0.06; if (k) g.lineTo(px, py); else g.moveTo(px, py); });
+    /* each triangle reaches a little past its edges (at least 1.5 px, however thin it is turned), so no seam shows between them */
+    [[u0, v0], [u1, v1], [u2, v2]].forEach(function (p, k) {
+      var dx = p[0] - cx, dy = p[1] - cy, l = Math.hypot(dx, dy) || 1, m = Math.max(0.06, 1.5 / l), px = p[0] + dx * m, py = p[1] + dy * m;
+      if (k) g.lineTo(px, py); else g.moveTo(px, py);
+    });
     g.closePath(); g.clip(); g.setTransform(a, b, c2, d2, e, f); g.drawImage(img, 0, 0); g.restore();
   }
   window.flipFrame = flipFrame; window.FLIP_NF = NF;
@@ -1189,7 +1283,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       }
       else mine = d.turn === seat;
       return { s: mine ? 'yours' : 'them', sc: [(d.score && d.score[seat]) || 0, (d.score && d.score[other]) || 0], to: d.to || 5, when: '',
-        seat: seat, phase: d.phase, board: d.board, dice: d.dice, cube: d.cube,
+        seat: seat, phase: d.phase, board: d.board, dice: d.dice, cube: d.cube, col: d.col || null, inv: d.phase === 'opening' && d.inv ? d.inv : null,
         key: gid + '_' + d.game, decided: d.phase === 'over' && Math.max((d.score && d.score.A) || 0, (d.score && d.score.B) || 0) >= (d.to || 5),
         pre: pre, sc0: d.phase === 'over' ? before(d.score, r) : null,
         prevKey: pv ? gid + '_' + pv.game : null, psc: pv && Math.max((pv.score && pv.score.A) || 0, (pv.score && pv.score.B) || 0) < (pv.to || 5) ? before(pv.score, pv.result) : null };
