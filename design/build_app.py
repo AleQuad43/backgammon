@@ -83,6 +83,8 @@ api = r"""
         /* a finished match on the table and "Play" pressed at home: a new one starts as soon as the old end is on screen */
         NEWM = o.newMatch ? { to: o.to || 5, pips: o.pips !== false, col: o.col } : null;
         if (!DUO) { CASE.fresh = true; MATCH = o.to || 5; SHOWPIPS = o.pips !== false; NEWCOL = o.col === 1 ? 1 : 0; window.GAMEID = o.gid; joinDuo(o.seat); DUO.gid = o.gid; }
+        /* no match on the table (an invitation was turned down): Play starts a new one */
+        else if (DUO.lastDoc && !DUO.lastDoc.board && !DUO.pending) { DUO.away = false; MATCH = o.to || 5; SHOWPIPS = o.pips !== false; NEWCOL = o.col === 1 ? 1 : 0; newGame(true); }
         /* back to the board: what came in while it was put away plays now, as missed turns */
         else if (comeBack()) {}
         /* back to a game that had ended (its card was closed with the board): show the end again, with its buttons */

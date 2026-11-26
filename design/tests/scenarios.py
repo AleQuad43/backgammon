@@ -245,8 +245,10 @@ def elo_after_match(r):
 
 def cloud_phone(r, uid):
     p = r.c.tab('about:blank'); p.size(True)
-    p.ws.call('Page.navigate', url=os.environ.get('BASE', 'http://localhost:8771/') + 'tests/' + os.environ.get('CLOUD_APP', 'sim_cloud.html') + '?as=%s&t=%d' % (uid, time.time() * 1000))
-    r.until(p, "document.readyState === 'complete' && !!window.BG", 10)
+    url = os.environ.get('BASE', 'http://localhost:8771/') + 'tests/' + os.environ.get('CLOUD_APP', 'sim_cloud.html') + '?as=%s&t=%d' % (uid, time.time() * 1000)
+    for _ in range(3):
+        p.ws.call('Page.navigate', url=url)
+        if r.until(p, "location.protocol === 'http:' && document.readyState === 'complete' && !!window.BG", 15): break
     return p
 
 
@@ -299,7 +301,56 @@ def invite_new_match(r):
     for p in (a, b): p.ws.call('Page.close')
 
 
-SCENARIOS = [invite_new_match, elo_after_match,offer_upright, offer_rotate_twice, open_variants, reopen_variants, wiped_pictures, rollout_variants]
+def invite_old_friend(r):
+    """With accounts: Quad and Nolf finished a match long ago (both saw the end, or not). Quad taps Play on Nolf's card:
+    his board goes straight to the new match (his die thrown, waiting), never the end of the old one. Nolf gets the
+    invitation, not the old ending."""
+    ck = {'m': 'bone', 't': 2, 'f': 'rosette', 'i': 'brass', 'a': 0.2, 's': 4242}
+    pts = [0] * 25; pts[19] = -5; pts[20] = -5
+    lg = [{'s': 'A', 'd': [6, 5], 'h': 0, 'z': False, 'm': '1.0.6', 'pre': {'pts': [0] + [1] + [0] * 17 + [-5, -5] + [0] * 4, 'bar': {'A': 0, 'B': 0}, 'off': {'A': 14, 'B': 5}}}]
+    old = gdoc(v=40, by='A', game=3, phase='over', turn=None, board={'pts': pts, 'bar': {'A': 0, 'B': 0}, 'off': {'A': 15, 'B': 5}},
+               score={'A': 3, 'B': 1}, to=3, result={'winner': 'A', 'pts': 1}, log=lg)
+    for seen in (True, False):
+        seed = {'players/ua': {'name': 'Quad', 'ck': ck, 'elo': 1500, 't': 1}, 'players/ub': {'name': 'Nolf', 'ck': ck, 'elo': 1500, 't': 2},
+                'games/ua_ub': {'j': json.dumps(old), 't': 1},
+                'matches/ua_ub_3': {'players': ['ua', 'ub'], 'winner': 'ua', 'loser': 'ub', 'to': 3, 'score': [3, 1], 't': 1}}
+        a = cloud_phone(r, 'ua')
+        marks = "localStorage.setItem('bgEnd:ua_ub_3:A','1');localStorage.setItem('bgEnd:ua_ub_3:B','1');" if seen else ''
+        a.js("Object.keys(localStorage).forEach(function(k){ if (/^fb:|^bgEnd:|^bgSeen:|^newMatch/.test(k)) localStorage.removeItem(k); });" + marks +
+             ''.join("localStorage.setItem('fb:%s', %s);" % (k, json.dumps(json.dumps(v))) for k, v in seed.items()) + "location.reload()")
+        time.sleep(1); r.until(a, "!!window.BG && document.querySelectorAll('.star').length >= 2", 10)
+        tag = '(old end seen)' if seen else '(old end never shown)'
+        a.size(False)
+        a.js("BG.open({id: 'ub', gid: 'ua_ub', seat: 'A', seats: {A: {name: 'Quad', ini: 'ua'}, B: {name: 'Nolf', ini: 'ub'}}, name: 'Nolf', ini: 'ub', to: 5, pips: true, col: 0, newMatch: true})")
+        ok = r.until(a, "(function(){var d=JSON.parse(JSON.parse(localStorage.getItem('fb:games/ua_ub')).j); return d.game === 4 && d.phase === 'opening';})()", 6)
+        r.check(ok, tag + ' Quad’s new match is saved at once', a)
+        time.sleep(0.5)
+        bad = a.js("!document.getElementById('over').hidden || (__T.G && (__T.G.phase === 'over' || __T.G.phase === 'replay'))")
+        r.check(not bad and r.until(a, "/Waiting for Nolf to accept/.test(document.getElementById('status').textContent)", 6),
+                tag + ' Quad sees his new opening, not the old end (%s, “%s”)' % (a.js("__T.G && __T.G.phase"), a.js("document.getElementById('status').textContent")), a)
+        b = cloud_phone(r, 'ub'); r.until(b, "document.querySelectorAll('.star').length >= 2", 10)
+        b.size(False)
+        b.js("BG.open({id: 'ua', gid: 'ua_ub', seat: 'B', seats: {A: {name: 'Quad', ini: 'ua'}, B: {name: 'Nolf', ini: 'ub'}}, name: 'Quad', ini: 'ua', to: 5, pips: true, newMatch: false})")
+        r.check(r.until(b, "!!document.querySelector('#over .card3.inv')", 8), tag + ' Nolf gets the invitation, not the old ending (%s)' % b.js("__T.G && __T.G.phase"), b)
+        if not seen:
+            # Nolf turns it down; Quad is home by then
+            a.js('BG.close()'); a.size(True); time.sleep(0.5)
+            b.js("document.getElementById('invNo').click()")
+            r.check(r.until(b, "document.getElementById('gv').hidden", 5), 'Nolf taps Not now: his board closes', b)
+            r.check(r.until(a, "/passed on your invitation/.test(document.getElementById('toastIn').textContent) && document.getElementById('toast').classList.contains('show')", 6),
+                    'Quad’s home says so, briefly: “%s”' % a.js("document.getElementById('toastIn').textContent"), a)
+            a.js("location.reload()"); time.sleep(1); r.until(a, "!!window.BG && document.querySelectorAll('.star').length >= 2", 10); time.sleep(1.5)
+            r.check(not a.js("document.getElementById('toast').classList.contains('show')"), 'only once: not again when he reopens the app', a)
+            a.size(False)
+            a.js("BG.open({id: 'ub', gid: 'ua_ub', seat: 'A', seats: {A: {name: 'Quad', ini: 'ua'}, B: {name: 'Nolf', ini: 'ub'}}, name: 'Nolf', ini: 'ub', to: 3, pips: true, col: 1, newMatch: false})")
+            ok = r.until(a, "(function(){var d=JSON.parse(JSON.parse(localStorage.getItem('fb:games/ua_ub')).j); return d.game === 5 && d.phase === 'opening' && d.inv === 'A';})()", 6)
+            r.check(ok, 'Quad asks again: a new invitation, game 5 (%s)' % a.js("(function(){var d=JSON.parse(JSON.parse(localStorage.getItem('fb:games/ua_ub')).j); return [d.game, d.phase, d.inv];})()"), a)
+            r.check(r.until(b, "!!document.querySelector('#over .card3.inv')", 8) or (b.js("BG.open({id: 'ua', gid: 'ua_ub', seat: 'B', seats: {A: {name: 'Quad', ini: 'ua'}, B: {name: 'Nolf', ini: 'ub'}}, name: 'Quad', ini: 'ua', to: 3, pips: true, newMatch: false})") or r.until(b, "!!document.querySelector('#over .card3.inv')", 8)),
+                    'Nolf gets the new invitation', b)
+        for p in (a, b): p.ws.call('Page.close')
+
+
+SCENARIOS = [invite_new_match, invite_old_friend, elo_after_match,offer_upright, offer_rotate_twice, open_variants, reopen_variants, wiped_pictures, rollout_variants]
 
 if __name__ == '__main__':
     want = sys.argv[1:]

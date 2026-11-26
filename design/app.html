@@ -358,6 +358,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
 #gv .over .card3.inv .pc.on canvas.sp { transform: none; }
 #gv .over .card3.inv .pc span { color: #8A6A48; font-weight: 600; transition: color .4s ease; }
 #gv .over .card3.inv .pc.on span { color: #2E1F14; font-weight: 700; }
+#gv .over .card3.inv .no3 { background: none; color: #8A6A48; height: auto; padding: 4px 10px 0; font-size: 12px; font-weight: 600; border-radius: 8px; }
 #gv .over .card3.inv .hint3 { font-size: 11px; font-weight: 600; color: #8A6A48; margin: 2px 0 4px; }
 #gv .over .card3 .lens { margin-top: 4px; } .over .card3 .lens button { background: #3B2A1E; color: #F8EEDB; border-radius: 18px; min-width: 40px; height: 36px; padding: 0 10px; }
 #gv .over { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
@@ -981,7 +982,14 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   }
 
   var tt;
-  function toast(msg) { $('toastIn').textContent = msg; $('toast').classList.add('show'); clearTimeout(tt); tt = setTimeout(function () { $('toast').classList.remove('show'); }, 2200); }
+  function toast(msg, ms) { $('toastIn').textContent = msg; $('toast').classList.add('show'); clearTimeout(tt); tt = setTimeout(function () { $('toast').classList.remove('show'); }, ms || 2200); }
+  /* an invitation of yours was turned down: one short line, once, with a shrug from one of the five cultures */
+  var SHRUG = ['Ma’alesh…', 'Olsun…', 'Eshkal nadare…', 'Den peirazei…', 'Lo nora…'];
+  function declined(d, seat, gid, name) {
+    if (!d || !d.dec || d.dec.by === seat) return;
+    var k = 'bgDec:' + gid + ':' + d.dec.t; try { if (localStorage.getItem(k)) return; localStorage.setItem(k, '1'); } catch (e) { return; }
+    toast(SHRUG[d.dec.t % SHRUG.length] + ' ' + name + ' passed on your invitation.', 4500);
+  }
 
   /* ---------- player card: grows from where you tapped ---------- */
   function openCard(html, from) {
@@ -1780,7 +1788,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
         var gid = [UID, p.id].sort().join('_');
         GL[p.id] = FS.doc('games/' + gid).onSnapshot(function (snap) {
           var d = null; try { d = snap.exists ? JSON.parse(snap.data().j) : null; } catch (e) {}
-          var g = gameState(d, seat, gid);
+          var g = gameState(d, seat, gid); declined(d, seat, gid, p.n);
           /* a game's end not yet shown here keeps its match out of the Elo (see ratings) */
           var shown = function () { return shownMatches().map(function (m) { return m.id; }).join(); }, was = shown();
           GAMES = GAMES.filter(function (x) { return x.p !== p.id; }); if (g) { g.p = p.id; GAMES.push(g); }
@@ -3562,7 +3570,8 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
         return '<div class="pc" data-t="' + t + '"><canvas class="sp" width="240" height="240" data-ck=\'' + JSON.stringify(CLASSIC[t]) + '\' aria-label="' + (t ? 'Black' : 'White') + '"></canvas><span></span></div>';
       }).join('') + '</div>' +
       '<small class="hint3">Tap a checker to swap. Once you play, the colours stay.</small>' +
-      '<button id="again" class="hand">' + c.go[0] + '<small>' + c.go[1] + '</small></button></div>';
+      '<button id="again" class="hand">' + c.go[0] + '<small>' + c.go[1] + '</small></button>' +
+      '<button id="invNo" class="no3">Not now</button></div>';
     function paint() {
       Array.prototype.forEach.call(o.querySelectorAll('.card3.inv .pc'), function (pc) {
         var t = +pc.dataset.t, on = t === pick; pc.classList.toggle('on', on); pc.querySelector('span').textContent = on ? 'You' : NAME.them;
@@ -3581,6 +3590,15 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
       put(DUO, { up: { by: DUO.seat, inv: null, col: col } });
       applyOpening(ld, false);
     });
+    /* turning it down: the game goes back to no match at all (the last finished one stays in its tile), and the board
+       closes. The one who asked gets a short line on home. */
+    $('invNo').addEventListener('click', function () {
+      var ld = DUO.lastDoc; if (!ld || ld.phase !== 'opening' || !ld.inv) return;
+      var doc = { v: DUO.V + 1, by: DUO.seat, game: ld.game, to: ld.to, dec: { by: DUO.seat, t: Date.now() }, prev: ld.prev || null };
+      DUO.V = doc.v; DUO.lastDoc = doc; DUO.invShown = null; o.hidden = true;
+      put(DUO, { doc: doc });
+      if (window.BG && window.BG.close) window.BG.close();
+    });
   }
   /* A finished match is kept once: both devices show the end, so it is filed under this game's own id and number,
      and whichever device files it second finds it already there. */
@@ -3588,6 +3606,14 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     if (!DUO || !window.onMatchEnd) return;
     var key = (DUO.gid || window.GAMEID || 'duo') + '_' + DUO.game; if (DUO.recorded === key) return; DUO.recorded = key;
     window.onMatchEnd({ id: key, winner: SEATS[seatOf(winner)].ini, loser: SEATS[seatOf(other(winner))].ini, to: MATCH, score: [G.score[winner], G.score[other(winner)]], t0: (DUO.lastDoc && DUO.lastDoc.t0) || null });
+  }
+  /* A finished match that is being left behind without its end card (a new match started over it): filed all the same,
+     once, under its own id, so the Elo has it whichever phone saw it. */
+  function fileMatch(d) {
+    if (!DUO || !window.onMatchEnd || !d || !d.result || !d.score) return;
+    var key = (DUO.gid || window.GAMEID || 'duo') + '_' + d.game; if (DUO.recorded === key) return; DUO.recorded = key;
+    var w = d.result.winner, l = w === 'A' ? 'B' : 'A';
+    window.onMatchEnd({ id: key, winner: SEATS[w].ini, loser: SEATS[l].ini, to: d.to || MATCH, score: [d.score[w] || 0, d.score[l] || 0], t0: d.t0 || null });
   }
   /* pv: the end of a game the other player has already moved on from: { game, go } — its card leads on to the new game. */
   function showOver(winner, pts, dropped, gam, bg, forfeit, pv) {
@@ -3769,6 +3795,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     D = ordered.concat(rest);
   }
   function applyShared(d, fresh) {
+    if (!d.board) { DUO.lastDoc = d; DUO.game = d.game; newGame(true); return; }
     G.deadSaved = false;
     if (d.game !== DUO.game) { resetLocal(d); fresh = true; }
     DUO.lastDoc = d;
@@ -3776,7 +3803,17 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     if (!(d.phase === 'move' && d.turn === DUO.seat)) G.auto = false;
     var cl = coloursOf(d); TONE = { me: cl[DUO.seat], them: cl[DUO.other] };
     if (NEWM && d.phase !== 'over') NEWM = null;
+    /* "Play" pressed at home on a finished match: the new match starts at once, the old end is not shown again */
+    if (NEWM && d.phase === 'over' && d.result && matchDone(d)) {
+      var nw0 = NEWM; NEWM = null; if (REPL) REPL.stop(); $('over').hidden = true;
+      fileMatch(d); markEnd(d.game); DUO.overShown = true; SHOWPIPS = nw0.pips; newMatch(nw0.to, nw0.col); return;
+    }
     /* the other player moved on to a new game before this phone showed the end of the last one: that end first */
+    if (d.prev && d.prev.result && d.prev.game !== d.game && d.inv && d.inv !== DUO.seat && d.phase === 'opening' && !endSeen(d.prev.game)) {
+      var pm = d.prev, sc0 = pm.score || {};
+      if (Math.max(sc0.A || 0, sc0.B || 0) >= (pm.to || MATCH)) fileMatch({ game: pm.game, result: pm.result, score: pm.score, to: pm.to, t0: null });
+      markEnd(d.prev.game);
+    }
     if (d.prev && d.prev.result && d.prev.game !== d.game) {
       if (DUO.prevShow === d.prev.game) return;
       if (!endSeen(d.prev.game)) { showPrev(d); return; }
@@ -3816,8 +3853,6 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
     if (d.phase === 'opening') { applyOpening(d, fresh); cubeUI(); return; }
     if (d.phase === 'over') {
       G.phase = 'over'; cubeUI(); say('');
-      /* a new match asked for from home: once this phone has shown how the last one ended, start it */
-      if (NEWM && d.result && matchDone(d) && (DUO.overShown || endSeen(d.game))) { var nw = NEWM; NEWM = null; DUO.overShown = true; SHOWPIPS = nw.pips; newMatch(nw.to, nw.col); return; }
       if (!DUO.overShown && d.result) {
         DUO.overShown = true; $('cubeFloat').hidden = true; $('cube').classList.remove('dragging');
         if ((d.result.dropped || d.result.forfeit) && prev === 'wait') spinSky();
@@ -4042,7 +4077,15 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
          game then would overwrite the real one once the connection comes back. */
       if (!snap.exists) { if (snap.metadata && snap.metadata.fromCache) return; if (me.first) { me.first = false; newGame(true); } return; }
       var d = snap.data(), fresh = me.first; me.first = false;
-      if (!d || !d.board) return;
+      if (!d) return;
+      /* an invitation turned down: no match on the table. Opened from home, the board starts a new one; if it was
+         open here waiting, it closes (home tells you). */
+      if (!d.board) {
+        me.V = Math.max(me.V, d.v || 0); me.lastDoc = d; me.game = d.game;
+        if (fresh) newGame(true);
+        else if (!me.away && window.BG && window.BG.close) { $('over').hidden = true; window.BG.close(); }
+        return;
+      }
       if (!fresh) {
         if ((d.v || 0) < me.V) return;
         if (d.by === me.seat && (d.v || 0) <= me.V && d.phase !== 'opening') return;
@@ -4121,6 +4164,8 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
         /* a finished match on the table and "Play" pressed at home: a new one starts as soon as the old end is on screen */
         NEWM = o.newMatch ? { to: o.to || 5, pips: o.pips !== false, col: o.col } : null;
         if (!DUO) { CASE.fresh = true; MATCH = o.to || 5; SHOWPIPS = o.pips !== false; NEWCOL = o.col === 1 ? 1 : 0; window.GAMEID = o.gid; joinDuo(o.seat); DUO.gid = o.gid; }
+        /* no match on the table (an invitation was turned down): Play starts a new one */
+        else if (DUO.lastDoc && !DUO.lastDoc.board && !DUO.pending) { DUO.away = false; MATCH = o.to || 5; SHOWPIPS = o.pips !== false; NEWCOL = o.col === 1 ? 1 : 0; newGame(true); }
         /* back to the board: what came in while it was put away plays now, as missed turns */
         else if (comeBack()) {}
         /* back to a game that had ended (its card was closed with the board): show the end again, with its buttons */

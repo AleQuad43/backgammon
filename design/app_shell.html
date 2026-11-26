@@ -496,7 +496,14 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
   }
 
   var tt;
-  function toast(msg) { $('toastIn').textContent = msg; $('toast').classList.add('show'); clearTimeout(tt); tt = setTimeout(function () { $('toast').classList.remove('show'); }, 2200); }
+  function toast(msg, ms) { $('toastIn').textContent = msg; $('toast').classList.add('show'); clearTimeout(tt); tt = setTimeout(function () { $('toast').classList.remove('show'); }, ms || 2200); }
+  /* an invitation of yours was turned down: one short line, once, with a shrug from one of the five cultures */
+  var SHRUG = ['Ma’alesh…', 'Olsun…', 'Eshkal nadare…', 'Den peirazei…', 'Lo nora…'];
+  function declined(d, seat, gid, name) {
+    if (!d || !d.dec || d.dec.by === seat) return;
+    var k = 'bgDec:' + gid + ':' + d.dec.t; try { if (localStorage.getItem(k)) return; localStorage.setItem(k, '1'); } catch (e) { return; }
+    toast(SHRUG[d.dec.t % SHRUG.length] + ' ' + name + ' passed on your invitation.', 4500);
+  }
 
   /* ---------- player card: grows from where you tapped ---------- */
   function openCard(html, from) {
@@ -1295,7 +1302,7 @@ button:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; 
         var gid = [UID, p.id].sort().join('_');
         GL[p.id] = FS.doc('games/' + gid).onSnapshot(function (snap) {
           var d = null; try { d = snap.exists ? JSON.parse(snap.data().j) : null; } catch (e) {}
-          var g = gameState(d, seat, gid);
+          var g = gameState(d, seat, gid); declined(d, seat, gid, p.n);
           /* a game's end not yet shown here keeps its match out of the Elo (see ratings) */
           var shown = function () { return shownMatches().map(function (m) { return m.id; }).join(); }, was = shown();
           GAMES = GAMES.filter(function (x) { return x.p !== p.id; }); if (g) { g.p = p.id; GAMES.push(g); }

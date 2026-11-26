@@ -95,7 +95,7 @@
     check($$(A, 'pipMe').style.display === 'none', 'Quad: pip counts hidden, as Nolf chose');
 
     /* ---------- 4. Nolf missed the end: Quad already started the next match ---------- */
-    log('4. Quad wins and starts a new match before Nolf has seen the end', 'h');
+    log('4. Quad wins and challenges again before Nolf has seen the end: the invitation comes first', 'h');
     await blank(); clean(); localStorage.setItem('mock:games/' + GID, JSON.stringify(nearEnd(1, 1, [0, 0])));
     A = await frame('fA', 'A'); open(A);
     await until(function () { return overOn(A); }, 15000);
@@ -104,17 +104,13 @@
     await blank();
     B = await frame('fB', 'B'); open(B);
     await wait(1200);
-    check(!overOn(B) && $$(B, 'scThem').textContent === '0', 'Nolf: first his missed turn plays again, the result not shown yet');
-    check(await until(function () { return overOn(B); }, 12000), 'Nolf: then the end card of the match he missed');
-    check(!!B.document.getElementById('again') && !B.document.querySelector('#over [data-to]'), 'Nolf: its button leads on, no second new-match choice');
-    check(!!localStorage.getItem('bgEnd:' + GID + '_1:B'), 'Nolf: the missed end is now marked as seen');
-    B.document.getElementById('again').click();
-    check(await until(function () { return !!B.document.querySelector('#over .card3.inv'); }, 6000), 'Nolf: on to the new match: Quad’s invitation');
-    await blank(); B = await frame('fB', 'B'); open(B); await wait(1500);
-    check(!B.document.querySelector('#over .card3:not(.inv)'), 'Nolf, reopened: the old end is not shown a second time');
-    check(!!B.document.querySelector('#over .card3.inv'), 'Nolf, reopened: the invitation is still waiting for him');
+    check(await until(function () { return !!B.document.querySelector('#over .card3.inv'); }, 8000), 'Nolf: straight to Quad’s invitation, not the end of the match he missed');
+    check(!!localStorage.getItem('bgEnd:' + GID + '_1:B'), 'Nolf: the old match counts as seen (its result shows on home)');
     B.document.getElementById('again').click();
     check(await until(function () { return !overOn(B) && /^Quad rolled \d\. Throw yours\.$/.test(status(B)); }, 6000), 'Nolf accepts: “Quad rolled N. Throw yours.” (' + status(B) + ')');
+    await wait(1000); /* let the acceptance land before the phone is reloaded */
+    await blank(); B = await frame('fB', 'B'); open(B); await wait(1500);
+    check(!overOn(B), 'Nolf, reopened: no old end, no card (' + (B.document.querySelector('#over .card3') ? B.document.querySelector('#over .card3').className : B.document.getElementById('over').textContent.slice(0, 60)) + ')');
 
     clean();
     document.getElementById('sum').innerHTML = '<b class="' + (fails ? 'no' : 'ok') + '">' + (fails ? fails + ' failed, ' : 'All ') + passes + ' passed</b>';
